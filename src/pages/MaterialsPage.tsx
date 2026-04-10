@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload } from 'lucide-react';
+import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FolderItem {
