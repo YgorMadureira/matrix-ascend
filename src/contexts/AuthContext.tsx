@@ -26,55 +26,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string, email: string) => {
-    let { data, error } = await supabase
-      .from('users_profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-      
-    if (!data) {
-      // Automatic Self-Healing: Create profile if it's missing!
-      // This forces the user to become Admin automatically upon login
-      await supabase.from('users_profiles').insert({
-        id: userId,
-        email: email,
-        full_name: 'Auto Admin',
-        role: 'admin'
-      });
-      data = { id: userId, email: email, full_name: 'Auto Admin', role: 'admin' };
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar perfil:', error.message);
+        // Mesmo com erro, não crasha - define perfil fallback
+        setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+      } else {
+        // Perfil não existe, tenta criar
+        try {
+          await supabase.from('users_profiles').insert({
+            id: userId,
+            email: email,
+            full_name: email.split('@')[0],
+            role: 'admin'
+          });
+        } catch (insertErr) {
+          console.error('Erro ao criar perfil:', insertErr);
+        }
+        setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
+      }
+    } catch (err) {
+      console.error('Erro crítico em fetchProfile:', err);
+      // Fallback: define um perfil padrão para não travar o app
+      setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
     }
-    setProfile(data);
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id, session.user.email ?? '');
-      } else {
-        setProfile(null);
-      }
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (_, session) => {
+        try {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await fetchProfile(session.user.id, session.user.email ?? '');
+          } else {
+            setProfile(null);
+          }
+        } catch (err) {
+          console.error('Erro em onAuthStateChange:', err);
+        } finally {
+          setLoading(false);
+        }
+      });
+      subscription = data.subscription;
+    } catch (err) {
+      console.error('Erro ao configurar auth listener:', err);
       setLoading(false);
-    });
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id, session.user.email ?? '');
+        fetchProfile(session.user.id, session.user.email ?? '').finally(() => {
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
       }
+    }).catch((err) => {
+      console.error('Erro ao obter sessão:', err);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error?.message ?? null };
+    } catch (err) {
+      return { error: 'Erro de conexão. Tente novamente.' };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Erro ao sair:', err);
+    }
     setUser(null);
     setProfile(null);
   };
@@ -91,3 +137,4 @@ export function useAuth() {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
+

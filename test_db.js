@@ -6,23 +6,21 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  // 1. Ver TODAS as pastas e seus parent_id
-  console.log("=== TODAS AS PASTAS ===");
-  const { data: folders, error: fErr } = await supabase.from('folders').select('id, name, parent_id').order('name');
-  if (fErr) console.error("ERRO:", fErr.message);
-  else console.table(folders);
-
-  // 2. Testar filtro: pastas raiz (parent_id IS NULL)
-  console.log("\n=== PASTAS NA RAIZ (parent_id IS NULL) ===");
-  const { data: rootFolders } = await supabase.from('folders').select('id, name, parent_id').is('parent_id', null).order('name');
-  console.table(rootFolders);
-
-  // 3. Testar filtro: buscar subpasta de cada pasta raiz
-  if (rootFolders && rootFolders.length > 0) {
-    for (const rf of rootFolders) {
-      console.log(`\n=== SUBPASTAS DENTRO DE "${rf.name}" (parent_id = ${rf.id}) ===`);
-      const { data: subs } = await supabase.from('folders').select('id, name, parent_id').eq('parent_id', rf.id).order('name');
-      console.table(subs);
+  const tables = ['users_profiles', 'folders', 'materials', 'collaborators', 'socs', 'units'];
+  
+  for (const table of tables) {
+    console.log(`\n=== ${table.toUpperCase()} ===`);
+    const { data, error, count } = await supabase.from(table).select('*', { count: 'exact' });
+    if (error) {
+      console.log(`  ERRO: ${error.message} (code: ${error.code})`);
+    } else {
+      console.log(`  Total de registros: ${data?.length ?? 0}`);
+      if (data && data.length > 0 && data.length <= 5) {
+        console.table(data);
+      } else if (data && data.length > 5) {
+        console.table(data.slice(0, 3));
+        console.log(`  ... e mais ${data.length - 3} registros`);
+      }
     }
   }
 }
