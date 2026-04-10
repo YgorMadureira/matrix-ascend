@@ -34,7 +34,9 @@ export default function SettingsPage() {
       setUnits(un.data ?? []);
     };
     fetch();
-  }, []);
+  }, [isAdmin]);
+
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   const addUnit = async () => {
     if (!newUnit.trim()) return;
