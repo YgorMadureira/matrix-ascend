@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2 } from 'lucide-react';
 import logoPts from '@/assets/logo_pts.png';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/materials', icon: FolderOpen, label: 'Materiais' },
   { to: '/collaborators', icon: Users, label: 'Colaboradores' },
   { to: '/reports', icon: BarChart3, label: 'Relatórios' },
+  { to: '/socs', icon: Building2, label: 'SOCs' },
 ];
 
 export default function AppLayout() {

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen } from 'lucide-react';
+import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen, X, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FolderItem {
@@ -27,16 +27,13 @@ export default function MaterialsPage() {
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Raiz' }]);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [showNewMaterial, setShowNewMaterial] = useState(false);
-  const [newMaterial, setNewMaterial] = useState({ name: '', description: '' });
+  const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
+  const [editFolderName, setEditFolderName] = useState('');
+  const [viewingFile, setViewingFile] = useState<MaterialItem | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async (folderId: string | null) => {
-    const [fRes, mRes] = await Promise.all([
-      supabase.from('folders').select('*').eq('parent_id', folderId ?? '').is('parent_id', folderId === null ? null : undefined).order('name'),
-      supabase.from('materials').select('*').eq('folder_id', folderId ?? '').is('folder_id', folderId === null ? null : undefined).order('name'),
-    ]);
-
-    // Fix query: re-fetch with proper filter
     const folderQuery = supabase.from('folders').select('*').order('name');
     const materialQuery = supabase.from('materials').select('*').order('name');
 
@@ -48,14 +45,12 @@ export default function MaterialsPage() {
       materialQuery.eq('folder_id', folderId);
     }
 
-    const [f2, m2] = await Promise.all([folderQuery, materialQuery]);
-    setFolders(f2.data ?? []);
-    setMaterials(m2.data ?? []);
+    const [f, m] = await Promise.all([folderQuery, materialQuery]);
+    setFolders(f.data ?? []);
+    setMaterials(m.data ?? []);
   };
 
-  useEffect(() => {
-    fetchData(currentFolder);
-  }, [currentFolder]);
+  useEffect(() => { fetchData(currentFolder); }, [currentFolder]);
 
   const navigateToFolder = (folder: FolderItem) => {
     setCurrentFolder(folder.id);
@@ -77,103 +72,138 @@ export default function MaterialsPage() {
     toast.success('Pasta criada');
   };
 
-  const createMaterial = async () => {
-    if (!newMaterial.name.trim()) return;
-    await supabase.from('materials').insert({
-      name: newMaterial.name,
-      description: newMaterial.description,
-      folder_id: currentFolder,
-      created_by: user?.id,
-    });
-    setNewMaterial({ name: '', description: '' });
-    setShowNewMaterial(false);
+  const updateFolder = async () => {
+    if (!editingFolder || !editFolderName.trim()) return;
+    await supabase.from('folders').update({ name: editFolderName }).eq('id', editingFolder.id);
+    setEditingFolder(null);
+    setEditFolderName('');
     fetchData(currentFolder);
-    toast.success('Material criado');
+    toast.success('Pasta renomeada');
   };
 
   const deleteFolder = async (id: string) => {
+    if (!confirm('Excluir esta pasta e todo seu conteúdo?')) return;
     await supabase.from('folders').delete().eq('id', id);
     fetchData(currentFolder);
     toast.success('Pasta removida');
   };
 
   const deleteMaterial = async (id: string) => {
+    if (!confirm('Excluir este material?')) return;
     await supabase.from('materials').delete().eq('id', id);
     fetchData(currentFolder);
     toast.success('Material removido');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ];
+
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(ppt|pptx)$/i)) {
+      toast.error('Apenas arquivos PowerPoint (.ppt, .pptx) são permitidos');
+      return;
+    }
+
+    setUploading(true);
+    const path = `materials/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('signatures').upload(path, file, { upsert: true });
+    
+    if (uploadError) {
+      toast.error('Erro no upload: ' + uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
+    
+    await supabase.from('materials').insert({
+      name: file.name.replace(/\.(pptx?)/i, ''),
+      file_url: urlData.publicUrl,
+      file_type: 'powerpoint',
+      folder_id: currentFolder,
+      created_by: user?.id,
+    });
+
+    fetchData(currentFolder);
+    setUploading(false);
+    toast.success('Apresentação enviada');
+    e.target.value = '';
+  };
+
+  const openPresentation = (mat: MaterialItem) => {
+    if (mat.file_url) {
+      setViewingFile(mat);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (viewerRef.current) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        viewerRef.current.requestFullscreen();
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Materiais</h1>
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
             {breadcrumb.map((b, i) => (
               <span key={i} className="flex items-center gap-1">
                 {i > 0 && <span>/</span>}
-                <button onClick={() => navigateToBreadcrumb(i)} className="hover:text-primary transition-colors">
-                  {b.name}
-                </button>
+                <button onClick={() => navigateToBreadcrumb(i)} className="hover:text-primary transition-colors">{b.name}</button>
               </span>
             ))}
           </div>
         </div>
         {isAdmin && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all cursor-pointer">
+              <Upload size={16} /> {uploading ? 'Enviando...' : 'Upload PPTX'}
+              <input type="file" accept=".ppt,.pptx" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+            </label>
             <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
               <Plus size={16} /> Pasta
-            </button>
-            <button onClick={() => setShowNewMaterial(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all">
-              <Plus size={16} /> Material
             </button>
           </div>
         )}
       </div>
 
-      {/* New folder dialog */}
+      {/* New folder */}
       {showNewFolder && (
         <div className="glass-card p-4 flex gap-3">
-          <input
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Nome da pasta"
+          <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Nome da pasta"
             className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            onKeyDown={(e) => e.key === 'Enter' && createFolder()}
-          />
+            onKeyDown={(e) => e.key === 'Enter' && createFolder()} />
           <button onClick={createFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Criar</button>
           <button onClick={() => setShowNewFolder(false)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
         </div>
       )}
 
-      {showNewMaterial && (
-        <div className="glass-card p-4 space-y-3">
-          <input
-            value={newMaterial.name}
-            onChange={(e) => setNewMaterial(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="Nome do material"
-            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-          />
-          <input
-            value={newMaterial.description}
-            onChange={(e) => setNewMaterial(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Descrição (opcional)"
-            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-          />
-          <div className="flex gap-2">
-            <button onClick={createMaterial} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Criar</button>
-            <button onClick={() => setShowNewMaterial(false)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
-          </div>
+      {/* Edit folder */}
+      {editingFolder && (
+        <div className="glass-card p-4 flex gap-3">
+          <input value={editFolderName} onChange={(e) => setEditFolderName(e.target.value)} placeholder="Novo nome"
+            className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
+            onKeyDown={(e) => e.key === 'Enter' && updateFolder()} />
+          <button onClick={updateFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
+          <button onClick={() => setEditingFolder(null)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
         </div>
       )}
 
-      {/* Grid of folders and materials */}
+      {/* Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {currentFolder && (
-          <button
-            onClick={() => navigateToBreadcrumb(breadcrumb.length - 2)}
-            className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center"
-          >
+          <button onClick={() => navigateToBreadcrumb(breadcrumb.length - 2)} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center">
             <ArrowLeft size={32} className="text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Voltar</span>
           </button>
@@ -185,6 +215,9 @@ export default function MaterialsPage() {
             <span className="text-sm font-medium text-foreground">{folder.name}</span>
             {isAdmin && (
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setEditFolderName(folder.name); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
+                  <Edit2 size={14} />
+                </button>
                 <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
                   <Trash2 size={14} />
                 </button>
@@ -194,13 +227,13 @@ export default function MaterialsPage() {
         ))}
 
         {materials.map((mat) => (
-          <div key={mat.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group">
+          <div key={mat.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => openPresentation(mat)}>
             <FileText size={40} className="text-blue-400" />
             <span className="text-sm font-medium text-foreground">{mat.name}</span>
-            {mat.description && <span className="text-xs text-muted-foreground">{mat.description}</span>}
+            {mat.file_type === 'powerpoint' && <span className="text-[10px] text-primary font-medium">PPTX</span>}
             {isAdmin && (
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => deleteMaterial(mat.id)} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
+                <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -212,7 +245,33 @@ export default function MaterialsPage() {
       {folders.length === 0 && materials.length === 0 && !currentFolder && (
         <div className="glass-card p-12 text-center">
           <FolderOpen size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Nenhum material ainda. {isAdmin ? 'Crie pastas e materiais acima.' : 'Aguarde o administrador adicionar conteúdo.'}</p>
+          <p className="text-muted-foreground">Nenhum material ainda. {isAdmin ? 'Crie pastas e faça upload de apresentações.' : 'Aguarde o administrador adicionar conteúdo.'}</p>
+        </div>
+      )}
+
+      {/* Presentation Viewer Modal */}
+      {viewingFile && viewingFile.file_url && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div ref={viewerRef} className="w-full max-w-6xl h-[85vh] bg-card rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-3 border-b border-border/40">
+              <h3 className="text-sm font-medium text-foreground truncate">{viewingFile.name}</h3>
+              <div className="flex gap-2">
+                <button onClick={toggleFullscreen} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                  <Maximize2 size={18} />
+                </button>
+                <button onClick={() => setViewingFile(null)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewingFile.file_url)}`}
+                className="w-full h-full border-0"
+                title={viewingFile.name}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
