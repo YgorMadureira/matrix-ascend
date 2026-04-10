@@ -66,6 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
 
+    // TIMEOUT DE SEGURANÇA: Se o auth demorar mais que 5 segundos, libera o app
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     try {
       const { data } = supabase.auth.onAuthStateChange(async (_, session) => {
         try {
@@ -78,12 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.error('Erro em onAuthStateChange:', err);
         } finally {
+          clearTimeout(safetyTimeout);
           setLoading(false);
         }
       });
       subscription = data.subscription;
     } catch (err) {
       console.error('Erro ao configurar auth listener:', err);
+      clearTimeout(safetyTimeout);
       setLoading(false);
     }
 
@@ -91,13 +98,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id, session.user.email ?? '').finally(() => {
+          clearTimeout(safetyTimeout);
           setLoading(false);
         });
       } else {
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     }).catch((err) => {
       console.error('Erro ao obter sessão:', err);
+      clearTimeout(safetyTimeout);
       setLoading(false);
     });
 
