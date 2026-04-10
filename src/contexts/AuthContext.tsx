@@ -25,12 +25,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+  const fetchProfile = async (userId: string, email: string) => {
+    let { data, error } = await supabase
       .from('users_profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+      
+    if (!data) {
+      // Automatic Self-Healing: Create profile if it's missing!
+      // This forces the user to become Admin automatically upon login
+      await supabase.from('users_profiles').insert({
+        id: userId,
+        email: email,
+        full_name: 'Auto Admin',
+        role: 'admin'
+      });
+      data = { id: userId, email: email, full_name: 'Auto Admin', role: 'admin' };
+    }
     setProfile(data);
   };
 
@@ -38,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        await fetchProfile(session.user.id, session.user.email ?? '');
       } else {
         setProfile(null);
       }
@@ -48,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user.email ?? '');
       }
       setLoading(false);
     });

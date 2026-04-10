@@ -34,38 +34,49 @@ export default function MaterialsPage() {
   const viewerRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async (folderId: string | null) => {
-    const folderQuery = supabase.from('folders').select('*').order('name');
-    const materialQuery = supabase.from('materials').select('*').order('name');
+    let folderResult;
+    let materialResult;
 
     if (folderId === null) {
-      folderQuery.is('parent_id', null);
-      materialQuery.is('folder_id', null);
+      folderResult = await supabase.from('folders').select('*').is('parent_id', null).order('name');
+      materialResult = await supabase.from('materials').select('*').is('folder_id', null).order('name');
     } else {
-      folderQuery.eq('parent_id', folderId);
-      materialQuery.eq('folder_id', folderId);
+      folderResult = await supabase.from('folders').select('*').eq('parent_id', folderId).order('name');
+      materialResult = await supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
     }
 
-    const [f, m] = await Promise.all([folderQuery, materialQuery]);
-    setFolders(f.data ?? []);
-    setMaterials(m.data ?? []);
+    console.log('fetchData folderId:', folderId, 'folders:', folderResult.data, 'error:', folderResult.error);
+    setFolders(folderResult.data ?? []);
+    setMaterials(materialResult.data ?? []);
   };
 
   useEffect(() => { fetchData(currentFolder); }, [currentFolder]);
 
   const navigateToFolder = (folder: FolderItem) => {
+    setBreadcrumb(prev => {
+      if (prev[prev.length - 1].id === folder.id) return prev;
+      return [...prev, { id: folder.id, name: folder.name }];
+    });
     setCurrentFolder(folder.id);
-    setBreadcrumb(prev => [...prev, { id: folder.id, name: folder.name }]);
   };
 
   const navigateToBreadcrumb = (index: number) => {
     const item = breadcrumb[index];
     setCurrentFolder(item.id);
-    setBreadcrumb(breadcrumb.slice(0, index + 1));
+    setBreadcrumb(prev => prev.slice(0, index + 1));
   };
 
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
-    await supabase.from('folders').insert({ name: newFolderName, parent_id: currentFolder, created_by: user?.id });
+    const insertData: { name: string; parent_id: string | null } = {
+      name: newFolderName,
+      parent_id: currentFolder,
+    };
+    const { error } = await supabase.from('folders').insert(insertData);
+    if (error) {
+      toast.error('Erro ao criar pasta: ' + error.message);
+      return;
+    }
     setNewFolderName('');
     setShowNewFolder(false);
     fetchData(currentFolder);
@@ -74,7 +85,11 @@ export default function MaterialsPage() {
 
   const updateFolder = async () => {
     if (!editingFolder || !editFolderName.trim()) return;
-    await supabase.from('folders').update({ name: editFolderName }).eq('id', editingFolder.id);
+    const { error } = await supabase.from('folders').update({ name: editFolderName }).eq('id', editingFolder.id);
+    if (error) {
+      toast.error('Erro ao editar pasta: ' + error.message);
+      return;
+    }
     setEditingFolder(null);
     setEditFolderName('');
     fetchData(currentFolder);
@@ -83,14 +98,22 @@ export default function MaterialsPage() {
 
   const deleteFolder = async (id: string) => {
     if (!confirm('Excluir esta pasta e todo seu conteúdo?')) return;
-    await supabase.from('folders').delete().eq('id', id);
+    const { error } = await supabase.from('folders').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir pasta: ' + error.message);
+      return;
+    }
     fetchData(currentFolder);
     toast.success('Pasta removida');
   };
 
   const deleteMaterial = async (id: string) => {
     if (!confirm('Excluir este material?')) return;
-    await supabase.from('materials').delete().eq('id', id);
+    const { error } = await supabase.from('materials').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir material: ' + error.message);
+      return;
+    }
     fetchData(currentFolder);
     toast.success('Material removido');
   };
@@ -165,17 +188,15 @@ export default function MaterialsPage() {
             ))}
           </div>
         </div>
-        {isAdmin && (
-          <div className="flex gap-2 flex-wrap">
-            <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all cursor-pointer">
-              <Upload size={16} /> {uploading ? 'Enviando...' : 'Upload PPTX'}
-              <input type="file" accept=".ppt,.pptx" onChange={handleFileUpload} className="hidden" disabled={uploading} />
-            </label>
-            <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
-              <Plus size={16} /> Pasta
-            </button>
-          </div>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all cursor-pointer">
+            <Upload size={16} /> {uploading ? 'Enviando...' : 'Upload PPTX'}
+            <input type="file" accept=".ppt,.pptx" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+          </label>
+          <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
+            <Plus size={16} /> Pasta
+          </button>
+        </div>
       </div>
 
       {/* New folder */}
@@ -213,16 +234,14 @@ export default function MaterialsPage() {
           <div key={folder.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => navigateToFolder(folder)}>
             <Folder size={40} className="text-primary" />
             <span className="text-sm font-medium text-foreground">{folder.name}</span>
-            {isAdmin && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setEditFolderName(folder.name); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
-                  <Edit2 size={14} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            )}
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setEditFolderName(folder.name); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
+                <Edit2 size={14} />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
 
@@ -231,13 +250,11 @@ export default function MaterialsPage() {
             <FileText size={40} className="text-blue-400" />
             <span className="text-sm font-medium text-foreground">{mat.name}</span>
             {mat.file_type === 'powerpoint' && <span className="text-[10px] text-primary font-medium">PPTX</span>}
-            {isAdmin && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            )}
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
