@@ -23,9 +23,8 @@ export default function SettingsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [newUnit, setNewUnit] = useState('');
 
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
   useEffect(() => {
+    if (!isAdmin) return;
     const fetch = async () => {
       const [u, un] = await Promise.all([
         supabase.from('users_profiles').select('*').order('full_name'),
