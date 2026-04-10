@@ -9,6 +9,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import MaterialsPage from "@/pages/MaterialsPage";
 import CollaboratorsPage from "@/pages/CollaboratorsPage";
 import ReportsPage from "@/pages/ReportsPage";
+import SocsPage from "@/pages/SocsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/materials" element={<MaterialsPage />} />
               <Route path="/collaborators" element={<CollaboratorsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/socs" element={<SocsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
