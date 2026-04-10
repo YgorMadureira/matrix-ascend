@@ -1,53 +1,82 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Upload, Download, Trash2, Search } from 'lucide-react';
+import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Collaborator {
   id: string;
   name: string;
+  opsid: string;
+  gender: string;
   soc: string;
   sector: string;
   shift: string;
+  leader: string;
   role: string;
 }
+
+const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '' };
 
 export default function CollaboratorsPage() {
   const { isAdmin } = useAuth();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [trainings, setTrainings] = useState<{ collaborator_id: string }[]>([]);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', soc: '', sector: '', shift: '', role: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
-  const fetchCollaborators = async () => {
-    const { data } = await supabase.from('collaborators').select('*').order('name');
-    setCollaborators(data ?? []);
+  const fetchData = async () => {
+    const [{ data: collabs }, { data: trains }] = await Promise.all([
+      supabase.from('collaborators').select('*').order('name'),
+      supabase.from('trainings_completed').select('collaborator_id'),
+    ]);
+    setCollaborators(collabs ?? []);
+    setTrainings(trains ?? []);
   };
 
-  useEffect(() => { fetchCollaborators(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filtered = collaborators.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.opsid ?? '').toLowerCase().includes(search.toLowerCase()) ||
     c.soc.toLowerCase().includes(search.toLowerCase()) ||
     c.sector.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCreate = async () => {
+  const totalLeaders = collaborators.filter(c => c.role?.toLowerCase().includes('líder') || c.role?.toLowerCase().includes('lider')).length;
+  const uniqueTrained = new Set(trainings.map(t => t.collaborator_id)).size;
+  const trainedPct = collaborators.length > 0 ? Math.round((uniqueTrained / collaborators.length) * 100) : 0;
+
+  const handleSave = async () => {
     if (!form.name || !form.soc || !form.sector || !form.shift || !form.role) {
-      toast.error('Preencha todos os campos');
+      toast.error('Preencha todos os campos obrigatórios');
       return;
     }
-    await supabase.from('collaborators').insert(form);
-    setForm({ name: '', soc: '', sector: '', shift: '', role: '' });
+    if (editingId) {
+      await supabase.from('collaborators').update(form).eq('id', editingId);
+      toast.success('Colaborador atualizado');
+    } else {
+      await supabase.from('collaborators').insert(form);
+      toast.success('Colaborador cadastrado');
+    }
+    setForm(emptyForm);
     setShowForm(false);
-    fetchCollaborators();
-    toast.success('Colaborador cadastrado');
+    setEditingId(null);
+    fetchData();
+  };
+
+  const startEdit = (c: Collaborator) => {
+    setForm({ name: c.name, opsid: c.opsid ?? '', gender: c.gender ?? '', soc: c.soc, sector: c.sector, shift: c.shift, leader: c.leader ?? '', role: c.role });
+    setEditingId(c.id);
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
+    if (!confirm('Excluir este colaborador?')) return;
     await supabase.from('collaborators').delete().eq('id', id);
-    fetchCollaborators();
+    fetchData();
     toast.success('Colaborador removido');
   };
 
@@ -56,38 +85,38 @@ export default function CollaboratorsPage() {
     if (!file) return;
     const text = await file.text();
     const lines = text.split('\n').filter(l => l.trim());
-    const header = lines[0];
-    const sep = header.includes(';') ? ';' : ',';
+    const sep = lines[0].includes(';') ? ';' : ',';
     const rows = lines.slice(1).map(line => {
-      const parts = line.split(sep).map(p => p.trim().replace(/^"|"$/g, ''));
-      return { name: parts[0], soc: parts[1], sector: parts[2], shift: parts[3], role: parts[4] };
-    }).filter(r => r.name && r.soc);
+      const p = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
+      return { opsid: p[0], gender: p[1], name: p[2], shift: p[3], sector: p[4], leader: p[5], role: p[6], soc: p[7] || '' };
+    }).filter(r => r.name);
 
-    if (rows.length === 0) {
-      toast.error('Nenhum dado válido no CSV');
-      return;
-    }
-
+    if (rows.length === 0) { toast.error('Nenhum dado válido no CSV'); return; }
     const { error } = await supabase.from('collaborators').insert(rows);
-    if (error) {
-      toast.error('Erro ao importar: ' + error.message);
-    } else {
-      toast.success(`${rows.length} colaboradores importados`);
-      fetchCollaborators();
-    }
+    if (error) { toast.error('Erro ao importar: ' + error.message); }
+    else { toast.success(`${rows.length} colaboradores importados`); fetchData(); }
     e.target.value = '';
   };
 
   const downloadTemplate = () => {
-    const csv = 'Nome,SOC,Setor,Turno,Cargo\nJoão Silva,SPX-001,RECEBIMENTO,A,Operador\nMaria Santos,SPX-001,EXPEDIÇÃO,B,Líder';
+    const csv = 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;M;João Silva;A;RECEBIMENTO;Carlos;Operador;SPX-001';
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = 'modelo_colaboradores.csv';
     a.click();
-    URL.revokeObjectURL(url);
   };
+
+  const fields: { key: keyof typeof emptyForm; label: string }[] = [
+    { key: 'opsid', label: 'OPSID' },
+    { key: 'gender', label: 'Gênero' },
+    { key: 'name', label: 'Colaborador' },
+    { key: 'shift', label: 'Turno' },
+    { key: 'sector', label: 'Setor' },
+    { key: 'leader', label: 'Líder' },
+    { key: 'role', label: 'Cargo' },
+    { key: 'soc', label: 'SOC' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -105,78 +134,101 @@ export default function CollaboratorsPage() {
               <Upload size={16} /> Importar CSV
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all">
+            <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all">
               <Plus size={16} /> Novo
             </button>
           </div>
         )}
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass-card-hover p-4 flex items-center gap-3">
+          <Users size={20} className="text-primary" />
+          <div><p className="text-xl font-bold text-foreground">{collaborators.length}</p><p className="text-xs text-muted-foreground">Colaboradores</p></div>
+        </div>
+        <div className="glass-card-hover p-4 flex items-center gap-3">
+          <Crown size={20} className="text-yellow-400" />
+          <div><p className="text-xl font-bold text-foreground">{totalLeaders}</p><p className="text-xs text-muted-foreground">Líderes</p></div>
+        </div>
+        <div className="glass-card-hover p-4 flex items-center gap-3">
+          <UserCheck size={20} className="text-green-400" />
+          <div><p className="text-xl font-bold text-foreground">{uniqueTrained}</p><p className="text-xs text-muted-foreground">Treinados</p></div>
+        </div>
+        <div className="glass-card-hover p-4 flex items-center gap-3">
+          <UserCheck size={20} className="text-blue-400" />
+          <div><p className="text-xl font-bold text-foreground">{trainedPct}%</p><p className="text-xs text-muted-foreground">% Treinados</p></div>
+        </div>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nome, SOC ou setor..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-        />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, OPSID, SOC ou setor..."
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
       </div>
 
       {/* Form */}
       {showForm && isAdmin && (
-        <div className="glass-card p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-          {(['name', 'soc', 'sector', 'shift', 'role'] as const).map((field) => (
-            <input
-              key={field}
-              value={form[field]}
-              onChange={(e) => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-              placeholder={{ name: 'Nome', soc: 'SOC (Unidade)', sector: 'Setor', shift: 'Turno', role: 'Cargo' }[field]}
-              className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            />
-          ))}
-          <div className="col-span-full flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+        <div className="glass-card p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {fields.map(({ key, label }) => (
+              <input key={key} value={form[key]} onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))} placeholder={label}
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="glass-card overflow-hidden">
+      <div className="glass-card overflow-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/40">
-              <th className="text-left p-4 text-muted-foreground font-medium">Nome</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">SOC</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Setor</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">OPSID</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">Gênero</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">Colaborador</th>
               <th className="text-left p-4 text-muted-foreground font-medium">Turno</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">Setor</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">Líder</th>
               <th className="text-left p-4 text-muted-foreground font-medium">Cargo</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">SOC</th>
               {isAdmin && <th className="text-right p-4 text-muted-foreground font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.map((c) => (
               <tr key={c.id} className="border-b border-border/20 hover:bg-secondary/30 transition-colors">
-                <td className="p-4 text-foreground">{c.name}</td>
-                <td className="p-4 text-foreground">{c.soc}</td>
-                <td className="p-4 text-foreground">{c.sector}</td>
+                <td className="p-4 text-foreground">{c.opsid}</td>
+                <td className="p-4 text-foreground">{c.gender}</td>
+                <td className="p-4 text-foreground font-medium">{c.name}</td>
                 <td className="p-4 text-foreground">{c.shift}</td>
+                <td className="p-4 text-foreground">{c.sector}</td>
+                <td className="p-4 text-foreground">{c.leader}</td>
                 <td className="p-4 text-foreground">{c.role}</td>
+                <td className="p-4 text-foreground">{c.soc}</td>
                 {isAdmin && (
                   <td className="p-4 text-right">
-                    <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-colors">
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => startEdit(c)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 )}
               </tr>
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground">Nenhum colaborador encontrado</div>
-        )}
+        {filtered.length === 0 && <div className="p-8 text-center text-muted-foreground">Nenhum colaborador encontrado</div>}
       </div>
     </div>
   );

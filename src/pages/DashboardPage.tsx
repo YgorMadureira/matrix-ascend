@@ -1,25 +1,31 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChart3, Users, FolderOpen, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Users, CheckCircle2, Percent } from 'lucide-react';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
-  const [stats, setStats] = useState({ collaborators: 0, folders: 0, materials: 0, trainings: 0 });
+  const [stats, setStats] = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [c, f, m, t] = await Promise.all([
+      const [c, m, t] = await Promise.all([
         supabase.from('collaborators').select('id', { count: 'exact', head: true }),
-        supabase.from('folders').select('id', { count: 'exact', head: true }),
         supabase.from('materials').select('id', { count: 'exact', head: true }),
         supabase.from('trainings_completed').select('id', { count: 'exact', head: true }),
       ]);
+
+      const totalCollabs = c.count ?? 0;
+      // Get unique collaborators who have at least one training
+      const { data: trainedData } = await supabase.from('trainings_completed').select('collaborator_id');
+      const uniqueTrained = new Set(trainedData?.map(t => t.collaborator_id) ?? []).size;
+      const pct = totalCollabs > 0 ? Math.round((uniqueTrained / totalCollabs) * 100) : 0;
+
       setStats({
-        collaborators: c.count ?? 0,
-        folders: f.count ?? 0,
+        collaborators: totalCollabs,
         materials: m.count ?? 0,
         trainings: t.count ?? 0,
+        trainedPct: pct,
       });
     };
     fetchStats();
@@ -27,8 +33,8 @@ export default function DashboardPage() {
 
   const cards = [
     { label: 'Colaboradores', value: stats.collaborators, icon: Users, color: 'text-primary' },
-    { label: 'Pastas', value: stats.folders, icon: FolderOpen, color: 'text-blue-400' },
-    { label: 'Materiais', value: stats.materials, icon: BarChart3, color: 'text-green-400' },
+    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent, color: 'text-green-400' },
+    { label: 'Materiais', value: stats.materials, icon: BarChart3, color: 'text-blue-400' },
     { label: 'Treinamentos', value: stats.trainings, icon: CheckCircle2, color: 'text-yellow-400' },
   ];
 
