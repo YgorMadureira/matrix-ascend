@@ -20,7 +20,7 @@ interface Collaborator {
 const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '' };
 
 export default function CollaboratorsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading: authLoading } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
@@ -28,23 +28,54 @@ export default function CollaboratorsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
-    const [{ data: collabs }, { data: trains }] = await Promise.all([
-      supabase.from('collaborators').select('*').order('name'),
-      supabase.from('trainings_completed').select('collaborator_id, training_type'),
-    ]);
-    setCollaborators(collabs ?? []);
+    // Supabase has a default limit of 1000 rows. We need to fetch all of them.
+    let allCollabs: any[] = [];
+    let hasMore = true;
+    let page = 0;
+    const limit = 1000;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .order('name')
+        .range(page * limit, (page + 1) * limit - 1);
+      
+      if (error) {
+        console.error("Error fetching collaborators:", error);
+        break;
+      }
+      
+      if (data) {
+        allCollabs = [...allCollabs, ...data];
+        if (data.length < limit) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    const { data: trains } = await supabase.from('trainings_completed').select('collaborator_id, training_type');
+
+    setCollaborators(allCollabs);
     setTrainings(trains ?? []);
   }, []);
 
-  useEffect(() => { fetchData(); }, [location.pathname, fetchData]);
+  useEffect(() => {
+    if (!authLoading) fetchData();
+  }, [location.pathname, fetchData, authLoading]);
 
   useEffect(() => {
-    const onFocus = () => fetchData();
+    const onFocus = () => { if (!authLoading) fetchData(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [fetchData]);
+  }, [fetchData, authLoading]);
 
   const filtered = collaborators.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,6 +131,64 @@ export default function CollaboratorsPage() {
     await supabase.from('collaborators').delete().eq('id', id);
     fetchData();
     toast.success('Colaborador removido');
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Tem certeza que deseja excluir ${selectedIds.size} colaboradores? Esta ação não pode ser desfeita.`)) return;
+
+    // Delete in chunks of 100 since there might be many
+    const idsArray = Array.from(selectedIds);
+    let deletedCount = 0;
+    let hasError = false;
+
+    // Show loading toast
+    const toastId = toast.loading(`Excluindo ${idsArray.length} colaboradores...`);
+
+    try {
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < idsArray.length; i += CHUNK_SIZE) {
+        const chunk = idsArray.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase.from('collaborators').delete().in('id', chunk);
+        if (error) {
+          console.error('[Bulk Delete Error]', error);
+          hasError = true;
+        } else {
+          deletedCount += chunk.length;
+        }
+      }
+
+      fetchData();
+      setSelectedIds(new Set());
+      
+      if (hasError) {
+        toast.error(`Foram excluídos ${deletedCount} colaboradores, mas ocorreram alguns erros.`, { id: toastId });
+      } else {
+        toast.success(`${deletedCount} colaboradores excluídos com sucesso.`, { id: toastId });
+      }
+    } catch (err) {
+      toast.error('Erro crítico na exclusão em massa.', { id: toastId });
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(c => c.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
   };
 
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,6 +328,11 @@ export default function CollaboratorsPage() {
         </div>
         {isAdmin && (
           <div className="flex gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm hover:brightness-110 transition-all font-semibold shadow-sm focus:ring-2 focus:ring-destructive/50">
+                <Trash2 size={16} /> Excluir {selectedIds.size} selecionados
+              </button>
+            )}
             <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
               <Download size={16} /> Modelo CSV
             </button>
@@ -302,6 +396,18 @@ export default function CollaboratorsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/40">
+              {isAdmin && (
+                <th className="p-4 w-10">
+                  <div className="flex items-center justify-center">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-border bg-secondary cursor-pointer"
+                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </div>
+                </th>
+              )}
               <th className="text-left p-4 text-muted-foreground font-medium">OPSID</th>
               <th className="text-left p-4 text-muted-foreground font-medium">Gênero</th>
               <th className="text-left p-4 text-muted-foreground font-medium">Colaborador</th>
@@ -316,7 +422,19 @@ export default function CollaboratorsPage() {
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id} className="border-b border-border/20 hover:bg-secondary/30 transition-colors">
+              <tr key={c.id} className={`border-b border-border/20 transition-colors ${selectedIds.has(c.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-secondary/30'}`}>
+                {isAdmin && (
+                  <td className="p-4">
+                    <div className="flex items-center justify-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-border bg-secondary cursor-pointer"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelect(c.id)}
+                      />
+                    </div>
+                  </td>
+                )}
                 <td className="p-4 text-foreground">{c.opsid}</td>
                 <td className="p-4 text-foreground">{c.gender}</td>
                 <td className="p-4 text-foreground font-medium">{c.name}</td>

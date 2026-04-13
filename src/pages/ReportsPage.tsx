@@ -27,7 +27,7 @@ interface Training {
 }
 
 export default function ReportsPage() {
-  const { user, profile, isLider } = useAuth();
+  const { user, profile, isLider, loading: authLoading } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -37,12 +37,35 @@ export default function ReportsPage() {
   const [selectedSector, setSelectedSector] = useState('');
 
   const loadData = useCallback(async () => {
-    const [{ data: collabs }, { data: trains }, { data: socData }] = await Promise.all([
-      supabase.from('collaborators').select('*').order('name'),
+    // Supabase has 1000 rows limit, we need pagination
+    let allCollabs: any[] = [];
+    let hasMore = true;
+    let page = 0;
+    const limit = 1000;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .order('name')
+        .range(page * limit, (page + 1) * limit - 1);
+      
+      if (error) break;
+      if (data) {
+        allCollabs = [...allCollabs, ...data];
+        if (data.length < limit) hasMore = false;
+        else page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    const [{ data: trains }, { data: socData }] = await Promise.all([
       supabase.from('trainings_completed').select('*'),
       supabase.from('socs').select('name').order('name'),
     ]);
-    const c = collabs ?? [];
+
+    const c = allCollabs;
     const collabData = isLider ? c.filter(x => x.leader === profile?.full_name) : c;
     setCollaborators(collabData);
     setTrainings(trains ?? []);
@@ -51,14 +74,14 @@ export default function ReportsPage() {
   }, [isLider, profile?.full_name]);
 
   // Reload when navigating to this page
-  useEffect(() => { loadData(); }, [location.pathname, loadData]);
+  useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
   // Reload when user returns to tab
   useEffect(() => {
-    const onFocus = () => loadData();
+    const onFocus = () => { if (!authLoading) loadData(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [loadData]);
+  }, [loadData, authLoading]);
 
   const filtered = collaborators.filter(c =>
     (!selectedUnit || c.soc === selectedUnit) &&

@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen, X, Maximize2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
 
 interface FolderItem {
   id: string;
@@ -20,7 +21,8 @@ interface MaterialItem {
 }
 
 export default function MaterialsPage() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Raiz' }]);
@@ -54,7 +56,17 @@ export default function MaterialsPage() {
   };
 
   // Refetch quando o breadcrumb muda (e portanto o currentFolder muda)
-  useEffect(() => { fetchData(currentFolder); }, [breadcrumb]);
+  // Aguarda auth estar pronto antes de buscar
+  useEffect(() => {
+    if (!authLoading) fetchData(currentFolder);
+  }, [breadcrumb, authLoading]);
+
+  // Recarrega ao voltar para a aba
+  useEffect(() => {
+    const onFocus = () => { if (!authLoading) fetchData(currentFolder); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [authLoading, currentFolder]);
 
   const navigateToFolder = (folder: FolderItem) => {
     setBreadcrumb(prev => {
