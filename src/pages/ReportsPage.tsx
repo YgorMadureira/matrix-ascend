@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle2, XCircle, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 
 const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
@@ -27,6 +28,7 @@ interface Training {
 
 export default function ReportsPage() {
   const { user, profile, isLider } = useAuth();
+  const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [units, setUnits] = useState<string[]>([]);
@@ -34,22 +36,29 @@ export default function ReportsPage() {
   const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
 
+  const loadData = useCallback(async () => {
+    const [{ data: collabs }, { data: trains }, { data: socData }] = await Promise.all([
+      supabase.from('collaborators').select('*').order('name'),
+      supabase.from('trainings_completed').select('*'),
+      supabase.from('socs').select('name').order('name'),
+    ]);
+    const c = collabs ?? [];
+    const collabData = isLider ? c.filter(x => x.leader === profile?.full_name) : c;
+    setCollaborators(collabData);
+    setTrainings(trains ?? []);
+    setUnits(socData ? socData.map(s => s.name) : []);
+    setSectors([...new Set(c.map(x => x.sector))]);
+  }, [isLider, profile?.full_name]);
+
+  // Reload when navigating to this page
+  useEffect(() => { loadData(); }, [location.pathname, loadData]);
+
+  // Reload when user returns to tab
   useEffect(() => {
-    const fetch = async () => {
-      const [{ data: collabs }, { data: trains }, { data: socData }] = await Promise.all([
-        supabase.from('collaborators').select('*').order('name'),
-        supabase.from('trainings_completed').select('*'),
-        supabase.from('socs').select('name').order('name'),
-      ]);
-      const c = collabs ?? [];
-      const collabData = isLider ? c.filter(x => x.leader === profile?.full_name) : c;
-      setCollaborators(collabData);
-      setTrainings(trains ?? []);
-      setUnits(socData ? socData.map(s => s.name) : []);
-      setSectors([...new Set(c.map(x => x.sector))]);
-    };
-    fetch();
-  }, []);
+    const onFocus = () => loadData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadData]);
 
   const filtered = collaborators.filter(c =>
     (!selectedUnit || c.soc === selectedUnit) &&

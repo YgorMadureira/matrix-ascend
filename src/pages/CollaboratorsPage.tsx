@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
 
 interface Collaborator {
   id: string;
@@ -20,6 +21,7 @@ const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift:
 
 export default function CollaboratorsPage() {
   const { isAdmin } = useAuth();
+  const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
   const [search, setSearch] = useState('');
@@ -27,16 +29,22 @@ export default function CollaboratorsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const [{ data: collabs }, { data: trains }] = await Promise.all([
       supabase.from('collaborators').select('*').order('name'),
       supabase.from('trainings_completed').select('collaborator_id, training_type'),
     ]);
     setCollaborators(collabs ?? []);
     setTrainings(trains ?? []);
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [location.pathname, fetchData]);
+
+  useEffect(() => {
+    const onFocus = () => fetchData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchData]);
 
   const filtered = collaborators.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,27 +105,117 @@ export default function CollaboratorsPage() {
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim());
-    const sep = lines[0].includes(';') ? ';' : ',';
-    const rows = lines.slice(1).map(line => {
-      const p = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
-      return { opsid: p[0], gender: p[1], name: p[2], shift: p[3], sector: p[4], leader: p[5], role: p[6], soc: p[7] || '' };
-    }).filter(r => r.name);
 
-    if (rows.length === 0) { toast.error('Nenhum dado válido no CSV'); return; }
-    const { error } = await supabase.from('collaborators').insert(rows);
-    if (error) { toast.error('Erro ao importar: ' + error.message); }
-    else { toast.success(`${rows.length} colaboradores importados`); fetchData(); }
+    try {
+      // Read as text with UTF-8, strip BOM if present
+      let text = await file.text();
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+      // Normalize line endings
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+
+      if (lines.length < 2) {
+        toast.error('CSV vazio ou sem dados além do cabeçalho.');
+        e.target.value = '';
+        return;
+      }
+
+      // Detect separator from first line
+      const firstLine = lines[0];
+      const sep = firstLine.includes(';') ? ';' : ',';
+
+      // Smart split that respects quoted values
+      const splitLine = (line: string) => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === sep && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const header = splitLine(firstLine).map(h => h.toLowerCase().trim());
+      console.log('[CSV] Cabeçalho detectado:', header);
+
+      const rows = lines.slice(1).map((line, idx) => {
+        const p = splitLine(line);
+        // Try to map by header or by position (fallback)
+        const get = (names: string[], pos: number) => {
+          for (const n of names) {
+            const i = header.indexOf(n);
+            if (i >= 0 && p[i]) return p[i].trim();
+          }
+          return p[pos]?.trim() ?? '';
+        };
+
+        return {
+          opsid: get(['opsid', 'ops id', 'matricula', 'id'], 0),
+          gender: get(['genero', 'gênero', 'gender', 'sexo'], 1),
+          name: get(['colaborador', 'nome', 'name', 'colaborador'], 2),
+          shift: get(['turno', 'shift'], 3),
+          sector: get(['setor', 'sector', 'area', 'área'], 4),
+          leader: get(['lider', 'líder', 'leader', 'gestor'], 5),
+          role: get(['cargo', 'role', 'função', 'funcao'], 6),
+          soc: get(['soc', 'unidade', 'unit'], 7),
+        };
+      }).filter(r => r.name && r.name.length > 1);
+
+      console.log(`[CSV] ${rows.length} linha(s) válida(s) encontradas`);
+
+      if (rows.length === 0) {
+        toast.error('Nenhum colaborador válido encontrado. Verifique se o arquivo segue o modelo.');
+        e.target.value = '';
+        return;
+      }
+
+      // Insert in batches of 50
+      let totalInserted = 0;
+      let lastError = '';
+      const BATCH = 50;
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const batch = rows.slice(i, i + BATCH);
+        const { error } = await supabase.from('collaborators').insert(batch);
+        if (error) {
+          lastError = error.message;
+          console.error('[CSV] Erro no batch:', error);
+        } else {
+          totalInserted += batch.length;
+        }
+      }
+
+      if (totalInserted > 0) {
+        toast.success(`✓ ${totalInserted} colaboradores importados com sucesso!`);
+        fetchData();
+      }
+      if (lastError) {
+        toast.error(`Alguns registros falharam: ${lastError}`);
+      }
+    } catch (err: any) {
+      toast.error('Erro ao ler arquivo: ' + (err?.message ?? String(err)));
+      console.error('[CSV] Erro crítico:', err);
+    }
+
     e.target.value = '';
   };
 
   const downloadTemplate = () => {
-    const csv = 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;M;João Silva;A;RECEBIMENTO;Carlos;Operador;SPX-001';
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+    const csv = bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;João Silva;A;RECEBIMENTO;Carlos;Operador Logístico;SP6\n002;FEMININO;Maria Souza;B;EXPEDIÇÃO;Ana;Auxiliar;SP6';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'modelo_colaboradores.csv';
+
     a.click();
   };
 
