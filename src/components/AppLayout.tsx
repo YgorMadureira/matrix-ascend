@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap, PenTool } from 'lucide-react';
 import logoPts from '@/assets/logo_pts.png';
 
 export default function AppLayout() {
@@ -23,6 +23,7 @@ export default function AppLayout() {
         { to: '/materials', icon: FolderOpen, label: 'Materiais' },
         { to: '/collaborators', icon: Users, label: 'Colaboradores' },
         { to: '/reports', icon: BarChart3, label: 'Relatórios' },
+        { to: '/signatures', icon: PenTool, label: 'Assinaturas' },
         { to: '/socs', icon: Building2, label: 'SOCs' },
         { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
       ];

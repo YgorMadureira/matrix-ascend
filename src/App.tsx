@@ -13,6 +13,7 @@ import SocsPage from "@/pages/SocsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import SignPage from "@/pages/SignPage";
 import TrainingsPage from "@/pages/TrainingsPage";
+import SignaturesPage from "@/pages/SignaturesPage";
 import NotFound from "./pages/NotFound";
 import React from "react";
 
@@ -87,6 +88,7 @@ const App = () => (
                 <Route path="/socs" element={<SocsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/trainings" element={<TrainingsPage />} />
+                <Route path="/signatures" element={<SignaturesPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

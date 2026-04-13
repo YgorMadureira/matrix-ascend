@@ -57,7 +57,12 @@ export default function ReportsPage() {
   );
 
   const hasTraining = (collabId: string, type: string) =>
-    trainings.some(t => t.collaborator_id === collabId && t.training_type === type);
+    trainings.some(t => 
+      t.collaborator_id === collabId && 
+      (t.training_type === type || 
+       t.training_type?.toUpperCase().includes(type.toUpperCase()) ||
+       type.toUpperCase().includes(t.training_type?.toUpperCase()))
+    );
 
   const toggleTraining = async (collabId: string, type: string) => {
     const existing = trainings.find(t => t.collaborator_id === collabId && t.training_type === type);

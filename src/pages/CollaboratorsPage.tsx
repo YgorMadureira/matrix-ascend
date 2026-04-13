@@ -50,7 +50,13 @@ export default function CollaboratorsPage() {
   const isTrained = (c: Collaborator) => {
     return trainings.some((t) => 
       t.collaborator_id === c.id && 
-      (t.training_type?.toUpperCase() === c.sector?.toUpperCase() || t.training_type?.toUpperCase() === 'ONBOARDING OPERACIONAL')
+      (
+        t.training_type?.toUpperCase().includes(c.sector?.toUpperCase()) ||
+        c.sector?.toUpperCase().includes(t.training_type?.toUpperCase()) ||
+        t.training_type?.toUpperCase() === c.sector?.toUpperCase() ||
+        t.training_type?.toUpperCase().includes('ONBOARDING OPERACIONAL') ||
+        t.training_type?.toUpperCase() === 'ONBOARDING OPERACIONAL'
+      )
     );
   };
 
