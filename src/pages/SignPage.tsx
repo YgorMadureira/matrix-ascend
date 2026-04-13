@@ -141,23 +141,13 @@ export default function SignPage() {
     setIsSubmitting(true);
     try {
       const canvas = canvasRef.current!;
-      const dataUrl = canvas.toDataURL('image/png');
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-
-      const fileName = `signatures/${Date.now()}_${selectedCollab.id}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from('signatures')
-        .upload(fileName, blob, { contentType: 'image/png' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(fileName);
+      // Save signature as base64 directly — no storage upload needed for anonymous users
+      const signatureData = canvas.toDataURL('image/png');
 
       const { error: insertError } = await supabase.from('trainings_completed').insert({
         collaborator_id: selectedCollab.id,
         training_type: trainingName,
-        signature_pdf_url: urlData.publicUrl,
+        signature_pdf_url: signatureData,
         instructor_name: selectedInstructor,
       });
 
@@ -165,7 +155,7 @@ export default function SignPage() {
 
       setSuccess(true);
     } catch (err: any) {
-      toast.error('Erro ao salvar assinatura. Tente novamente.');
+      toast.error('Erro ao salvar: ' + (err?.message || JSON.stringify(err)));
       console.error(err);
     } finally {
       setIsSubmitting(false);
