@@ -35,14 +35,15 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetch = async () => {
-      const [{ data: collabs }, { data: trains }] = await Promise.all([
+      const [{ data: collabs }, { data: trains }, { data: socData }] = await Promise.all([
         supabase.from('collaborators').select('*').order('name'),
         supabase.from('trainings_completed').select('*'),
+        supabase.from('socs').select('name').order('name'),
       ]);
       const c = collabs ?? [];
       setCollaborators(c);
       setTrainings(trains ?? []);
-      setUnits([...new Set(c.map(x => x.soc))]);
+      setUnits(socData ? socData.map(s => s.name) : []);
       setSectors([...new Set(c.map(x => x.sector))]);
     };
     fetch();

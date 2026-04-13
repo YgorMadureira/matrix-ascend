@@ -11,6 +11,7 @@ import CollaboratorsPage from "@/pages/CollaboratorsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import SocsPage from "@/pages/SocsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import SignPage from "@/pages/SignPage";
 import NotFound from "./pages/NotFound";
 import React from "react";
 
@@ -75,6 +76,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/sign" element={<SignPage />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<DashboardPage />} />

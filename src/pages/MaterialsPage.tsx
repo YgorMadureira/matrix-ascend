@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen, X, Maximize2 } from 'lucide-react';
+import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen, X, Maximize2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FolderItem {
@@ -23,15 +23,19 @@ export default function MaterialsPage() {
   const { isAdmin, user } = useAuth();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
-  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Raiz' }]);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
   const [editFolderName, setEditFolderName] = useState('');
-  const [viewingFile, setViewingFile] = useState<MaterialItem | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const viewerRef = useRef<HTMLDivElement>(null);
+  const [showNewMaterial, setShowNewMaterial] = useState(false);
+  const [materialName, setMaterialName] = useState('');
+  const [materialUrl, setMaterialUrl] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
+
+  // O ID da pasta atual é SEMPRE derivado do breadcrumb
+  const currentFolder = breadcrumb[breadcrumb.length - 1].id;
 
   const fetchData = async (folderId: string | null) => {
     let folderResult;
@@ -45,42 +49,58 @@ export default function MaterialsPage() {
       materialResult = await supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
     }
 
-    console.log('fetchData folderId:', folderId, 'folders:', folderResult.data, 'error:', folderResult.error);
     setFolders(folderResult.data ?? []);
     setMaterials(materialResult.data ?? []);
   };
 
-  useEffect(() => { fetchData(currentFolder); }, [currentFolder]);
+  // Refetch quando o breadcrumb muda (e portanto o currentFolder muda)
+  useEffect(() => { fetchData(currentFolder); }, [breadcrumb]);
 
   const navigateToFolder = (folder: FolderItem) => {
     setBreadcrumb(prev => {
+      // Proteção contra duplo-clique
       if (prev[prev.length - 1].id === folder.id) return prev;
       return [...prev, { id: folder.id, name: folder.name }];
     });
-    setCurrentFolder(folder.id);
   };
 
   const navigateToBreadcrumb = (index: number) => {
-    const item = breadcrumb[index];
-    setCurrentFolder(item.id);
     setBreadcrumb(prev => prev.slice(0, index + 1));
   };
 
   const createFolder = async () => {
-    if (!newFolderName.trim()) return;
-    const insertData: { name: string; parent_id: string | null } = {
-      name: newFolderName,
-      parent_id: currentFolder,
-    };
-    const { error } = await supabase.from('folders').insert(insertData);
-    if (error) {
-      toast.error('Erro ao criar pasta: ' + error.message);
-      return;
+    console.log("createFolder called with:", newFolderName);
+    if (!newFolderName.trim() || isCreatingFolder) return;
+
+    setIsCreatingFolder(true);
+    try {
+      const insertData = {
+        name: newFolderName.trim(),
+        parent_id: currentFolder,
+      };
+
+      console.log("Inserting folder:", insertData);
+      const { data, error } = await supabase.from('folders').insert(insertData).select();
+
+      console.log("Insert response:", data, error);
+
+      if (error) {
+        toast.error('Erro ao criar pasta: ' + error.message);
+        return;
+      }
+
+      setNewFolderName('');
+      setShowNewFolder(false);
+      
+      console.log("Fetching data again for:", currentFolder);
+      await fetchData(currentFolder);
+      toast.success('Pasta criada');
+    } catch (err) {
+      console.error("Critical error in createFolder:", err);
+      toast.error('Erro de conexão ao criar pasta.');
+    } finally {
+      setIsCreatingFolder(false);
     }
-    setNewFolderName('');
-    setShowNewFolder(false);
-    fetchData(currentFolder);
-    toast.success('Pasta criada');
   };
 
   const updateFolder = async () => {
@@ -118,59 +138,51 @@ export default function MaterialsPage() {
     toast.success('Material removido');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [isAddingLink, setIsAddingLink] = useState(false);
 
-    const allowedTypes = [
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    ];
-
-    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(ppt|pptx)$/i)) {
-      toast.error('Apenas arquivos PowerPoint (.ppt, .pptx) são permitidos');
+  const handleAddLink = async () => {
+    if (!materialName.trim() || !materialUrl.trim()) {
+      toast.error('Preencha o nome e o link');
       return;
     }
-
-    setUploading(true);
-    const path = `materials/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from('signatures').upload(path, file, { upsert: true });
     
-    if (uploadError) {
-      toast.error('Erro no upload: ' + uploadError.message);
-      setUploading(false);
-      return;
+    // Auto-fix URL if missing http
+    let finalUrl = materialUrl.trim();
+    if (!finalUrl.startsWith('http')) {
+      finalUrl = 'https://' + finalUrl;
     }
 
-    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
-    
-    await supabase.from('materials').insert({
-      name: file.name.replace(/\.(pptx?)/i, ''),
-      file_url: urlData.publicUrl,
-      file_type: 'powerpoint',
-      folder_id: currentFolder,
-      created_by: user?.id,
-    });
+    setIsAddingLink(true);
+    try {
+      const { error } = await supabase.from('materials').insert({
+        name: materialName.trim(),
+        file_url: finalUrl,
+        file_type: 'link',
+        folder_id: currentFolder || null,
+        created_by: user?.id || null,
+      });
 
-    fetchData(currentFolder);
-    setUploading(false);
-    toast.success('Apresentação enviada');
-    e.target.value = '';
+      if (error) {
+        toast.error('Erro ao adicionar link: ' + error.message);
+        setIsAddingLink(false);
+        return;
+      }
+
+      setMaterialName('');
+      setMaterialUrl('');
+      setShowNewMaterial(false);
+      fetchData(currentFolder);
+      toast.success('Material adicionado com sucesso');
+    } catch (err: any) {
+      toast.error('Erro de conexão: ' + err.message);
+    } finally {
+      setIsAddingLink(false);
+    }
   };
 
   const openPresentation = (mat: MaterialItem) => {
     if (mat.file_url) {
-      setViewingFile(mat);
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (viewerRef.current) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        viewerRef.current.requestFullscreen();
-      }
+      window.open(mat.file_url, '_blank');
     }
   };
 
@@ -189,10 +201,9 @@ export default function MaterialsPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all cursor-pointer">
-            <Upload size={16} /> {uploading ? 'Enviando...' : 'Upload PPTX'}
-            <input type="file" accept=".ppt,.pptx" onChange={handleFileUpload} className="hidden" disabled={uploading} />
-          </label>
+          <button onClick={() => setShowNewMaterial(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all shadow-glow">
+            <Plus size={16} /> Link do Google
+          </button>
           <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
             <Plus size={16} /> Pasta
           </button>
@@ -204,20 +215,55 @@ export default function MaterialsPage() {
         <div className="glass-card p-4 flex gap-3">
           <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Nome da pasta"
             className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            onKeyDown={(e) => e.key === 'Enter' && createFolder()} />
-          <button onClick={createFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Criar</button>
-          <button onClick={() => setShowNewFolder(false)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+            onKeyDown={(e) => { if (e.key === 'Enter' && !isCreatingFolder) createFolder(); }}
+            disabled={isCreatingFolder} />
+          <button onClick={createFolder} disabled={isCreatingFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">
+            {isCreatingFolder ? 'Criando...' : 'Criar'}
+          </button>
+          <button onClick={() => setShowNewFolder(false)} disabled={isCreatingFolder} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm disabled:opacity-50">Cancelar</button>
         </div>
       )}
 
-      {/* Edit folder */}
-      {editingFolder && (
-        <div className="glass-card p-4 flex gap-3">
-          <input value={editFolderName} onChange={(e) => setEditFolderName(e.target.value)} placeholder="Novo nome"
-            className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            onKeyDown={(e) => e.key === 'Enter' && updateFolder()} />
-          <button onClick={updateFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
-          <button onClick={() => setEditingFolder(null)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+      {/* Add Google Drive Link */}
+      {showNewMaterial && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-display font-semibold text-foreground">Adicionar Material</h3>
+              <button onClick={() => setShowNewMaterial(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Nome do Treinamento</label>
+                <input value={materialName} onChange={e => setMaterialName(e.target.value)} placeholder="Ex: Treinamento NR-12" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Link do Google Drive (Apresentação, Doc, Tabela)</label>
+                <input value={materialUrl} onChange={e => setMaterialUrl(e.target.value)} placeholder="https://docs.google.com/..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+              </div>
+            </div>
+            <button onClick={handleAddLink} disabled={isAddingLink} className="w-full mt-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 transition-all disabled:opacity-50">
+              {isAddingLink ? 'Adicionando...' : 'Adicionar Link'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showingQrFor && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowingQrFor(null)}>
+          <div className="w-full max-w-sm bg-white rounded-xl overflow-hidden p-8 space-y-6 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 border-b pb-3">{showingQrFor.name}</h3>
+            <p className="text-sm text-gray-600">Peça para os colaboradores escanearem este QR Code usando a câmera do celular para registrarem a assinatura do treinamento.</p>
+            <div className="bg-gray-100 p-4 rounded-xl flex justify-center">
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + '/sign?training=' + encodeURIComponent(showingQrFor.name))}`} alt="QR Code" className="w-48 h-48 border border-gray-200 rounded" />
+            </div>
+            <button onClick={() => setShowingQrFor(null)} className="w-full py-2 rounded-lg bg-gray-200 text-gray-900 font-medium hover:bg-gray-300 transition-colors">
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 
@@ -247,13 +293,19 @@ export default function MaterialsPage() {
 
         {materials.map((mat) => (
           <div key={mat.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => openPresentation(mat)}>
-            <FileText size={40} className="text-blue-400" />
+            <div className="p-3 bg-blue-500/10 rounded-xl">
+              <FileText size={32} className="text-blue-500" />
+            </div>
             <span className="text-sm font-medium text-foreground">{mat.name}</span>
-            {mat.file_type === 'powerpoint' && <span className="text-[10px] text-primary font-medium">PPTX</span>}
             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                <Trash2 size={14} />
+              <button title="Gerar QR Code de Assinatura" onClick={(e) => { e.stopPropagation(); setShowingQrFor(mat); }} className="p-1.5 rounded-md bg-secondary text-foreground hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm border border-border">
+                <QrCode size={14} />
               </button>
+              {isAdmin && (
+                <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 border border-transparent shadow-sm">
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -266,31 +318,6 @@ export default function MaterialsPage() {
         </div>
       )}
 
-      {/* Presentation Viewer Modal */}
-      {viewingFile && viewingFile.file_url && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div ref={viewerRef} className="w-full max-w-6xl h-[85vh] bg-card rounded-xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b border-border/40">
-              <h3 className="text-sm font-medium text-foreground truncate">{viewingFile.name}</h3>
-              <div className="flex gap-2">
-                <button onClick={toggleFullscreen} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-                  <Maximize2 size={18} />
-                </button>
-                <button onClick={() => setViewingFile(null)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1">
-              <iframe
-                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewingFile.file_url)}`}
-                className="w-full h-full border-0"
-                title={viewingFile.name}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

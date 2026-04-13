@@ -29,8 +29,6 @@ const supaSecondary = createClient(supabaseUrl, supabaseAnonKey, {
 export default function SettingsPage() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [newUnit, setNewUnit] = useState('');
   
   const [showNewUser, setShowNewUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -40,12 +38,8 @@ export default function SettingsPage() {
   const [creatingUser, setCreatingUser] = useState(false);
 
   const fetch = async () => {
-    const [u, un] = await Promise.all([
-      supabase.from('users_profiles').select('*').order('full_name'),
-      supabase.from('units').select('*').order('name'),
-    ]);
-    setUsers(u.data ?? []);
-    setUnits(un.data ?? []);
+    const { data } = await supabase.from('users_profiles').select('*').order('full_name');
+    setUsers(data ?? []);
   };
 
   useEffect(() => {
@@ -54,20 +48,6 @@ export default function SettingsPage() {
   }, [isAdmin]);
 
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
-  const addUnit = async () => {
-    if (!newUnit.trim()) return;
-    await supabase.from('units').insert({ name: newUnit.trim() });
-    setNewUnit('');
-    fetch();
-    toast.success('Unidade adicionada');
-  };
-
-  const deleteUnit = async (id: string) => {
-    await supabase.from('units').delete().eq('id', id);
-    setUnits(prev => prev.filter(u => u.id !== id));
-    toast.success('Unidade removida');
-  };
 
   const deleteUser = async (id: string) => {
     if (!confirm('Tem certeza que deseja remover este perfil? (O login no Supabase não será apagado, apenas o acesso ao sistema)')) return;
@@ -125,7 +105,7 @@ export default function SettingsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Configurações</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerenciamento de usuários e unidades</p>
+        <p className="text-sm text-muted-foreground mt-1">Gerenciamento de usuários do sistema</p>
       </div>
 
       {/* Users */}
@@ -157,33 +137,6 @@ export default function SettingsPage() {
             </div>
           ))}
           {users.length === 0 && <p className="text-muted-foreground text-sm">Nenhum usuário cadastrado</p>}
-        </div>
-      </div>
-
-      {/* Units */}
-      <div className="glass-card p-6">
-        <h2 className="font-display text-lg font-semibold text-foreground mb-4">Unidades (SOC)</h2>
-        <div className="flex gap-3 mb-4">
-          <input
-            value={newUnit}
-            onChange={(e) => setNewUnit(e.target.value)}
-            placeholder="Nome da unidade"
-            className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            onKeyDown={(e) => e.key === 'Enter' && addUnit()}
-          />
-          <button onClick={addUnit} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">
-            <Plus size={16} /> Adicionar
-          </button>
-        </div>
-        <div className="space-y-2">
-          {units.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-              <span className="text-sm text-foreground">{u.name}</span>
-              <button onClick={() => deleteUnit(u.id)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-colors">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
         </div>
       </div>
 

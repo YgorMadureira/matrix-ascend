@@ -6,21 +6,29 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  const tables = ['users_profiles', 'folders', 'materials', 'collaborators', 'socs', 'units'];
-  
-  for (const table of tables) {
-    console.log(`\n=== ${table.toUpperCase()} ===`);
-    const { data, error, count } = await supabase.from(table).select('*', { count: 'exact' });
-    if (error) {
-      console.log(`  ERRO: ${error.message} (code: ${error.code})`);
-    } else {
-      console.log(`  Total de registros: ${data?.length ?? 0}`);
-      if (data && data.length > 0 && data.length <= 5) {
-        console.table(data);
-      } else if (data && data.length > 5) {
-        console.table(data.slice(0, 3));
-        console.log(`  ... e mais ${data.length - 3} registros`);
-      }
+  // 1. TODAS as pastas
+  console.log("=== TODAS AS PASTAS ===");
+  const { data: all } = await supabase.from('folders').select('id, name, parent_id').order('name');
+  console.table(all);
+
+  // 2. Pastas na RAIZ (parent_id IS NULL)
+  console.log("\n=== QUERY: parent_id IS NULL ===");
+  const { data: root, error: rootErr } = await supabase.from('folders').select('id, name, parent_id').is('parent_id', null).order('name');
+  console.log("Error:", rootErr);
+  console.table(root);
+
+  // 3. Para cada pasta raiz, ver o que a query retorna com .eq('parent_id', id)
+  if (root && root.length > 0) {
+    for (const rf of root) {
+      console.log(`\n=== QUERY: parent_id = '${rf.id}' (dentro de "${rf.name}") ===`);
+      const { data: children, error: childErr } = await supabase
+        .from('folders')
+        .select('id, name, parent_id')
+        .eq('parent_id', rf.id)
+        .order('name');
+      console.log("Error:", childErr);
+      console.log("Count:", children?.length);
+      console.table(children);
     }
   }
 }

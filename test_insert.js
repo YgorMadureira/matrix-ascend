@@ -6,12 +6,14 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
-  const { data, error } = await supabase.from('folders').insert({ name: 'Test Folder', parent_id: null });
-  if (error) {
-    console.error("DB INSERT ERROR:", error.message, error.details, error.hint);
-  } else {
-    console.log("INSERT SUCCESS:", data);
-  }
+  const insertData = {
+    name: '4. Arquivos Obsoletos',
+    parent_id: null,
+  };
+  console.log("Inserting folder:", insertData);
+  const { data, error } = await supabase.from('folders').insert(insertData).select();
+  console.log("Data:", data);
+  console.log("Error:", error);
 }
 
 run();

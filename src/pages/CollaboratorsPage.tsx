@@ -21,7 +21,7 @@ const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift:
 export default function CollaboratorsPage() {
   const { isAdmin } = useAuth();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [trainings, setTrainings] = useState<{ collaborator_id: string }[]>([]);
+  const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function CollaboratorsPage() {
   const fetchData = async () => {
     const [{ data: collabs }, { data: trains }] = await Promise.all([
       supabase.from('collaborators').select('*').order('name'),
-      supabase.from('trainings_completed').select('collaborator_id'),
+      supabase.from('trainings_completed').select('collaborator_id, training_type'),
     ]);
     setCollaborators(collabs ?? []);
     setTrainings(trains ?? []);
@@ -46,7 +46,15 @@ export default function CollaboratorsPage() {
   );
 
   const totalLeaders = collaborators.filter(c => c.role?.toLowerCase().includes('líder') || c.role?.toLowerCase().includes('lider')).length;
-  const uniqueTrained = new Set(trainings.map(t => t.collaborator_id)).size;
+
+  const isTrained = (c: Collaborator) => {
+    return trainings.some((t) => 
+      t.collaborator_id === c.id && 
+      (t.training_type?.toUpperCase() === c.sector?.toUpperCase() || t.training_type?.toUpperCase() === 'ONBOARDING OPERACIONAL')
+    );
+  };
+
+  const uniqueTrained = collaborators.filter(c => isTrained(c)).length;
   const trainedPct = collaborators.length > 0 ? Math.round((uniqueTrained / collaborators.length) * 100) : 0;
 
   const handleSave = async () => {
@@ -198,6 +206,7 @@ export default function CollaboratorsPage() {
               <th className="text-left p-4 text-muted-foreground font-medium">Líder</th>
               <th className="text-left p-4 text-muted-foreground font-medium">Cargo</th>
               <th className="text-left p-4 text-muted-foreground font-medium">SOC</th>
+              <th className="text-left p-4 text-muted-foreground font-medium">Status</th>
               {isAdmin && <th className="text-right p-4 text-muted-foreground font-medium">Ações</th>}
             </tr>
           </thead>
@@ -212,6 +221,13 @@ export default function CollaboratorsPage() {
                 <td className="p-4 text-foreground">{c.leader}</td>
                 <td className="p-4 text-foreground">{c.role}</td>
                 <td className="p-4 text-foreground">{c.soc}</td>
+                <td className="p-4 text-foreground">
+                  {isTrained(c) ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-600 border border-emerald-500/30">TREINADO</span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-600 border border-rose-500/30">PENDENTE</span>
+                  )}
+                </td>
                 {isAdmin && (
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-1">

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -24,8 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initializedRef = useRef(false);
 
-  const fetchProfile = async (userId: string, email: string) => {
+  const fetchProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
@@ -34,93 +35,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error('Erro ao buscar perfil:', error.message);
-        // Mesmo com erro, não crasha - define perfil fallback
-        setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
-        return;
+        console.error('[Auth] Erro ao buscar perfil:', error.message);
+        return null;
       }
 
       if (data) {
-        setProfile(data);
-      } else {
-        // Perfil não existe, tenta criar
-        try {
-          await supabase.from('users_profiles').insert({
-            id: userId,
-            email: email,
-            full_name: email.split('@')[0],
-            role: 'admin'
-          });
-        } catch (insertErr) {
-          console.error('Erro ao criar perfil:', insertErr);
-        }
-        setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
+        return data as UserProfile;
       }
+
+      // Perfil não existe — cria como admin
+      const newProfile: UserProfile = {
+        id: userId,
+        email: email,
+        full_name: email.split('@')[0],
+        role: 'admin',
+      };
+
+      const { error: insertErr } = await supabase
+        .from('users_profiles')
+        .insert(newProfile);
+
+      if (insertErr) {
+        console.error('[Auth] Erro ao criar perfil:', insertErr.message);
+        // Tenta ler de novo — talvez já exista por outro processo
+        const { data: retry } = await supabase
+          .from('users_profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        return (retry as UserProfile) ?? newProfile;
+      }
+
+      return newProfile;
     } catch (err) {
-      console.error('Erro crítico em fetchProfile:', err);
-      // Fallback: define um perfil padrão para não travar o app
-      setProfile({ id: userId, email, full_name: email.split('@')[0], role: 'admin' });
+      console.error('[Auth] Erro crítico:', err);
+      return null;
     }
   };
 
   useEffect(() => {
-    let subscription: { unsubscribe: () => void } | null = null;
+    // Função única de inicialização — evita corridas
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-    // TIMEOUT DE SEGURANÇA: Se o auth demorar mais que 5 segundos, libera o app
-    const safetyTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-
-    try {
-      const { data } = supabase.auth.onAuthStateChange(async (_, session) => {
-        try {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await fetchProfile(session.user.id, session.user.email ?? '');
-          } else {
-            setProfile(null);
-          }
-        } catch (err) {
-          console.error('Erro em onAuthStateChange:', err);
-        } finally {
-          clearTimeout(safetyTimeout);
-          setLoading(false);
+        if (session?.user) {
+          setUser(session.user);
+          const p = await fetchProfile(session.user.id, session.user.email ?? '');
+          if (p) setProfile(p);
         }
-      });
-      subscription = data.subscription;
-    } catch (err) {
-      console.error('Erro ao configurar auth listener:', err);
-      clearTimeout(safetyTimeout);
-      setLoading(false);
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id, session.user.email ?? '').finally(() => {
-          clearTimeout(safetyTimeout);
-          setLoading(false);
-        });
-      } else {
-        clearTimeout(safetyTimeout);
+      } catch (err) {
+        console.error('[Auth] Erro na inicialização:', err);
+      } finally {
         setLoading(false);
+        initializedRef.current = true;
       }
-    }).catch((err) => {
-      console.error('Erro ao obter sessão:', err);
-      clearTimeout(safetyTimeout);
-      setLoading(false);
-    });
-
-    return () => {
-      if (subscription) subscription.unsubscribe();
     };
+
+    initAuth();
+
+    // Listener para mudanças de sessão — só age após a inicialização
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        // Ignora o evento inicial (já tratamos no initAuth)
+        if (!initializedRef.current) return;
+
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setProfile(null);
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+          // Só busca o perfil de novo em eventos relevantes
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            const p = await fetchProfile(session.user.id, session.user.email ?? '');
+            if (p) setProfile(p);
+          }
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error: error?.message ?? null };
-    } catch (err) {
+    } catch {
       return { error: 'Erro de conexão. Tente novamente.' };
     }
   };
@@ -129,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('Erro ao sair:', err);
+      console.error('[Auth] Erro ao sair:', err);
     }
     setUser(null);
     setProfile(null);
@@ -147,4 +151,3 @@ export function useAuth() {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
-
