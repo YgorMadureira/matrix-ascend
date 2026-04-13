@@ -1,16 +1,20 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap, PenTool } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X } from 'lucide-react';
 import logoPts from '@/assets/logo_pts.png';
 
 export default function AppLayout() {
   const { profile, isAdmin, isLider, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   // Menu items differ by role
   const navItems = isLider
@@ -29,15 +33,43 @@ export default function AppLayout() {
       ];
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex flex-col md:flex-row h-screen bg-background">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-border/40 glass-card z-30">
+        <div className="flex items-center gap-3">
+          <img src={logoPts} alt="PTS" className="h-8" />
+          <h1 className="font-display font-bold text-primary text-sm">PTS MATRIX</h1>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -mr-2 text-foreground">
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col glass-card rounded-none border-r border-border/40">
-        <div className="p-5 flex items-center gap-3 border-b border-border/30">
-          <img src={logoPts} alt="PTS" className="h-10" />
-          <div>
-            <h1 className="font-display text-xs font-bold text-primary">PTS MATRIX</h1>
-            <p className="text-[10px] text-muted-foreground">Training System</p>
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-card/95 backdrop-blur-xl border-r border-border/40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-5 flex items-center justify-between border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <img src={logoPts} alt="PTS" className="h-10" />
+            <div>
+              <h1 className="font-display text-xs font-bold text-primary">PTS MATRIX</h1>
+              <p className="text-[10px] text-muted-foreground">Training System</p>
+            </div>
           </div>
+          <button onClick={closeMobileMenu} className="md:hidden p-1 text-muted-foreground hover:text-foreground">
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
@@ -45,6 +77,7 @@ export default function AppLayout() {
             <NavLink
               key={to}
               to={to}
+              onClick={closeMobileMenu}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive
@@ -60,6 +93,7 @@ export default function AppLayout() {
           {isAdmin && (
             <NavLink
               to="/settings"
+              onClick={closeMobileMenu}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive
@@ -95,7 +129,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-24 md:pb-6 relative w-full">
         <Outlet />
       </main>
     </div>

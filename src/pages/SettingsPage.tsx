@@ -79,16 +79,16 @@ export default function SettingsPage() {
   };
 
   const createUser = async () => {
-    if (!newUserName || !newUserEmail || !newUserPassword) {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
       toast.error('Preencha os dados do usuário');
       return;
     }
     setCreatingUser(true);
 
     const { data: authData, error: authError } = await supaSecondary.auth.signUp({
-      email: newUserEmail,
-      password: newUserPassword,
-      options: { data: { full_name: newUserName } }
+      email: newUserEmail.trim(),
+      password: newUserPassword.trim(),
+      options: { data: { full_name: newUserName.trim() } }
     });
 
     if (authError) {
