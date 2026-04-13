@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Building2, User, CheckCircle2, Search, PenTool, Loader2 } from 'lucide-react';
+import { Building2, User, CheckCircle2, Search, PenTool, Loader2, GraduationCap, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Soc {
@@ -14,145 +14,142 @@ interface Collaborator {
   name: string;
   sector: string;
   soc: string;
+  role: string;
+}
+
+interface Instructor {
+  id: string;
+  name: string;
+  soc_name: string;
 }
 
 export default function SignPage() {
   const [searchParams] = useSearchParams();
-  const trainingName = searchParams.get('training');
+  const trainingName = searchParams.get('training') || '';
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // 1=SOC, 2=Nome, 3=Instrutor, 4=Assinatura
   const [socs, setSocs] = useState<Soc[]>([]);
   const [selectedSoc, setSelectedSoc] = useState('');
-  
+
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [searchName, setSearchName] = useState('');
   const [selectedCollab, setSelectedCollab] = useState<Collaborator | null>(null);
+
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [selectedInstructor, setSelectedInstructor] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
 
   // Load SOCs on mount
   useEffect(() => {
-    async function loadSocs() {
-      const { data } = await supabase.from('socs').select('id, name').order('name');
+    supabase.from('socs').select('id, name').order('name').then(({ data }) => {
       if (data) setSocs(data);
-    }
-    loadSocs();
+    });
   }, []);
 
-  // Set up canvas when visiting step 3
+  // Setup canvas when arriving at step 4
   useEffect(() => {
-    if (step === 3 && canvasRef.current) {
+    if (step === 4 && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Handle high DPI displays for crisp drawing
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#000000';
-      }
+      if (!ctx) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#1a1a2e';
+      setHasDrawn(false);
     }
   }, [step]);
 
   const loadCollaborators = async (socName: string) => {
-    const { data } = await supabase.from('collaborators').select('id, name, sector, soc').eq('soc', socName).order('name');
-    if (data) setCollaborators(data);
+    const { data } = await supabase
+      .from('collaborators')
+      .select('id, name, sector, soc, role')
+      .eq('soc', socName)
+      .order('name');
+    setCollaborators(data ?? []);
     setSelectedSoc(socName);
     setStep(2);
   };
 
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+  const selectCollab = async (c: Collaborator) => {
+    setSelectedCollab(c);
+    // Load instructors for this SOC
+    const { data } = await supabase
+      .from('instructors')
+      .select('*')
+      .eq('soc_name', c.soc)
+      .order('name');
+    setInstructors(data ?? []);
+    setStep(3);
+  };
+
+  const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
+    const rect = canvasRef.current.getBoundingClientRect();
     if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
-      };
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
     }
-    return {
-      x: (e as React.MouseEvent).clientX - rect.left,
-      y: (e as React.MouseEvent).clientY - rect.top
-    };
+    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setIsDrawing(true);
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
-    if (ctx) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    }
+    if (ctx) { ctx.beginPath(); ctx.moveTo(x, y); }
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (!isDrawing) return;
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoords(e);
     const ctx = canvasRef.current?.getContext('2d');
-    if (ctx) {
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
+    if (ctx) { ctx.lineTo(x, y); ctx.stroke(); setHasDrawn(true); }
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => setIsDrawing(false);
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (canvas && ctx) {
-      // Clear but respect DPR scaling
       const dpr = window.devicePixelRatio || 1;
       ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+      setHasDrawn(false);
     }
   };
 
   const submitSignature = async () => {
-    if (!selectedCollab || !trainingName || !canvasRef.current) return;
-    
-    // Check if canvas is actually drawn
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const pixelBuffer = new Uint32Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
-    const hasDrawn = pixelBuffer.some(color => color !== 0);
-    
-    if (!hasDrawn) {
-      toast.error('Por favor, assine no quadro abaixo');
-      return;
-    }
+    if (!selectedCollab || !trainingName) return;
+    if (!hasDrawn) { toast.error('Por favor, assine no quadro abaixo antes de confirmar.'); return; }
+    if (!selectedInstructor) { toast.error('Selecione o instrutor do treinamento.'); return; }
 
     setIsSubmitting(true);
-    
     try {
-      // Get image as base64 and convert to blob
+      const canvas = canvasRef.current!;
       const dataUrl = canvas.toDataURL('image/png');
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      
+
       const fileName = `signatures/${Date.now()}_${selectedCollab.id}.png`;
-      const { error: uploadError } = await supabase.storage.from('signatures').upload(fileName, blob, { contentType: 'image/png' });
-      
+      const { error: uploadError } = await supabase.storage
+        .from('signatures')
+        .upload(fileName, blob, { contentType: 'image/png' });
+
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(fileName);
@@ -160,7 +157,8 @@ export default function SignPage() {
       const { error: insertError } = await supabase.from('trainings_completed').insert({
         collaborator_id: selectedCollab.id,
         training_type: trainingName,
-        signature_pdf_url: urlData.publicUrl
+        signature_pdf_url: urlData.publicUrl,
+        instructor_name: selectedInstructor,
       });
 
       if (insertError) throw insertError;
@@ -174,135 +172,266 @@ export default function SignPage() {
     }
   };
 
-  if (!trainingName) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6text-center">
-        <h1 className="text-2xl font-bold text-destructive mb-2">Treinamento não identificado</h1>
-        <p className="text-muted-foreground">O QRCode lido é inválido ou incompleto.</p>
-      </div>
-    );
-  }
+  const filteredCollabs = collaborators.filter(c =>
+    c.name.toLowerCase().includes(searchName.toLowerCase())
+  );
 
+  // ── Tela de sucesso ──────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-500">
-        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 size={48} className="text-emerald-500" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="animate-in zoom-in duration-500 space-y-6 max-w-sm w-full">
+          <div className="w-28 h-28 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/30">
+            <CheckCircle2 size={56} className="text-emerald-500" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold text-foreground">Assinatura Registrada!</h1>
+            <p className="text-muted-foreground mt-2">Seu treinamento foi registrado com sucesso no sistema.</p>
+          </div>
+
+          <div className="glass-card p-4 text-left space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Colaborador</span>
+              <span className="font-semibold text-foreground">{selectedCollab?.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Função</span>
+              <span className="font-semibold text-foreground">{selectedCollab?.role}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Treinamento</span>
+              <span className="font-semibold text-primary">{trainingName}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Instrutor</span>
+              <span className="font-semibold text-foreground">{selectedInstructor}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 rounded-xl bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-colors"
+          >
+            Registrar próximo colaborador
+          </button>
         </div>
-        <h1 className="text-3xl font-display font-bold text-foreground mb-2">Treinamento Concluído!</h1>
-        <p className="text-muted-foreground text-lg mb-8">Sua assinatura foi registrada com sucesso.</p>
-        <p className="font-medium text-foreground">{selectedCollab?.name}</p>
-        <p className="text-sm text-primary">{trainingName}</p>
-        
-        <button onClick={() => window.location.reload()} className="mt-12 px-6 py-3 rounded-full bg-secondary text-foreground font-medium hover:bg-secondary/80">
-          Registrar nova pessoa
-        </button>
       </div>
     );
   }
 
-  const filteredCollabs = collaborators.filter(c => c.name.toLowerCase().includes(searchName.toLowerCase()));
+  if (!trainingName) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-2xl font-bold text-destructive mb-2">QR Code inválido</h1>
+        <p className="text-muted-foreground">Este QR Code não contém um treinamento identificado.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-md space-y-6 pb-20">
-        
-        <div className="text-center space-y-2 mb-8">
-          <div className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-2">
-            Registro de Treinamento
+      <div className="w-full max-w-md space-y-5 pb-20">
+
+        {/* Header */}
+        <div className="text-center space-y-2 pt-6 pb-2">
+          <div className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider">
+            Registro de Presença
           </div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground leading-tight">
             {trainingName}
           </h1>
         </div>
 
-        {/* Passo 1 */}
+        {/* Progress steps */}
+        <div className="flex items-center justify-center gap-2">
+          {[1, 2, 3, 4].map(s => (
+            <div key={s} className={`flex items-center gap-2`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
+                ${step > s ? 'bg-emerald-500 text-white' : step === s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
+                {step > s ? '✓' : s}
+              </div>
+              {s < 4 && <div className={`w-6 h-0.5 ${step > s ? 'bg-emerald-500' : 'bg-secondary'}`} />}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Passo 1: Escolher SOC ── */}
         {step === 1 && (
           <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
             <div className="flex items-center gap-3 border-b border-border pb-4">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">1</div>
-              <h2 className="text-lg font-semibold text-foreground">Qual sua Unidade?</h2>
+              <Building2 size={20} className="text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Qual é sua Unidade?</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-3 pt-1">
               {socs.map(s => (
-                <button key={s.id} onClick={() => loadCollaborators(s.name)} 
-                  className="flex items-center gap-3 p-4 rounded-xl bg-secondary/50 hover:bg-primary/20 hover:text-primary transition-all text-left border border-transparent hover:border-primary/30">
-                  <Building2 size={20} />
-                  <span className="font-medium">{s.name}</span>
+                <button
+                  key={s.id}
+                  onClick={() => loadCollaborators(s.name)}
+                  className="flex items-center gap-3 p-4 rounded-xl bg-secondary/50 hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-all text-left border border-transparent"
+                >
+                  <Building2 size={18} />
+                  <span className="font-medium text-sm">{s.name}</span>
                 </button>
               ))}
-              {socs.length === 0 && <p className="text-muted-foreground text-sm py-4">Carregando unidades...</p>}
+              {socs.length === 0 && (
+                <p className="col-span-2 text-center text-muted-foreground text-sm py-4">
+                  Carregando unidades...
+                </p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Passo 2 */}
+        {/* ── Passo 2: Buscar nome ── */}
         {step === 2 && (
           <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">2</div>
+                <User size={20} className="text-primary" />
                 <h2 className="text-lg font-semibold text-foreground">Quem é você?</h2>
               </div>
-              <button onClick={() => setStep(1)} className="text-sm text-primary hover:underline">Voltar</button>
+              <button onClick={() => { setStep(1); setSearchName(''); }} className="text-xs text-primary hover:underline">
+                ← Voltar
+              </button>
             </div>
-            
-            <div className="relative pt-2">
-              <Search className="absolute left-3 top-5 text-muted-foreground" size={18} />
-              <input 
-                type="text" 
-                placeholder="Busque pelo seu nome..." 
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <input
+                type="text"
+                placeholder="Busque pelo seu nome..."
                 value={searchName}
                 onChange={e => setSearchName(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-secondary border border-border text-foreground outline-none focus:border-primary"
+                autoFocus
+                className="w-full pl-9 pr-4 py-3 rounded-xl bg-secondary border border-border text-foreground outline-none focus:border-primary text-sm"
               />
             </div>
 
-            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+            <div className="max-h-64 overflow-y-auto space-y-2">
               {filteredCollabs.map(c => (
-                <button key={c.id} onClick={() => { setSelectedCollab(c); setStep(3); }} 
-                  className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary transition-colors text-left group">
-                  <div className="flex items-center gap-3">
-                    <User size={18} className="text-muted-foreground group-hover:text-primary" />
-                    <div>
-                      <p className="font-medium text-foreground">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.sector}</p>
-                    </div>
+                <button
+                  key={c.id}
+                  onClick={() => selectCollab(c)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary transition-colors text-left group"
+                >
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.role} • {c.sector}</p>
                   </div>
+                  <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
                 </button>
               ))}
-              {filteredCollabs.length === 0 && <p className="text-center text-muted-foreground py-4 text-sm">Nenhum colaborador encontrado</p>}
+              {filteredCollabs.length === 0 && searchName.length > 0 && (
+                <p className="text-center text-muted-foreground py-4 text-sm">
+                  Nenhum colaborador encontrado para "{searchName}"
+                </p>
+              )}
+              {collaborators.length === 0 && (
+                <p className="text-center text-muted-foreground py-4 text-sm">
+                  Nenhum colaborador cadastrado para esta unidade.
+                </p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Passo 3 */}
+        {/* ── Passo 3: Selecionar Instrutor ── */}
         {step === 3 && selectedCollab && (
           <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
-             <div className="flex items-center justify-between border-b border-border pb-4">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">3</div>
-                <h2 className="text-lg font-semibold text-foreground">Assinatura</h2>
+                <GraduationCap size={20} className="text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Quem ministrou?</h2>
               </div>
-              <button onClick={() => setStep(2)} className="text-sm text-primary hover:underline">Voltar</button>
+              <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">
+                ← Voltar
+              </button>
             </div>
 
+            {/* Ficha do colaborador */}
             <div className="bg-primary/10 p-4 rounded-xl border border-primary/20">
-              <p className="text-sm text-muted-foreground">Colaborador</p>
+              <p className="text-xs text-muted-foreground mb-1">Colaborador Selecionado</p>
               <p className="font-bold text-primary">{selectedCollab.name}</p>
-              <p className="text-xs text-muted-foreground">{selectedCollab.soc} • {selectedCollab.sector}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{selectedCollab.role} • {selectedCollab.soc} • {selectedCollab.sector}</p>
             </div>
 
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <PenTool size={16} /> Desenhe sua assinatura
-                </label>
-                <button onClick={clearCanvas} className="text-xs font-medium text-destructive hover:underline">Limpar</button>
+            <div className="space-y-2 pt-1">
+              <p className="text-sm text-muted-foreground font-medium">Selecione o instrutor:</p>
+              {instructors.map(inst => (
+                <button
+                  key={inst.id}
+                  onClick={() => { setSelectedInstructor(inst.name); setStep(4); }}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left
+                    ${selectedInstructor === inst.name
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-secondary/30 hover:bg-secondary'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <GraduationCap size={18} />
+                    <span className="font-medium text-sm">{inst.name}</span>
+                  </div>
+                  <ChevronRight size={16} className="text-muted-foreground" />
+                </button>
+              ))}
+              {instructors.length === 0 && (
+                <div className="text-center py-6 space-y-2">
+                  <p className="text-muted-foreground text-sm">Nenhum instrutor cadastrado para a unidade <strong>{selectedCollab.soc}</strong>.</p>
+                  <p className="text-xs text-muted-foreground">Peça ao administrador para cadastrar os instrutores nas Configurações.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Passo 4: Assinatura ── */}
+        {step === 4 && selectedCollab && (
+          <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <PenTool size={20} className="text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Assine aqui</h2>
               </div>
-              
-              <div className="bg-white rounded-xl overflow-hidden border-2 border-border focus-within:border-primary touch-none relative h-[250px] w-full shadow-inner">
-                <canvas 
+              <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">
+                ← Voltar
+              </button>
+            </div>
+
+            {/* Ficha completa */}
+            <div className="bg-secondary/50 rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Colaborador</span>
+                <span className="font-semibold text-foreground">{selectedCollab.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Função</span>
+                <span className="font-semibold text-foreground">{selectedCollab.role}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Setor</span>
+                <span className="font-semibold text-foreground">{selectedCollab.sector}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unidade</span>
+                <span className="font-semibold text-foreground">{selectedCollab.soc}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Instrutor</span>
+                <span className="font-semibold text-foreground">{selectedInstructor}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Treinamento</span>
+                <span className="font-semibold text-primary">{trainingName}</span>
+              </div>
+            </div>
+
+            {/* Canvas de assinatura */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-muted-foreground">Desenhe sua assinatura abaixo:</label>
+                <button onClick={clearCanvas} className="text-xs text-destructive hover:underline">Limpar</button>
+              </div>
+              <div className="bg-white rounded-xl border-2 border-border focus-within:border-primary overflow-hidden touch-none h-[200px] w-full shadow-inner">
+                <canvas
                   ref={canvasRef}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
@@ -314,14 +443,23 @@ export default function SignPage() {
                   className="w-full h-full cursor-crosshair"
                 />
               </div>
+              {!hasDrawn && (
+                <p className="text-xs text-center text-muted-foreground">Use o dedo para assinar acima</p>
+              )}
             </div>
 
-            <button disabled={isSubmitting} onClick={submitSignature} className="w-full py-4 mt-6 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center shadow-glow">
-              {isSubmitting ? <><Loader2 size={24} className="animate-spin mr-2" /> Confirmando...</> : 'Confirmar Presença'}
+            <button
+              disabled={isSubmitting || !hasDrawn}
+              onClick={submitSignature}
+              className="w-full py-4 mt-2 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center shadow-glow"
+            >
+              {isSubmitting
+                ? <><Loader2 size={22} className="animate-spin mr-2" /> Confirmando...</>
+                : 'Confirmar Presença'
+              }
             </button>
           </div>
         )}
-
       </div>
     </div>
   );
