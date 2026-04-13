@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { PenTool, Search, Eye, X, Download, Calendar, User, GraduationCap } from 'lucide-react';
+import { PenTool, Search, Eye, X, Download, Calendar, User, GraduationCap, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SignatureRecord {
   id: string;
@@ -64,6 +65,18 @@ export default function SignaturesPage() {
     a.href = record.signature_pdf_url;
     a.download = `assinatura_${record.collaborator?.name ?? record.id}.png`;
     a.click();
+  };
+
+  const deleteRecord = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta assinatura? Esta ação não pode ser desfeita.')) return;
+    const { error } = await supabase.from('trainings_completed').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir: ' + error.message);
+    } else {
+      toast.success('Registro excluído com sucesso');
+      setRecords(prev => prev.filter(r => r.id !== id));
+      if (viewing?.id === id) setViewing(null);
+    }
   };
 
   return (
@@ -146,6 +159,13 @@ export default function SignaturesPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Sem imagem</span>
                       )}
+                      <button
+                        onClick={() => deleteRecord(r.id)}
+                        className="p-1.5 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                        title="Excluir registro"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
