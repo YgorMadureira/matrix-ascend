@@ -1,24 +1,31 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2 } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap } from 'lucide-react';
 import logoPts from '@/assets/logo_pts.png';
 
-const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/materials', icon: FolderOpen, label: 'Materiais' },
-  { to: '/collaborators', icon: Users, label: 'Colaboradores' },
-  { to: '/reports', icon: BarChart3, label: 'Relatórios' },
-  { to: '/socs', icon: Building2, label: 'SOCs' },
-];
-
 export default function AppLayout() {
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, isLider, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  // Menu items differ by role
+  const navItems = isLider
+    ? [
+        { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
+        { to: '/reports', icon: BarChart3, label: 'Meu Time' },
+      ]
+    : [
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { to: '/materials', icon: FolderOpen, label: 'Materiais' },
+        { to: '/collaborators', icon: Users, label: 'Colaboradores' },
+        { to: '/reports', icon: BarChart3, label: 'Relatórios' },
+        { to: '/socs', icon: Building2, label: 'SOCs' },
+        { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
+      ];
 
   return (
     <div className="flex h-screen bg-background">
@@ -73,7 +80,7 @@ export default function AppLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{profile?.full_name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+              <p className="text-xs text-muted-foreground capitalize">{profile?.role === 'lider' ? 'Líder' : profile?.role}</p>
             </div>
           </div>
           <button

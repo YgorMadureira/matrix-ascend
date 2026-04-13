@@ -244,6 +244,7 @@ export default function SettingsPage() {
                 <label className="text-sm text-muted-foreground mb-1 block">Permissão</label>
                 <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary">
                   <option value="user">Usuário Comum (Apenas consome)</option>
+                  <option value="lider">Líder (Treinamentos + Meu Time)</option>
                   <option value="admin">Administrador (Cria/Edita)</option>
                 </select>
               </div>

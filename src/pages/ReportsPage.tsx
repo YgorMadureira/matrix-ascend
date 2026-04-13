@@ -14,6 +14,7 @@ interface Collaborator {
   sector: string;
   shift: string;
   role: string;
+  leader: string;
 }
 
 interface Training {
@@ -25,7 +26,7 @@ interface Training {
 }
 
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { user, profile, isLider } = useAuth();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [units, setUnits] = useState<string[]>([]);
@@ -41,7 +42,8 @@ export default function ReportsPage() {
         supabase.from('socs').select('name').order('name'),
       ]);
       const c = collabs ?? [];
-      setCollaborators(c);
+      const collabData = isLider ? c.filter(x => x.leader === profile?.full_name) : c;
+      setCollaborators(collabData);
       setTrainings(trains ?? []);
       setUnits(socData ? socData.map(s => s.name) : []);
       setSectors([...new Set(c.map(x => x.sector))]);
