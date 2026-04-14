@@ -107,17 +107,23 @@ export default function CollaboratorsPage() {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
-    if (editingId) {
-      await supabase.from('collaborators').update(form).eq('id', editingId);
-      toast.success('Colaborador atualizado');
-    } else {
-      await supabase.from('collaborators').insert(form);
-      toast.success('Colaborador cadastrado');
+    try {
+      if (editingId) {
+        const { error } = await supabase.from('collaborators').update(form).eq('id', editingId);
+        if (error) { toast.error('Erro: ' + error.message); return; }
+        toast.success('Colaborador atualizado');
+      } else {
+        const { error } = await supabase.from('collaborators').insert(form);
+        if (error) { toast.error('Erro: ' + error.message); return; }
+        toast.success('Colaborador cadastrado');
+      }
+      setForm(emptyForm);
+      setShowForm(false);
+      setEditingId(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error('Erro crítico: Verifique sua conexão ou permissões no banco.');
     }
-    setForm(emptyForm);
-    setShowForm(false);
-    setEditingId(null);
-    fetchData();
   };
 
   const startEdit = (c: Collaborator) => {
