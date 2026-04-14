@@ -1,9 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, Upload, FolderOpen, X, Maximize2, QrCode } from 'lucide-react';
+import { Folder, FileText, Plus, ArrowLeft, Edit2, Trash2, FolderOpen, X, QrCode, ChevronRight, Home } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLocation } from 'react-router-dom';
 
 interface FolderItem {
   id: string;
@@ -20,95 +19,145 @@ interface MaterialItem {
   folder_id: string | null;
 }
 
+interface BreadcrumbItem {
+  id: string | null;
+  name: string;
+}
+
 export default function MaterialsPage() {
   const { isAdmin, user, loading: authLoading } = useAuth();
-  const location = useLocation();
+
+  // Core navigation state
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Raiz' }]);
+
+  // Data state
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
-  const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Raiz' }]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // UI state
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
   const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
   const [editFolderName, setEditFolderName] = useState('');
+
   const [showNewMaterial, setShowNewMaterial] = useState(false);
   const [materialName, setMaterialName] = useState('');
   const [materialUrl, setMaterialUrl] = useState('');
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
-  // O ID da pasta atual é SEMPRE derivado do breadcrumb
-  const currentFolder = breadcrumb[breadcrumb.length - 1].id;
+  // Prevent double-fetch
+  const fetchingRef = useRef(false);
 
-  const fetchData = async (folderId: string | null) => {
-    let folderResult;
-    let materialResult;
+  // ─── Data Loading ───────────────────────────────────────────
+  const loadFolder = async (folderId: string | null) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    setIsLoading(true);
 
-    if (folderId === null) {
-      folderResult = await supabase.from('folders').select('*').is('parent_id', null).order('name');
-      materialResult = await supabase.from('materials').select('*').is('folder_id', null).order('name');
-    } else {
-      folderResult = await supabase.from('folders').select('*').eq('parent_id', folderId).order('name');
-      materialResult = await supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
+    try {
+      // Clear old data immediately to prevent stale UI
+      setFolders([]);
+      setMaterials([]);
+
+      let folderQuery;
+      let materialQuery;
+
+      if (folderId === null) {
+        folderQuery = supabase.from('folders').select('*').is('parent_id', null).order('name');
+        materialQuery = supabase.from('materials').select('*').is('folder_id', null).order('name');
+      } else {
+        folderQuery = supabase.from('folders').select('*').eq('parent_id', folderId).order('name');
+        materialQuery = supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
+      }
+
+      const [folderResult, materialResult] = await Promise.all([folderQuery, materialQuery]);
+
+      if (folderResult.error) {
+        console.error('[Materials] Erro ao buscar pastas:', folderResult.error);
+        toast.error('Erro ao carregar pastas: ' + folderResult.error.message);
+      }
+      if (materialResult.error) {
+        console.error('[Materials] Erro ao buscar materiais:', materialResult.error);
+      }
+
+      setFolders(folderResult.data ?? []);
+      setMaterials(materialResult.data ?? []);
+    } catch (err) {
+      console.error('[Materials] Erro crítico:', err);
+      toast.error('Erro de conexão ao carregar materiais.');
+    } finally {
+      setIsLoading(false);
+      fetchingRef.current = false;
     }
-
-    setFolders(folderResult.data ?? []);
-    setMaterials(materialResult.data ?? []);
   };
 
-  // Refetch quando o breadcrumb muda (e portanto o currentFolder muda)
-  // Aguarda auth estar pronto antes de buscar
+  // Load when currentFolderId changes (single source of truth)
   useEffect(() => {
-    if (!authLoading) fetchData(currentFolder);
-  }, [breadcrumb, authLoading]);
+    if (!authLoading) {
+      loadFolder(currentFolderId);
+    }
+  }, [currentFolderId, authLoading]);
 
-  // Recarrega ao voltar para a aba
-  useEffect(() => {
-    const onFocus = () => { if (!authLoading) fetchData(currentFolder); };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [authLoading, currentFolder]);
-
+  // ─── Navigation ─────────────────────────────────────────────
   const navigateToFolder = (folder: FolderItem) => {
+    // Prevent navigating to same folder
+    if (currentFolderId === folder.id) return;
+
+    setCurrentFolderId(folder.id);
     setBreadcrumb(prev => {
-      // Proteção contra duplo-clique
+      // Protection: don't add if already the last item
       if (prev[prev.length - 1].id === folder.id) return prev;
       return [...prev, { id: folder.id, name: folder.name }];
     });
   };
 
   const navigateToBreadcrumb = (index: number) => {
+    const target = breadcrumb[index];
+    if (target.id === currentFolderId) return; // already there
+
     setBreadcrumb(prev => prev.slice(0, index + 1));
+    setCurrentFolderId(target.id);
   };
 
+  const goBack = () => {
+    if (breadcrumb.length <= 1) return;
+    const newBreadcrumb = breadcrumb.slice(0, -1);
+    setBreadcrumb(newBreadcrumb);
+    setCurrentFolderId(newBreadcrumb[newBreadcrumb.length - 1].id);
+  };
+
+  // ─── Folder CRUD ────────────────────────────────────────────
   const createFolder = async () => {
-    console.log("createFolder called with:", newFolderName);
-    if (!newFolderName.trim() || isCreatingFolder) return;
+    if (!newFolderName.trim()) {
+      toast.error('Digite o nome da pasta');
+      return;
+    }
+    if (isCreatingFolder) return;
 
     setIsCreatingFolder(true);
     try {
-      const insertData = {
+      const { error } = await supabase.from('folders').insert({
         name: newFolderName.trim(),
-        parent_id: currentFolder,
-      };
-
-      console.log("Inserting folder:", insertData);
-      const { data, error } = await supabase.from('folders').insert(insertData).select();
-
-      console.log("Insert response:", data, error);
+        parent_id: currentFolderId,
+      });
 
       if (error) {
         toast.error('Erro ao criar pasta: ' + error.message);
         return;
       }
 
+      toast.success('Pasta criada com sucesso!');
       setNewFolderName('');
       setShowNewFolder(false);
-      
-      console.log("Fetching data again for:", currentFolder);
-      await fetchData(currentFolder);
-      toast.success('Pasta criada');
-    } catch (err) {
-      console.error("Critical error in createFolder:", err);
+      await loadFolder(currentFolderId);
+    } catch (err: any) {
+      console.error('[Materials] Erro ao criar pasta:', err);
       toast.error('Erro de conexão ao criar pasta.');
     } finally {
       setIsCreatingFolder(false);
@@ -117,14 +166,14 @@ export default function MaterialsPage() {
 
   const updateFolder = async () => {
     if (!editingFolder || !editFolderName.trim()) return;
-    const { error } = await supabase.from('folders').update({ name: editFolderName }).eq('id', editingFolder.id);
+    const { error } = await supabase.from('folders').update({ name: editFolderName.trim() }).eq('id', editingFolder.id);
     if (error) {
       toast.error('Erro ao editar pasta: ' + error.message);
       return;
     }
     setEditingFolder(null);
     setEditFolderName('');
-    fetchData(currentFolder);
+    await loadFolder(currentFolderId);
     toast.success('Pasta renomeada');
   };
 
@@ -135,10 +184,11 @@ export default function MaterialsPage() {
       toast.error('Erro ao excluir pasta: ' + error.message);
       return;
     }
-    fetchData(currentFolder);
+    await loadFolder(currentFolderId);
     toast.success('Pasta removida');
   };
 
+  // ─── Material CRUD ──────────────────────────────────────────
   const deleteMaterial = async (id: string) => {
     if (!confirm('Excluir este material?')) return;
     const { error } = await supabase.from('materials').delete().eq('id', id);
@@ -146,19 +196,16 @@ export default function MaterialsPage() {
       toast.error('Erro ao excluir material: ' + error.message);
       return;
     }
-    fetchData(currentFolder);
+    await loadFolder(currentFolderId);
     toast.success('Material removido');
   };
-
-  const [isAddingLink, setIsAddingLink] = useState(false);
 
   const handleAddLink = async () => {
     if (!materialName.trim() || !materialUrl.trim()) {
       toast.error('Preencha o nome e o link');
       return;
     }
-    
-    // Auto-fix URL if missing http
+
     let finalUrl = materialUrl.trim();
     if (!finalUrl.startsWith('http')) {
       finalUrl = 'https://' + finalUrl;
@@ -170,20 +217,19 @@ export default function MaterialsPage() {
         name: materialName.trim(),
         file_url: finalUrl,
         file_type: 'link',
-        folder_id: currentFolder || null,
+        folder_id: currentFolderId || null,
         created_by: user?.id || null,
       });
 
       if (error) {
         toast.error('Erro ao adicionar link: ' + error.message);
-        setIsAddingLink(false);
         return;
       }
 
       setMaterialName('');
       setMaterialUrl('');
       setShowNewMaterial(false);
-      fetchData(currentFolder);
+      await loadFolder(currentFolderId);
       toast.success('Material adicionado com sucesso');
     } catch (err: any) {
       toast.error('Erro de conexão: ' + err.message);
@@ -198,45 +244,92 @@ export default function MaterialsPage() {
     }
   };
 
+  // ─── Render ─────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Materiais</h1>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1 text-sm mt-2 flex-wrap">
             {breadcrumb.map((b, i) => (
-              <span key={i} className="flex items-center gap-1">
-                {i > 0 && <span>/</span>}
-                <button onClick={() => navigateToBreadcrumb(i)} className="hover:text-primary transition-colors">{b.name}</button>
+              <span key={`${b.id ?? 'root'}-${i}`} className="flex items-center gap-1">
+                {i > 0 && <ChevronRight size={14} className="text-muted-foreground/50" />}
+                <button
+                  onClick={() => navigateToBreadcrumb(i)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
+                    i === breadcrumb.length - 1
+                      ? 'text-primary font-semibold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {i === 0 && <Home size={14} />}
+                  {b.name}
+                </button>
               </span>
             ))}
+          </nav>
+        </div>
+
+        {isAdmin && (
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={() => setShowNewMaterial(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all shadow-glow">
+              <Plus size={16} /> Link do Google
+            </button>
+            <button onClick={() => { setShowNewFolder(true); setNewFolderName(''); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
+              <Plus size={16} /> Pasta
+            </button>
           </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setShowNewMaterial(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all shadow-glow">
-            <Plus size={16} /> Link do Google
-          </button>
-          <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
-            <Plus size={16} /> Pasta
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* New folder */}
+      {/* New Folder Form */}
       {showNewFolder && (
-        <div className="glass-card p-4 flex gap-3">
-          <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Nome da pasta"
+        <div className="glass-card p-4 flex gap-3 items-center">
+          <input
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="Nome da pasta"
             className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
             onKeyDown={(e) => { if (e.key === 'Enter' && !isCreatingFolder) createFolder(); }}
-            disabled={isCreatingFolder} />
-          <button onClick={createFolder} disabled={isCreatingFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">
+            disabled={isCreatingFolder}
+            autoFocus
+          />
+          <button
+            onClick={createFolder}
+            disabled={isCreatingFolder || !newFolderName.trim()}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50 hover:brightness-110 transition-all"
+          >
             {isCreatingFolder ? 'Criando...' : 'Criar'}
           </button>
-          <button onClick={() => setShowNewFolder(false)} disabled={isCreatingFolder} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm disabled:opacity-50">Cancelar</button>
+          <button
+            onClick={() => { setShowNewFolder(false); setNewFolderName(''); setIsCreatingFolder(false); }}
+            className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80"
+          >
+            Cancelar
+          </button>
         </div>
       )}
 
-      {/* Add Google Drive Link */}
+      {/* Edit Folder Modal */}
+      {editingFolder && (
+        <div className="glass-card p-4 flex gap-3 items-center">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Renomear:</span>
+          <input
+            value={editFolderName}
+            onChange={(e) => setEditFolderName(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
+            onKeyDown={(e) => { if (e.key === 'Enter') updateFolder(); }}
+            autoFocus
+          />
+          <button onClick={updateFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
+          <button onClick={() => { setEditingFolder(null); setEditFolderName(''); }} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+        </div>
+      )}
+
+      {/* Add Google Drive Link Modal */}
       {showNewMaterial && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
@@ -252,7 +345,7 @@ export default function MaterialsPage() {
                 <input value={materialName} onChange={e => setMaterialName(e.target.value)} placeholder="Ex: Treinamento NR-12" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Link do Google Drive (Apresentação, Doc, Tabela)</label>
+                <label className="text-sm text-muted-foreground mb-1 block">Link do Google Drive</label>
                 <input value={materialUrl} onChange={e => setMaterialUrl(e.target.value)} placeholder="https://docs.google.com/..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
               </div>
             </div>
@@ -279,57 +372,80 @@ export default function MaterialsPage() {
         </div>
       )}
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-8 text-muted-foreground text-sm">Carregando...</div>
+      )}
+
       {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {currentFolder && (
-          <button onClick={() => navigateToBreadcrumb(breadcrumb.length - 2)} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center">
-            <ArrowLeft size={32} className="text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Voltar</span>
-          </button>
-        )}
+      {!isLoading && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {/* Back button */}
+          {currentFolderId !== null && (
+            <button onClick={goBack} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center">
+              <ArrowLeft size={32} className="text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Voltar</span>
+            </button>
+          )}
 
-        {folders.map((folder) => (
-          <div key={folder.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => navigateToFolder(folder)}>
-            <Folder size={40} className="text-primary" />
-            <span className="text-sm font-medium text-foreground">{folder.name}</span>
-            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setEditFolderName(folder.name); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
-                <Edit2 size={14} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {materials.map((mat) => (
-          <div key={mat.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => openPresentation(mat)}>
-            <div className="p-3 bg-blue-500/10 rounded-xl">
-              <FileText size={32} className="text-blue-500" />
-            </div>
-            <span className="text-sm font-medium text-foreground">{mat.name}</span>
-            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button title="Gerar QR Code de Assinatura" onClick={(e) => { e.stopPropagation(); setShowingQrFor(mat); }} className="p-1.5 rounded-md bg-secondary text-foreground hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm border border-border">
-                <QrCode size={14} />
-              </button>
+          {/* Folders */}
+          {folders.map((folder) => (
+            <div
+              key={folder.id}
+              className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer"
+              onClick={() => navigateToFolder(folder)}
+            >
+              <Folder size={40} className="text-primary" />
+              <span className="text-sm font-medium text-foreground">{folder.name}</span>
               {isAdmin && (
-                <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 border border-transparent shadow-sm">
-                  <Trash2 size={14} />
-                </button>
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setEditFolderName(folder.name); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
 
-      {folders.length === 0 && materials.length === 0 && !currentFolder && (
-        <div className="glass-card p-12 text-center">
-          <FolderOpen size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Nenhum material ainda. {isAdmin ? 'Crie pastas e faça upload de apresentações.' : 'Aguarde o administrador adicionar conteúdo.'}</p>
+          {/* Materials */}
+          {materials.map((mat) => (
+            <div key={mat.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => openPresentation(mat)}>
+              <div className="p-3 bg-blue-500/10 rounded-xl">
+                <FileText size={32} className="text-blue-500" />
+              </div>
+              <span className="text-sm font-medium text-foreground">{mat.name}</span>
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button title="Gerar QR Code de Assinatura" onClick={(e) => { e.stopPropagation(); setShowingQrFor(mat); }} className="p-1.5 rounded-md bg-secondary text-foreground hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm border border-border">
+                  <QrCode size={14} />
+                </button>
+                {isAdmin && (
+                  <button onClick={(e) => { e.stopPropagation(); deleteMaterial(mat.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 border border-transparent shadow-sm">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Empty State */}
+      {!isLoading && folders.length === 0 && materials.length === 0 && !currentFolderId && (
+        <div className="glass-card p-12 text-center">
+          <FolderOpen size={48} className="mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Nenhum material ainda. {isAdmin ? 'Crie pastas e adicione links do Google Drive.' : 'Aguarde o administrador adicionar conteúdo.'}</p>
+        </div>
+      )}
+
+      {!isLoading && folders.length === 0 && materials.length === 0 && currentFolderId && (
+        <div className="glass-card p-12 text-center">
+          <FolderOpen size={48} className="mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Esta pasta está vazia.</p>
+        </div>
+      )}
     </div>
   );
 }
