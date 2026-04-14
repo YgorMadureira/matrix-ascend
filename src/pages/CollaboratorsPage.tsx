@@ -29,6 +29,28 @@ export default function CollaboratorsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedSoc, setSelectedSoc] = useState('');
+  const [selectedLeader, setSelectedLeader] = useState('');
+
+  const handleChange = (key: keyof typeof form, value: string) => {
+    let val = value.toUpperCase();
+    if (key === 'gender' || key === 'name' || key === 'sector' || key === 'leader' || key === 'role') {
+      val = val.replace(/[^A-ZÀ-ÖØ-öø-ÿ\s]/g, '');
+    } else if (key === 'opsid') {
+      val = val.replace(/[^A-Z0-9]/g, '');
+    } else if (key === 'soc') {
+      val = val.replace(/[^A-Z0-9]/g, '').slice(0, 3);
+    } else if (key === 'shift') {
+      val = val.replace(/[^A-Z0-9]/g, '').slice(0, 3);
+      if (val.length > 0 && val[0] !== 'T') {
+        val = 'T' + val.substring(0, 2);
+      }
+    }
+    setForm(prev => ({ ...prev, [key]: val }));
+  };
+
+  const uniqueSocs = Array.from(new Set(collaborators.map(c => c.soc).filter(Boolean))).sort();
+  const uniqueLeaders = Array.from(new Set(collaborators.map(c => c.leader).filter(Boolean))).sort();
 
   const fetchData = useCallback(async () => {
     // Supabase has a default limit of 1000 rows. We need to fetch all of them.
@@ -77,14 +99,20 @@ export default function CollaboratorsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [fetchData, authLoading]);
 
-  const filtered = collaborators.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.opsid ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    c.soc.toLowerCase().includes(search.toLowerCase()) ||
-    c.sector.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = collaborators.filter(c => {
+    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
+      (c.opsid ?? '').toLowerCase().includes(search.toLowerCase()) || 
+      c.soc.toLowerCase().includes(search.toLowerCase()) || 
+      c.sector.toLowerCase().includes(search.toLowerCase());
+    
+    const matchSoc = selectedSoc ? c.soc === selectedSoc : true;
+    const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
+    
+    return matchSearch && matchSoc && matchLeader;
+  });
 
-  const totalLeaders = collaborators.filter(c => c.role?.toLowerCase().includes('líder') || c.role?.toLowerCase().includes('lider')).length;
+  const displayTotal = filtered.length;
+  const totalLeaders = filtered.filter(c => c.role?.toUpperCase().includes('LÍDER') || c.role?.toUpperCase().includes('LIDER')).length;
 
   const isTrained = (c: Collaborator) => {
     return trainings.some((t) => 
@@ -99,8 +127,8 @@ export default function CollaboratorsPage() {
     );
   };
 
-  const uniqueTrained = collaborators.filter(c => isTrained(c)).length;
-  const trainedPct = collaborators.length > 0 ? Math.round((uniqueTrained / collaborators.length) * 100) : 0;
+  const uniqueTrained = filtered.filter(c => isTrained(c)).length;
+  const trainedPct = displayTotal > 0 ? Math.round((uniqueTrained / displayTotal) * 100) : 0;
 
   const handleSave = async () => {
     if (!form.name || !form.soc || !form.sector || !form.shift || !form.role) {
@@ -357,7 +385,7 @@ export default function CollaboratorsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card-hover p-4 flex items-center gap-3">
           <Users size={20} className="text-primary" />
-          <div><p className="text-xl font-bold text-foreground">{collaborators.length}</p><p className="text-xs text-muted-foreground">Colaboradores</p></div>
+          <div><p className="text-xl font-bold text-foreground">{displayTotal}</p><p className="text-xs text-muted-foreground">Colaboradores</p></div>
         </div>
         <div className="glass-card-hover p-4 flex items-center gap-3">
           <Crown size={20} className="text-yellow-400" />
@@ -373,11 +401,21 @@ export default function CollaboratorsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, OPSID, SOC ou setor..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+      {/* Filters */}
+      <div className="flex gap-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, OPSID, setor..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+        </div>
+        <select value={selectedSoc} onChange={(e) => setSelectedSoc(e.target.value)} className="px-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary min-w-[150px]">
+          <option value="">Todos SOCs</option>
+          {uniqueSocs.map(soc => <option key={soc} value={soc}>{soc}</option>)}
+        </select>
+        <select value={selectedLeader} onChange={(e) => setSelectedLeader(e.target.value)} className="px-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary min-w-[150px]">
+          <option value="">Todos os Líderes</option>
+          {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
       </div>
 
       {/* Form */}
@@ -386,7 +424,7 @@ export default function CollaboratorsPage() {
           <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {fields.map(({ key, label }) => (
-              <input key={key} value={form[key]} onChange={(e) => setForm(prev => ({ ...prev, [key]: e.target.value }))} placeholder={label}
+              <input key={key} value={form[key]} onChange={(e) => handleChange(key, e.target.value)} placeholder={label}
                 className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
             ))}
           </div>

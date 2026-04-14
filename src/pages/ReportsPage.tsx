@@ -97,20 +97,9 @@ export default function ReportsPage() {
     );
 
   const toggleTraining = async (collabId: string, type: string) => {
-    const existing = trainings.find(t => t.collaborator_id === collabId && t.training_type === type);
-    if (existing) {
-      await supabase.from('trainings_completed').delete().eq('id', existing.id);
-      setTrainings(prev => prev.filter(t => t.id !== existing.id));
-      toast.success('Treinamento removido');
-    } else {
-      const { data } = await supabase.from('trainings_completed').insert({
-        collaborator_id: collabId,
-        training_type: type,
-        registered_by: user?.id,
-      }).select().single();
-      if (data) setTrainings(prev => [...prev, data]);
-      toast.success('Treinamento registrado');
-    }
+    // Manually checking/unchecking is disabled as requested.
+    // Trainings must be completed via QR Code signature.
+    toast.info('Treinamentos devem ser concluídos via QR Code do material.');
   };
 
   const uploadSignature = async (collabId: string, type: string, file: File) => {
@@ -244,9 +233,9 @@ export default function ReportsPage() {
                   return (
                     <td key={type} className="p-4 text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <button onClick={() => toggleTraining(c.id, type)} className="transition-transform hover:scale-110">
+                        <div className="transition-transform">
                           {done ? <CheckCircle2 size={22} className="text-green-500" /> : <XCircle size={22} className="text-destructive/50" />}
-                        </button>
+                        </div>
                         <label className="cursor-pointer">
                           <Upload size={12} className="text-muted-foreground hover:text-primary transition-colors" />
                           <input type="file" accept=".pdf" className="hidden" onChange={(e) => {

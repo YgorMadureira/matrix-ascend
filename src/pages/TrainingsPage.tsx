@@ -33,12 +33,6 @@ export default function TrainingsPage() {
   const [hasDrawn, setHasDrawn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Management (Admin)
-  const [managingTraining, setManagingTraining] = useState<TrainingItem | null>(null);
-  const [mgmtQuestions, setMgmtQuestions] = useState<any[]>([]);
-  const [showQForm, setShowQForm] = useState(false);
-  const [qForm, setQForm] = useState({ id: '', question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', order_num: 1 });
-
   const currentFolder = breadcrumb[breadcrumb.length - 1].id;
 
   const fetchData = async (folderId: string | null) => {
@@ -281,47 +275,6 @@ export default function TrainingsPage() {
     }
   };
 
-  // ── Admin flow: Manage Questions ──
-  const openQuestionManager = async (t: TrainingItem) => {
-    setManagingTraining(t);
-    const { data } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).order('order_num');
-    setMgmtQuestions(data ?? []);
-  };
-
-  const saveQuestion = async () => {
-    if (!qForm.question || !qForm.option_a || !qForm.option_b || !qForm.option_c || !qForm.option_d) {
-      toast.error('Preencha todos os campos da questão');
-      return;
-    }
-    const payload = {
-      training_id: managingTraining!.id,
-      question: qForm.question,
-      option_a: qForm.option_a,
-      option_b: qForm.option_b,
-      option_c: qForm.option_c,
-      option_d: qForm.option_d,
-      correct_option: qForm.correct_option,
-      order_num: qForm.order_num
-    };
-
-    if (qForm.id) {
-      await supabase.from('quiz_questions').update(payload).eq('id', qForm.id);
-    } else {
-      await supabase.from('quiz_questions').insert(payload);
-    }
-
-    toast.success('Questão salva com sucesso');
-    setShowQForm(false);
-    openQuestionManager(managingTraining!);
-  };
-
-  const deleteQuestion = async (id: string) => {
-    if (!confirm('Excluir esta questão?')) return;
-    await supabase.from('quiz_questions').delete().eq('id', id);
-    toast.success('Questão removida');
-    openQuestionManager(managingTraining!);
-  };
-
   // ── Active training view (leader flow) ──
   if (activeTraining) {
     return (
@@ -441,83 +394,6 @@ export default function TrainingsPage() {
     );
   }
 
-  // ── Manage Questions View (Admin) ──
-  if (managingTraining) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <button onClick={() => setManagingTraining(null)} className="text-sm text-primary hover:underline">← Voltar aos Treinamentos</button>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Gerenciar Prova</h1>
-            <p className="text-muted-foreground">{managingTraining.name}</p>
-          </div>
-          <button onClick={() => { setQForm({ id: '', question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', order_num: mgmtQuestions.length + 1 }); setShowQForm(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110">
-            <Plus size={16} /> Nova Questão
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {mgmtQuestions.map(q => (
-            <div key={q.id} className="glass-card p-4 flex justify-between gap-4">
-              <div>
-                <p className="font-bold text-primary text-sm mb-1">Questão {q.order_num}</p>
-                <p className="font-medium text-foreground mb-2">{q.question}</p>
-                <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                  <p className={q.correct_option === 'a' ? 'text-emerald-500 font-bold' : ''}>A) {q.option_a}</p>
-                  <p className={q.correct_option === 'b' ? 'text-emerald-500 font-bold' : ''}>B) {q.option_b}</p>
-                  <p className={q.correct_option === 'c' ? 'text-emerald-500 font-bold' : ''}>C) {q.option_c}</p>
-                  <p className={q.correct_option === 'd' ? 'text-emerald-500 font-bold' : ''}>D) {q.option_d}</p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <button onClick={() => { setQForm(q); setShowQForm(true); }} className="p-2 rounded-lg bg-secondary text-foreground hover:bg-primary/20 hover:text-primary"><Edit2 size={16}/></button>
-                <button onClick={() => deleteQuestion(q.id)} className="p-2 rounded-lg bg-secondary text-foreground hover:bg-destructive/20 hover:text-destructive"><Trash2 size={16}/></button>
-              </div>
-            </div>
-          ))}
-          {mgmtQuestions.length === 0 && (
-            <div className="text-center p-12 glass-card">
-              <p className="text-muted-foreground">Nenhuma questão cadastrada para esta prova.</p>
-            </div>
-          )}
-        </div>
-
-        {showQForm && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl bg-card border border-border/40 rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">{qForm.id ? 'Editar Questão' : 'Nova Questão'}</h3>
-                <button onClick={() => setShowQForm(false)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="w-20">
-                    <label className="text-xs text-muted-foreground block mb-1">Nº</label>
-                    <input type="number" value={qForm.order_num} onChange={e => setQForm({...qForm, order_num: parseInt(e.target.value)||1})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground block mb-1">Enunciado da Questão</label>
-                    <textarea value={qForm.question} onChange={e => setQForm({...qForm, question: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none resize-none" rows={2}/>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs text-muted-foreground">Alternativa A</label><input value={qForm.option_a} onChange={e=>setQForm({...qForm, option_a: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                  <div><label className="text-xs text-muted-foreground">Alternativa B</label><input value={qForm.option_b} onChange={e=>setQForm({...qForm, option_b: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                  <div><label className="text-xs text-muted-foreground">Alternativa C</label><input value={qForm.option_c} onChange={e=>setQForm({...qForm, option_c: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                  <div><label className="text-xs text-muted-foreground">Alternativa D</label><input value={qForm.option_d} onChange={e=>setQForm({...qForm, option_d: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Alternativa Correta</label>
-                  <select value={qForm.correct_option} onChange={e => setQForm({...qForm, correct_option: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none">
-                    <option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option>
-                  </select>
-                </div>
-                <button onClick={saveQuestion} className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110 mt-2">Salvar Questão</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     );
   }
 
@@ -607,16 +483,13 @@ export default function TrainingsPage() {
         ))}
 
         {trainings.map(t => (
-          <div key={t.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => isLider ? openTraining(t) : undefined}>
+          <div key={t.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => (isLider || isAdmin) ? openTraining(t) : undefined}>
             <div className="p-3 bg-emerald-500/10 rounded-xl">
               <Play size={32} className="text-emerald-500" />
             </div>
             <span className="text-sm font-medium text-foreground">{t.name}</span>
             {isAdmin && (
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={e => { e.stopPropagation(); openQuestionManager(t); }} className="p-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30">
-                  <Edit2 size={14} />
-                </button>
                 <button onClick={e => { e.stopPropagation(); deleteTraining(t.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
                   <Trash2 size={14} />
                 </button>
