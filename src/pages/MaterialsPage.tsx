@@ -51,13 +51,8 @@ export default function MaterialsPage() {
 
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
-  // Prevent double-fetch
-  const fetchingRef = useRef(false);
-
   // ─── Data Loading ───────────────────────────────────────────
   const loadFolder = async (folderId: string | null) => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
     setIsLoading(true);
 
     try {
@@ -93,7 +88,6 @@ export default function MaterialsPage() {
       toast.error('Erro de conexão ao carregar materiais.');
     } finally {
       setIsLoading(false);
-      fetchingRef.current = false;
     }
   };
 
