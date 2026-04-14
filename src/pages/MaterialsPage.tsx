@@ -51,6 +51,16 @@ export default function MaterialsPage() {
 
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
+  // Helper para evitar requisições presas infinitamente (ex: timeout de conexão)
+  const withTimeout = <T,>(promise: Promise<T>, ms: number = 8000): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo esgotado. Verifique sua conexão e tente novamente.')), ms)
+      )
+    ]);
+  };
+
   // ─── Data Loading ───────────────────────────────────────────
   const loadFolder = async (folderId: string | null) => {
     setIsLoading(true);
@@ -136,13 +146,17 @@ export default function MaterialsPage() {
 
     setIsCreatingFolder(true);
     try {
-      const { error } = await supabase.from('folders').insert({
-        name: newFolderName.trim(),
-        parent_id: currentFolderId,
-      });
+      const parent_val = currentFolderId ? currentFolderId : null;
+      
+      const response = await withTimeout(
+        supabase.from('folders').insert({
+          name: newFolderName.trim(),
+          parent_id: parent_val,
+        }).select().single()
+      );
 
-      if (error) {
-        toast.error('Erro ao criar pasta: ' + error.message);
+      if (response.error) {
+        toast.error('Erro ao criar pasta: ' + response.error.message);
         return;
       }
 
@@ -207,16 +221,20 @@ export default function MaterialsPage() {
 
     setIsAddingLink(true);
     try {
-      const { error } = await supabase.from('materials').insert({
-        name: materialName.trim(),
-        file_url: finalUrl,
-        file_type: 'link',
-        folder_id: currentFolderId || null,
-        created_by: user?.id || null,
-      });
+      const parent_val = currentFolderId ? currentFolderId : null;
 
-      if (error) {
-        toast.error('Erro ao adicionar link: ' + error.message);
+      const response = await withTimeout(
+        supabase.from('materials').insert({
+          name: materialName.trim(),
+          file_url: finalUrl,
+          file_type: 'link',
+          folder_id: parent_val,
+          created_by: user?.id || null,
+        }).select().single()
+      );
+
+      if (response.error) {
+        toast.error('Erro ao adicionar link: ' + response.error.message);
         return;
       }
 
