@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Trash2, Shield, X, UserPlus, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
@@ -38,6 +38,13 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [socs, setSocs] = useState<Soc[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
+
+  // Edit User
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserRole, setEditUserRole] = useState('user');
+  const [savingUserEdit, setSavingUserEdit] = useState(false);
 
   // New User
   const [showNewUser, setShowNewUser] = useState(false);
@@ -88,7 +95,12 @@ export default function SettingsPage() {
     const { data: authData, error: authError } = await supaSecondary.auth.signUp({
       email: newUserEmail.trim(),
       password: newUserPassword.trim(),
-      options: { data: { full_name: newUserName.trim() } }
+      options: { 
+        data: { 
+          full_name: newUserName.trim(),
+          role: newUserRole
+        } 
+      }
     });
 
     if (authError) {
@@ -97,28 +109,42 @@ export default function SettingsPage() {
       return;
     }
 
-    const userId = authData.user?.id;
-    if (userId) {
-      const { error: profileError } = await supabase.from('users_profiles').insert({
-        id: userId,
-        email: newUserEmail,
-        full_name: newUserName,
-        role: newUserRole
-      });
-
-      if (profileError) {
-        toast.error('Login criado, porém erro ao registrar Perfil: ' + profileError.message);
-      } else {
-        toast.success(`Usuário ${newUserName} criado com sucesso!`);
-        setShowNewUser(false);
-        setNewUserName('');
-        setNewUserEmail('');
-        setNewUserPassword('');
-        setNewUserRole('user');
-        fetchAll();
-      }
-    }
+    toast.success(`Usuário ${newUserName} criado com sucesso! Perfil sincronizado automaticamente.`);
+    setShowNewUser(false);
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewUserPassword('');
+    setNewUserRole('user');
+    fetchAll();
     setCreatingUser(false);
+  };
+
+  const openEditUser = (user: UserProfile) => {
+    setEditingUserId(user.id);
+    setEditUserName(user.full_name);
+    setEditUserRole(user.role);
+    setShowEditUser(true);
+  };
+
+  const saveEditedUser = async () => {
+    if (!editUserName.trim()) {
+      toast.error('Preencha o nome do usuário');
+      return;
+    }
+    setSavingUserEdit(true);
+    const { error } = await supabase.from('users_profiles').update({
+      full_name: editUserName.trim(),
+      role: editUserRole
+    }).eq('id', editingUserId);
+
+    if (error) {
+      toast.error('Erro ao editar usuário: ' + error.message);
+    } else {
+      toast.success('Usuário atualizado com sucesso!');
+      setShowEditUser(false);
+      fetchAll();
+    }
+    setSavingUserEdit(false);
   };
 
   const saveInstructor = async () => {
@@ -179,9 +205,14 @@ export default function SettingsPage() {
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                   {u.role}
                 </span>
-                <button onClick={() => deleteUser(u.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-all">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEditUser(u)} title="Editar" className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:bg-secondary/80 transition-all">
+                    <Edit2 size={16} />
+                  </button>
+                  <button onClick={() => deleteUser(u.id)} title="Excluir" className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-all">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -253,6 +284,45 @@ export default function SettingsPage() {
             <button disabled={creatingUser} onClick={createUser} className="w-full mt-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 disabled:opacity-50 transition-all">
               {creatingUser ? 'Criando e Autenticando...' : 'Cadastrar Usuário'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUser && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-display font-semibold text-foreground">Editar Usuário</h3>
+              <button onClick={() => setShowEditUser(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Nome Completo</label>
+                <input value={editUserName} onChange={e => setEditUserName(e.target.value)} type="text" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all" />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Permissão de Acesso</label>
+                <select value={editUserRole} onChange={e => setEditUserRole(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all">
+                  <option value="user">Usuário Comum (Apenas consome)</option>
+                  <option value="lider">Líder (Treinamentos + Meu Time)</option>
+                  <option value="admin">Administrador (Cria/Edita tudo)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-3">
+              <button onClick={() => setShowEditUser(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-all">
+                Cancelar
+              </button>
+              <button disabled={savingUserEdit} onClick={saveEditedUser} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 disabled:opacity-50 transition-all shadow-glow">
+                {savingUserEdit ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
           </div>
         </div>
       )}
