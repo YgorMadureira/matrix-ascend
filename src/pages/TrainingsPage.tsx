@@ -394,8 +394,7 @@ export default function TrainingsPage() {
     );
   }
 
-    );
-  }
+
 
   // ── Normal listing view ──
   return (

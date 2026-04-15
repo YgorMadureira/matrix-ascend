@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 
-const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
+const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'] as const;
 
 interface Collaborator {
   id: string;
@@ -102,23 +102,7 @@ export default function ReportsPage() {
     toast.info('Treinamentos devem ser concluídos via QR Code do material.');
   };
 
-  const uploadSignature = async (collabId: string, type: string, file: File) => {
-    const path = `${collabId}/${type}/${file.name}`;
-    const { error: uploadError } = await supabase.storage.from('signatures').upload(path, file, { upsert: true });
-    if (uploadError) { toast.error('Erro no upload: ' + uploadError.message); return; }
-    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
-    const existing = trainings.find(t => t.collaborator_id === collabId && t.training_type === type);
-    if (existing) {
-      await supabase.from('trainings_completed').update({ signature_pdf_url: urlData.publicUrl }).eq('id', existing.id);
-      setTrainings(prev => prev.map(t => t.id === existing.id ? { ...t, signature_pdf_url: urlData.publicUrl } : t));
-    } else {
-      const { data } = await supabase.from('trainings_completed').insert({
-        collaborator_id: collabId, training_type: type, registered_by: user?.id, signature_pdf_url: urlData.publicUrl,
-      }).select().single();
-      if (data) setTrainings(prev => [...prev, data]);
-    }
-    toast.success('Assinatura enviada');
-  };
+  // uploadSignature command removed, will be handled by QR CODE flow
 
   // Stats per training type
   const sectorStats = TRAINING_TYPES.map(type => {
@@ -236,14 +220,6 @@ export default function ReportsPage() {
                         <div className="transition-transform">
                           {done ? <CheckCircle2 size={22} className="text-green-500" /> : <XCircle size={22} className="text-destructive/50" />}
                         </div>
-                        <label className="cursor-pointer">
-                          <Upload size={12} className="text-muted-foreground hover:text-primary transition-colors" />
-                          <input type="file" accept=".pdf" className="hidden" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadSignature(c.id, type, file);
-                            e.target.value = '';
-                          }} />
-                        </label>
                         {training?.signature_pdf_url && (
                           <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline">PDF</a>
                         )}
