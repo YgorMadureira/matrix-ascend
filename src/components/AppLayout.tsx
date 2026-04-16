@@ -130,7 +130,7 @@ export default function AppLayout() {
 
         {/* Main */}
         <main className="flex-1 overflow-y-auto bg-[#F5F5F5] p-3 md:p-6">
-          <div className="max-w-[1550px] mx-auto animate-fade-in-up">
+          <div className="max-w-[1550px] mx-auto">
             <Outlet />
           </div>
         </main>

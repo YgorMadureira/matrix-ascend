@@ -15,9 +15,12 @@ interface Collaborator {
   shift: string;
   leader: string;
   role: string;
+  bpo?: string;
+  is_onboarding?: boolean;
+  admission_date?: string;
 }
 
-const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '' };
+const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '' };
 
 export default function CollaboratorsPage() {
   const { isAdmin, loading: authLoading } = useAuth();
@@ -31,6 +34,7 @@ export default function CollaboratorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedSoc, setSelectedSoc] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
+  const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding'>('ativos');
 
   const handleChange = (key: keyof typeof form, value: string) => {
     let val = value.toUpperCase();
@@ -100,10 +104,15 @@ export default function CollaboratorsPage() {
   }, [fetchData, authLoading]);
 
   const filtered = collaborators.filter(c => {
+    // Current Tab filtering
+    const isEmOnboarding = c.is_onboarding === true;
+    if (currentTab === 'ativos' && isEmOnboarding) return false;
+    if (currentTab === 'onboarding' && !isEmOnboarding) return false;
+
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
       (c.opsid ?? '').toLowerCase().includes(search.toLowerCase()) || 
       c.soc.toLowerCase().includes(search.toLowerCase()) || 
-      c.sector.toLowerCase().includes(search.toLowerCase());
+      (c.sector || '').toLowerCase().includes(search.toLowerCase());
     
     const matchSoc = selectedSoc ? c.soc === selectedSoc : true;
     const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
@@ -115,25 +124,33 @@ export default function CollaboratorsPage() {
   const totalLeaders = filtered.filter(c => c.role?.toUpperCase().includes('LÍDER') || c.role?.toUpperCase().includes('LIDER')).length;
 
   const isTrained = (c: Collaborator) => {
-    return trainings.some((t) => 
-      t.collaborator_id === c.id && 
-      (
-        t.training_type?.toUpperCase().includes(c.sector?.toUpperCase()) ||
-        c.sector?.toUpperCase().includes(t.training_type?.toUpperCase()) ||
-        t.training_type?.toUpperCase() === c.sector?.toUpperCase() ||
-        t.training_type?.toUpperCase().includes('ONBOARDING OPERACIONAL') ||
-        t.training_type?.toUpperCase() === 'ONBOARDING OPERACIONAL'
-      )
-    );
+    return trainings.some((t) => {
+      if (t.collaborator_id !== c.id) return false;
+
+      const tName = t.training_type?.toUpperCase() || '';
+      const cSec = c.sector?.toUpperCase() || '';
+      
+      if (tName.includes(cSec) || cSec.includes(tName) || tName === cSec) return true;
+      
+      const isPtsSector = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO';
+      if (tName.includes('ONBOARDING OPERACIONAL') && isPtsSector) return true;
+
+      return false;
+    });
   };
 
   const uniqueTrained = filtered.filter(c => isTrained(c)).length;
   const trainedPct = displayTotal > 0 ? Math.round((uniqueTrained / displayTotal) * 100) : 0;
 
   const handleSave = async () => {
-    if (!form.name || !form.soc || !form.sector || !form.shift || !form.role) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
+    if (form.is_onboarding) {
+       if (!form.name || !form.soc || !form.role) {
+         toast.error('Preencha nome completo, cargo e SOC no Onboarding!'); return;
+       }
+    } else {
+       if (!form.name || !form.soc || !form.sector || !form.shift || !form.role) {
+         toast.error('Preencha todos os campos obrigatórios'); return;
+       }
     }
     try {
       if (editingId) {
@@ -155,7 +172,19 @@ export default function CollaboratorsPage() {
   };
 
   const startEdit = (c: Collaborator) => {
-    setForm({ name: c.name, opsid: c.opsid ?? '', gender: c.gender ?? '', soc: c.soc, sector: c.sector, shift: c.shift, leader: c.leader ?? '', role: c.role });
+    setForm({ 
+       name: c.name, 
+       opsid: c.opsid ?? '', 
+       gender: c.gender ?? '', 
+       soc: c.soc, 
+       sector: c.sector ?? '', 
+       shift: c.shift ?? '', 
+       leader: c.leader ?? '', 
+       role: c.role,
+       bpo: c.bpo ?? '',
+       is_onboarding: !!c.is_onboarding,
+       admission_date: c.admission_date ?? ''
+    });
     setEditingId(c.id);
     setShowForm(true);
   };
@@ -301,23 +330,54 @@ export default function CollaboratorsPage() {
         return;
       }
 
+      const onboardings = collaborators.filter(c => c.is_onboarding);
+
       // Insert in batches of 50
       let totalInserted = 0;
+      let totalUpdated = 0;
       let lastError = '';
       const BATCH = 50;
+      const isUploadingToOnboarding = currentTab === 'onboarding';
+
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH);
-        const { error } = await supabase.from('collaborators').insert(batch);
-        if (error) {
-          lastError = error.message;
-          console.error('[CSV] Erro no batch:', error);
-        } else {
-          totalInserted += batch.length;
+        
+        const toInsert = [];
+        for (const row of batch) {
+          if (!isUploadingToOnboarding) {
+            // WE ARE UPLOADING OFFICIAL ABS DATA. Try matching against onboarding!
+            const matched = onboardings.find(o => o.name.trim().toUpperCase() === row.name.toUpperCase());
+            if (matched) {
+               // UPDATE the existing record instead of inserting!
+               const { error } = await supabase.from('collaborators').update({
+                  ...row,
+                  is_onboarding: false
+               }).eq('id', matched.id);
+               if (error) { lastError = error.message; console.error(error); }
+               else totalUpdated++;
+               continue;
+            }
+          }
+          // Default logic
+          toInsert.push({ ...row, is_onboarding: isUploadingToOnboarding });
+        }
+
+        if (toInsert.length > 0) {
+          const { error } = await supabase.from('collaborators').insert(toInsert);
+          if (error) {
+            lastError = error.message;
+            console.error('[CSV] Erro no batch:', error);
+          } else {
+            totalInserted += toInsert.length;
+          }
         }
       }
 
-      if (totalInserted > 0) {
-        toast.success(`✓ ${totalInserted} colaboradores importados com sucesso!`);
+      if (totalInserted > 0 || totalUpdated > 0) {
+        let msg = '';
+        if (totalInserted > 0) msg += `✓ ${totalInserted} importados. `;
+        if (totalUpdated > 0) msg += `✓ ${totalUpdated} migrados do Onboarding para Ativo!`;
+        toast.success(msg);
         fetchData();
       }
       if (lastError) {
@@ -346,6 +406,7 @@ export default function CollaboratorsPage() {
     { key: 'opsid', label: 'OPSID' },
     { key: 'gender', label: 'Gênero' },
     { key: 'name', label: 'Colaborador' },
+    { key: 'bpo', label: 'BPO' },
     { key: 'shift', label: 'Turno' },
     { key: 'sector', label: 'Setor' },
     { key: 'leader', label: 'Líder' },
@@ -357,8 +418,22 @@ export default function CollaboratorsPage() {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Colaboradores</h1>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">{collaborators.length} funcionários registrados</p>
+          <div className="flex items-center gap-4 mb-4 border-b border-gray-100">
+            <button 
+              onClick={() => { setCurrentTab('ativos'); setSelectedIds(new Set()); }}
+              className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'ativos' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+            >
+              Base Ativa
+            </button>
+            <button 
+              onClick={() => { setCurrentTab('onboarding'); setSelectedIds(new Set()); }}
+              className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'onboarding' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+            >
+              Em Onboarding
+            </button>
+          </div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">{currentTab === 'ativos' ? 'Colaboradores Ativos' : 'Integração Onboarding'}</h1>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">{displayTotal} funcionários nesta aba</p>
         </div>
         {isAdmin && (
           <div className="flex gap-2 flex-wrap items-center">
@@ -378,7 +453,7 @@ export default function CollaboratorsPage() {
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
             <button 
-              onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }} 
+              onClick={() => { setForm({ ...emptyForm, is_onboarding: currentTab === 'onboarding' }); setEditingId(null); setShowForm(true); }} 
               className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md active:scale-95 transition-all"
             >
               <Plus size={16} /> Novo Registro
@@ -447,19 +522,39 @@ export default function CollaboratorsPage() {
               <p className="text-gray-400 font-medium text-xs mt-0.5">Preencha as informações necessárias</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fields.map(({ key, label }) => (
-                <div key={key}>
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">{label}</label>
-                  <input 
-                    value={form[key]} 
-                    onChange={(e) => handleChange(key, e.target.value)} 
-                    placeholder={`Digitando...`}
-                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 text-[13px] font-bold outline-none transition-all" 
-                  />
+            {currentTab === 'onboarding' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fields.filter(f => ['name', 'role', 'soc', 'bpo'].includes(f.key)).map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">{label}</label>
+                    <input 
+                      value={form[key]} 
+                      onChange={(e) => handleChange(key, e.target.value)} 
+                      placeholder={`Digitando...`}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 text-[13px] font-bold outline-none transition-all uppercase" 
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">Data de Admissão</label>
+                  <input type="date" value={form.admission_date} onChange={e => setForm(prev => ({ ...prev, admission_date: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 text-[13px] font-bold outline-none transition-all uppercase" />
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fields.map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">{label}</label>
+                    <input 
+                      value={form[key]} 
+                      onChange={(e) => handleChange(key, e.target.value)} 
+                      placeholder={`Digitando...`}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 text-[13px] font-bold outline-none transition-all" 
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div className="flex gap-2 pt-4 border-t border-gray-50">
               <button 
@@ -497,8 +592,12 @@ export default function CollaboratorsPage() {
                     </div>
                   </th>
                 )}
-                {['OPSID', 'Gênero', 'Colaborador', 'Turno', 'Setor', 'Líder', 'Cargo', 'SOC', 'Status'].map((h) => (
-                   <th key={h} className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
+                {['OPSID', 'Gênero', 'Colaborador', 'BPO'].map((h) => (
+                   <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
+                <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{currentTab === 'onboarding' ? 'Admissão' : 'Cargo e Turno'}</th>
+                {['Setor', 'Líder', 'Cargo', 'SOC', 'Status'].map((h) => (
+                   <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
                 {isAdmin && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
               </tr>
@@ -518,17 +617,29 @@ export default function CollaboratorsPage() {
                       </div>
                     </td>
                   )}
-                  <td className="p-2.5 text-gray-500 font-bold whitespace-nowrap">{c.opsid}</td>
-                  <td className="p-2.5 text-gray-400 text-[11px] font-medium whitespace-nowrap">{c.gender}</td>
-                  <td className="p-2.5 font-black text-gray-900 whitespace-nowrap">{c.name}</td>
-                  <td className="p-2.5 text-gray-500 font-bold underline decoration-[#EE4D2D]/20 underline-offset-4 whitespace-nowrap">{c.shift}</td>
-                  <td className="p-2.5 text-gray-700 font-medium whitespace-nowrap">
+                  <td className="p-2.5 text-center text-gray-500 font-bold whitespace-nowrap">{c.opsid}</td>
+                  <td className="p-2.5 text-center text-gray-400 text-[11px] font-medium whitespace-nowrap">{c.gender}</td>
+                  <td className="p-2.5 text-center font-black text-gray-900 whitespace-nowrap">{c.name}</td>
+                  <td className="p-2.5 text-center text-gray-500 font-bold whitespace-nowrap">{c.bpo || '-'}</td>
+                  
+                  {currentTab === 'onboarding' ? (
+                     <td className="p-2.5 text-center">
+                       <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">{c.admission_date ? new Date(c.admission_date).toLocaleDateString('pt-BR') : '—'}</span>
+                     </td>
+                  ) : (
+                     <td className="p-2.5 text-center">
+                        <p className="text-[11px] font-black text-gray-900 truncate max-w-[120px]">{c.role}</p>
+                        <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full mt-1 inline-block border border-gray-200">Turno {c.shift}</span>
+                     </td>
+                  )}
+                  
+                  <td className="p-2.5 text-center text-gray-700 font-medium whitespace-nowrap">
                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.sector}</span>
                   </td>
-                  <td className="p-2.5 text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader}</td>
-                  <td className="p-2.5 text-gray-400 text-[11px] font-medium max-w-[120px] truncate">{c.role}</td>
-                  <td className="p-2.5 text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>
-                  <td className="p-2.5 whitespace-nowrap">
+                  <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader}</td>
+                  <td className="p-2.5 text-center text-gray-400 text-[11px] font-medium max-w-[120px] truncate mx-auto">{c.role}</td>
+                  <td className="p-2.5 text-center text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>
+                  <td className="p-2.5 text-center whitespace-nowrap">
                     {isTrained(c) ? (
                       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200">
                         <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />

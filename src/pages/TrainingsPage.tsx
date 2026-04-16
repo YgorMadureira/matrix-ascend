@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Folder, FolderOpen, Plus, Trash2, ArrowLeft, Edit2, Play, ClipboardList, X } from 'lucide-react';
@@ -200,23 +200,25 @@ export default function TrainingsPage() {
   };
 
   // Canvas signature helpers
-  const initCanvas = (canvas: HTMLCanvasElement | null) => {
+  const initCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (!canvas) return;
     setCanvasRefState(canvas);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#1a1a2e';
-  };
+    if (canvas.width !== Math.floor(rect.width * dpr)) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#1a1a2e';
+    }
+  }, []);
 
   const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef) return { x: 0, y: 0 };
@@ -235,7 +237,7 @@ export default function TrainingsPage() {
     e.preventDefault(); if (!isDrawing) return;
     const { x, y } = getCoords(e);
     const ctx = canvasRef?.getContext('2d');
-    if (ctx) { ctx.lineTo(x, y); ctx.stroke(); setHasDrawn(true); }
+    if (ctx) { ctx.lineTo(x, y); ctx.stroke(); if (!hasDrawn) setHasDrawn(true); }
   };
   const stopDraw = () => setIsDrawing(false);
   const clearCanvas = () => {
@@ -259,11 +261,29 @@ export default function TrainingsPage() {
       await supabase.storage.from('signatures').upload(fileName, blob, { contentType: 'image/png' });
       const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(fileName);
 
+      // Assegurar que o usuário existe na tabela de colaboradores usando os dados do logado
+      if (profile && user) {
+        const { data: existCollab } = await supabase.from('collaborators').select('id').eq('id', user.id).maybeSingle();
+        if (!existCollab) {
+           await supabase.from('collaborators').insert({
+             id: user.id,
+             name: profile.full_name,
+             opsid: profile.opsid || `LIDER-${user.id.substring(0, 4).toUpperCase()}`,
+             role: profile.role === 'lider' ? 'Líder' : (profile.role || 'Líder'),
+             sector: profile.sector || 'Gestão',
+             shift: 'T1',
+             leader: 'Gestão SPX',
+             soc: profile.soc || 'SP6',
+             gender: 'Não Informado'
+           });
+        }
+      }
+
       await supabase.from('trainings_completed').insert({
         collaborator_id: user.id,
         training_type: activeTraining.name,
         signature_pdf_url: urlData.publicUrl,
-        instructor_name: profile?.full_name || 'Líder',
+        instructor_name: 'PLATAFORMA',
       });
 
       setExamStep('done');

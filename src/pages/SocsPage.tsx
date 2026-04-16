@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Edit2, Trash2, Building2, MapPin, User, CheckCircle2, XCircle, Info, X } from 'lucide-react';
@@ -100,8 +101,8 @@ export default function SocsPage() {
         )}
       </div>
 
-      {showForm && isAdmin && (
-        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+      {showForm && isAdmin && createPortal(
+        <div className="fixed inset-0 z-[100] bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl p-6 space-y-4 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-black text-gray-900">{editingId ? 'Editar SOC' : 'Nova SOC'}</h3>
@@ -137,12 +138,13 @@ export default function SocsPage() {
               {editingId ? 'Salvar Alterações' : 'Cadastrar Unidade'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Info Modal - Light backdrop, centered */}
-      {viewingSoc && (
-        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+      {viewingSoc && createPortal(
+        <div className="fixed inset-0 z-[100] bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl p-6 space-y-5 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200 relative">
             <button onClick={() => setViewingSoc(null)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors">
               <X size={18} />
@@ -191,7 +193,8 @@ export default function SocsPage() {
               Fechar
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
