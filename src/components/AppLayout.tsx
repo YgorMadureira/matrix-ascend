@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart3, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X } from 'lucide-react';
 import logoPts from '@/assets/logo_pts.png';
 
 export default function AppLayout() {
@@ -20,13 +20,13 @@ export default function AppLayout() {
   const navItems = isLider
     ? [
         { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
-        { to: '/reports', icon: BarChart3, label: 'Meu Time' },
+        { to: '/reports', icon: BarChart2, label: 'Meu Time' },
       ]
     : [
         { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/materials', icon: FolderOpen, label: 'Materiais' },
         { to: '/collaborators', icon: Users, label: 'Colaboradores' },
-        { to: '/reports', icon: BarChart3, label: 'Relatórios' },
+        { to: '/reports', icon: BarChart2, label: 'Relatórios' },
         { to: '/signatures', icon: PenTool, label: 'Assinaturas' },
         { to: '/socs', icon: Building2, label: 'SOCs' },
         { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },

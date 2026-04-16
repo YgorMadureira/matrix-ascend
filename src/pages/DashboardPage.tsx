@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChart3, Users, CheckCircle2, Percent } from 'lucide-react';
+import { BarChart2, Users, CheckCircle2, Percent } from 'lucide-react';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const cards = [
     { label: 'Colaboradores', value: stats.collaborators, icon: Users, color: 'text-[#EE4D2D]' },
     { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent, color: 'text-emerald-600' },
-    { label: 'Materiais', value: stats.materials, icon: BarChart3, color: 'text-[#EE4D2D]' },
+    { label: 'Materiais', value: stats.materials, icon: BarChart2, color: 'text-[#EE4D2D]' },
     { label: 'Treinamentos', value: stats.trainings, icon: CheckCircle2, color: 'text-amber-500' },
   ];
 

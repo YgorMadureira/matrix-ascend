@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, XCircle, Upload } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -172,91 +172,89 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Chart Card */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <BarChart3 className="text-[#EE4D2D]" size={20} />
-            Desempenho por SOC
-          </h2>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={chartData} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                <XAxis type="number" hide />
-                <YAxis dataKey="soc" type="category" stroke="#9ca3af" fontSize={10} width={60} />
-                <Tooltip
-                  cursor={{ fill: '#FEF6F5' }}
-                  contentStyle={{ backgroundColor: '#fff', border: 'none', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', color: '#111827' }}
-                />
-                <Bar dataKey="% Treinados" fill="#EE4D2D" radius={[0, 4, 4, 0]} barSize={20} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-             <div className="h-[300px] flex items-center justify-center text-gray-400 italic text-sm">Sem dados disponíveis</div>
-          )}
-        </div>
+      {/* Chart Card - Full width */}
+      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+        <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
+          <BarChart2 className="text-[#EE4D2D]" size={18} />
+          Desempenho por SOC
+        </h2>
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+              <XAxis dataKey="soc" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+              <Tooltip
+                cursor={{ fill: '#FEF6F5' }}
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #f3f4f6', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.08)', color: '#111827', fontSize: '12px' }}
+              />
+              <Bar dataKey="% Treinados" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+           <div className="h-[280px] flex items-center justify-center text-gray-300 italic text-xs">Sem dados disponíveis</div>
+        )}
+      </div>
 
-        {/* Table Card */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-             <h2 className="text-lg font-bold text-gray-900">Matriz de Certificação</h2>
-             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{filtered.length} Colaboradores</span>
-          </div>
-          <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50/50">
-                <tr className="border-b border-gray-100">
-                  <th className="text-left p-4 text-[10px] text-gray-400 font-black uppercase tracking-widest sticky left-0 bg-white shadow-[2px_0_5px_rgba(0,0,0,0.02)] z-10">Colaborador</th>
-                  <th className="text-left p-4 text-[10px] text-gray-400 font-black uppercase tracking-widest">Unidade/SOC</th>
-                  {TRAINING_TYPES.map(t => (
-                    <th key={t} className="text-center p-4 text-[10px] text-gray-400 font-black uppercase tracking-widest">{t}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="p-4 font-bold text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50/50 shadow-[2px_0_5px_rgba(0,0,0,0.02)] z-10">
-                      <div className="flex flex-col">
-                        <span>{c.name}</span>
-                        <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">{c.role} • {c.sector}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-gray-500 font-medium">{c.soc}</td>
-                    {TRAINING_TYPES.map(type => {
-                      const done = hasTraining(c.id, type);
-                      const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
-                      return (
-                        <td key={type} className="p-4 text-center">
-                          <div className="flex flex-col items-center gap-1.5">
-                            {done ? (
-                              <div className="w-6 h-6 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] shadow-sm">
-                                <CheckCircle2 size={14} />
-                              </div>
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center text-gray-200">
-                                <XCircle size={14} />
-                              </div>
-                            )}
-                            {training?.signature_pdf_url && (
-                              <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[8px] font-black underline text-[#EE4D2D] tracking-widest uppercase">Assinatura</a>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
+      {/* Table Card - Full width below */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-gray-50 flex items-center justify-between">
+           <h2 className="text-base font-black text-gray-900">Matriz de Certificação</h2>
+           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{filtered.length} Colaboradores</span>
+        </div>
+        <div className="overflow-x-auto overflow-y-auto max-h-[55vh] custom-scrollbar">
+          <table className="w-full text-[13px]">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100">
+                <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest sticky left-0 bg-gray-50/80 backdrop-blur-sm shadow-[2px_0_5px_rgba(0,0,0,0.02)] z-20 whitespace-nowrap">Colaborador</th>
+                <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Unidade/SOC</th>
+                {TRAINING_TYPES.map(t => (
+                  <th key={t} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{t}</th>
                 ))}
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <div className="p-20 text-center flex flex-col items-center gap-4">
-                <XCircle size={48} className="text-gray-100" />
-                <p className="text-gray-400 font-medium">Nenhum colaborador encontrado com os filtros selecionados</p>
-              </div>
-            )}
-          </div>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((c) => (
+                <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="p-3 font-bold text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50/50 shadow-[2px_0_5px_rgba(0,0,0,0.02)] z-10 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span>{c.name}</span>
+                      <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">{c.role} • {c.sector}</span>
+                    </div>
+                  </td>
+                  <td className="p-3 text-gray-500 font-bold whitespace-nowrap">{c.soc}</td>
+                  {TRAINING_TYPES.map(type => {
+                    const done = hasTraining(c.id, type);
+                    const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
+                    return (
+                      <td key={type} className="p-3 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          {done ? (
+                            <div className="w-5 h-5 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32]">
+                              <CheckCircle2 size={12} />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center text-gray-200">
+                              <XCircle size={12} />
+                            </div>
+                          )}
+                          {training?.signature_pdf_url && (
+                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] tracking-widest uppercase">Assinatura</a>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="p-16 text-center flex flex-col items-center gap-3">
+              <XCircle size={40} className="text-gray-100" />
+              <p className="text-gray-400 text-xs font-medium">Nenhum colaborador encontrado com os filtros selecionados</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

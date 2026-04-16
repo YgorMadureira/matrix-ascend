@@ -81,133 +81,135 @@ export default function SignaturesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
-          <PenTool size={24} className="text-primary" /> Assinaturas Registradas
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+        <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+          <PenTool size={20} className="text-[#EE4D2D]" /> Assinaturas Registradas
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-xs text-gray-500 font-medium mt-0.5">
           {records.length} registro{records.length !== 1 ? 's' : ''} de treinamento com assinatura eletrônica
         </p>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por colaborador, treinamento ou instrutor..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
+          className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-white border border-gray-100 text-gray-800 text-[13px] font-medium outline-none focus:ring-2 focus:ring-[#EE4D2D]/10 shadow-sm transition-all"
         />
       </div>
 
       {/* Table */}
-      <div className="glass-card overflow-auto">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-muted-foreground">Carregando registros...</div>
+          <div className="p-12 text-center text-gray-400 text-sm">Carregando registros...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">
-            <PenTool size={40} className="mx-auto mb-4 opacity-30" />
-            <p>Nenhuma assinatura registrada ainda.</p>
+          <div className="p-12 text-center">
+            <PenTool size={36} className="mx-auto mb-3 text-gray-200" />
+            <p className="text-gray-400 text-sm">Nenhuma assinatura registrada ainda.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/40">
-                <th className="text-left p-4 text-muted-foreground font-medium">Colaborador</th>
-                <th className="text-left p-4 text-muted-foreground font-medium">Treinamento</th>
-                <th className="text-left p-4 text-muted-foreground font-medium">Instrutor</th>
-                <th className="text-left p-4 text-muted-foreground font-medium">SOC</th>
-                <th className="text-left p-4 text-muted-foreground font-medium">Data/Hora</th>
-                <th className="text-center p-4 text-muted-foreground font-medium">Assinatura</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => (
-                <tr key={r.id} className="border-b border-border/20 hover:bg-secondary/30 transition-colors">
-                  <td className="p-4">
-                    <p className="font-medium text-foreground">{r.collaborator?.name ?? '—'}</p>
-                    <p className="text-xs text-muted-foreground">{r.collaborator?.role} • {r.collaborator?.sector}</p>
-                  </td>
-                  <td className="p-4">
-                    <span className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
-                      {r.training_type}
-                    </span>
-                  </td>
-                  <td className="p-4 text-foreground">{r.instructor_name ?? '—'}</td>
-                  <td className="p-4 text-foreground">{r.collaborator?.soc ?? '—'}</td>
-                  <td className="p-4 text-muted-foreground text-xs">{formatDate(r.completed_at)}</td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-center gap-2">
-                      {r.signature_pdf_url ? (
-                        <>
-                          <button
-                            onClick={() => setViewing(r)}
-                            className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                            title="Ver assinatura"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          <button
-                            onClick={() => downloadSignature(r)}
-                            className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                            title="Baixar assinatura"
-                          >
-                            <Download size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sem imagem</span>
-                      )}
-                      <button
-                        onClick={() => deleteRecord(r.id)}
-                        className="p-1.5 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                        title="Excluir registro"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto overflow-y-auto max-h-[65vh] custom-scrollbar">
+            <table className="w-full text-[13px]">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100">
+                  <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Colaborador</th>
+                  <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Treinamento</th>
+                  <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Instrutor</th>
+                  <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">SOC</th>
+                  <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Data/Hora</th>
+                  <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Assinatura</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(r => (
+                  <tr key={r.id} className="group hover:bg-gray-50/50 transition-colors">
+                    <td className="p-3">
+                      <p className="font-bold text-gray-900 whitespace-nowrap">{r.collaborator?.name ?? '—'}</p>
+                      <p className="text-[10px] text-gray-400">{r.collaborator?.role} • {r.collaborator?.sector}</p>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-full bg-[#FEF6F5] text-[#EE4D2D] text-[10px] font-black border border-[#EE4D2D]/10">
+                        {r.training_type}
+                      </span>
+                    </td>
+                    <td className="p-3 text-gray-700 font-medium whitespace-nowrap">{r.instructor_name ?? '—'}</td>
+                    <td className="p-3 text-gray-900 font-black whitespace-nowrap">{r.collaborator?.soc ?? '—'}</td>
+                    <td className="p-3 text-gray-400 text-[11px] whitespace-nowrap">{formatDate(r.completed_at)}</td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {r.signature_pdf_url ? (
+                          <>
+                            <button
+                              onClick={() => setViewing(r)}
+                              className="p-1.5 rounded-lg bg-[#FEF6F5] text-[#EE4D2D] hover:bg-[#EE4D2D]/20 transition-colors"
+                              title="Ver assinatura"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              onClick={() => downloadSignature(r)}
+                              className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:text-gray-700 transition-colors"
+                              title="Baixar assinatura"
+                            >
+                              <Download size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-gray-300 font-bold">Sem imagem</span>
+                        )}
+                        <button
+                          onClick={() => deleteRecord(r.id)}
+                          className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors"
+                          title="Excluir registro"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Signature View Modal */}
+      {/* Signature View Modal - Light backdrop */}
       {viewing && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-card border border-border/40 rounded-xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">Comprovante de Assinatura</h3>
-              <button onClick={() => setViewing(null)} className="text-muted-foreground hover:text-foreground">
-                <X size={20} />
+              <h3 className="text-base font-black text-gray-900">Comprovante de Assinatura</h3>
+              <button onClick={() => setViewing(null)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={18} />
               </button>
             </div>
 
             {/* Details */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-secondary/50 p-3 rounded-lg flex items-start gap-2">
-                <User size={16} className="text-primary mt-0.5 shrink-0" />
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-gray-50 p-3 rounded-lg flex items-start gap-2">
+                <User size={14} className="text-[#EE4D2D] mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Colaborador</p>
-                  <p className="font-semibold text-foreground">{viewing.collaborator?.name}</p>
-                  <p className="text-xs text-muted-foreground">{viewing.collaborator?.role}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Colaborador</p>
+                  <p className="text-xs font-bold text-gray-900">{viewing.collaborator?.name}</p>
+                  <p className="text-[9px] text-gray-400">{viewing.collaborator?.role}</p>
                 </div>
               </div>
-              <div className="bg-secondary/50 p-3 rounded-lg flex items-start gap-2">
-                <GraduationCap size={16} className="text-primary mt-0.5 shrink-0" />
+              <div className="bg-gray-50 p-3 rounded-lg flex items-start gap-2">
+                <GraduationCap size={14} className="text-[#EE4D2D] mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Instrutor</p>
-                  <p className="font-semibold text-foreground">{viewing.instructor_name ?? '—'}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Instrutor</p>
+                  <p className="text-xs font-bold text-gray-900">{viewing.instructor_name ?? '—'}</p>
                 </div>
               </div>
-              <div className="bg-secondary/50 p-3 rounded-lg col-span-2 flex items-start gap-2">
-                <Calendar size={16} className="text-primary mt-0.5 shrink-0" />
+              <div className="bg-gray-50 p-3 rounded-lg col-span-2 flex items-start gap-2">
+                <Calendar size={14} className="text-[#EE4D2D] mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Treinamento • {formatDate(viewing.completed_at)}</p>
-                  <p className="font-semibold text-primary">{viewing.training_type}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Treinamento • {formatDate(viewing.completed_at)}</p>
+                  <p className="text-xs font-black text-[#EE4D2D]">{viewing.training_type}</p>
                 </div>
               </div>
             </div>
@@ -215,35 +217,27 @@ export default function SignaturesPage() {
             {/* Signature Image */}
             {viewing.signature_pdf_url && (
               <div>
-                <p className="text-xs text-muted-foreground mb-2">Assinatura Eletrônica:</p>
-                <div className="bg-white rounded-lg border border-border overflow-hidden p-2">
-                  {isBase64(viewing.signature_pdf_url) ? (
-                    <img
-                      src={viewing.signature_pdf_url}
-                      alt="Assinatura"
-                      className="w-full object-contain max-h-48"
-                    />
-                  ) : (
-                    <img
-                      src={viewing.signature_pdf_url}
-                      alt="Assinatura"
-                      className="w-full object-contain max-h-48"
-                    />
-                  )}
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">Assinatura Eletrônica</p>
+                <div className="bg-gray-50 rounded-lg border border-gray-100 overflow-hidden p-2">
+                  <img
+                    src={viewing.signature_pdf_url}
+                    alt="Assinatura"
+                    className="w-full object-contain max-h-40"
+                  />
                 </div>
               </div>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={() => downloadSignature(viewing)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md transition-all"
               >
-                <Download size={16} /> Baixar Assinatura
+                <Download size={14} /> Baixar
               </button>
               <button
                 onClick={() => setViewing(null)}
-                className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm"
+                className="px-5 py-2.5 rounded-lg bg-gray-50 text-gray-500 text-[11px] font-black uppercase tracking-widest hover:bg-gray-100 transition-colors"
               >
                 Fechar
               </button>

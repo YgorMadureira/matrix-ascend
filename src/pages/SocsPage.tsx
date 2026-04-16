@@ -87,134 +87,128 @@ export default function SocsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-white p-5 rounded-xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">SOCs (Unidades)</h1>
-          <p className="text-sm text-muted-foreground mt-1">{socs.length} unidades cadastradas no sistema</p>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">SOCs (Unidades)</h1>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">{socs.length} unidades cadastradas no sistema</p>
         </div>
         {isAdmin && (
           <button onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all shadow-glow">
+            className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md transition-all">
             <Plus size={16} /> Nova SOC
           </button>
         )}
       </div>
 
       {showForm && isAdmin && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-display font-semibold text-foreground">{editingId ? 'Editar SOC' : 'Nova SOC'}</h3>
-              <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground">
-                <X size={20} />
+        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 space-y-4 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-black text-gray-900">{editingId ? 'Editar SOC' : 'Nova SOC'}</h3>
+              <button onClick={() => setShowForm(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={18} />
               </button>
             </div>
             
             <div className="space-y-3">
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome da Unidade (ex: SPX-001)</label>
-                <input value={name} onChange={e => setName(e.target.value)} type="text" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Nome da Unidade</label>
+                <input value={name} onChange={e => setName(e.target.value)} type="text" placeholder="Ex: SP6" className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Endereço Completo</label>
-                <input value={address} onChange={e => setAddress(e.target.value)} type="text" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Endereço Completo</label>
+                <input value={address} onChange={e => setAddress(e.target.value)} type="text" className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome do PTS da Unidade</label>
-                <input value={ptsName} onChange={e => setPtsName(e.target.value)} type="text" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">PTS Responsável</label>
+                <input value={ptsName} onChange={e => setPtsName(e.target.value)} type="text" className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Site Leader</label>
-                <input value={siteLeader} onChange={e => setSiteLeader(e.target.value)} type="text" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Site Leader</label>
+                <input value={siteLeader} onChange={e => setSiteLeader(e.target.value)} type="text" className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
-              <label className="flex items-center gap-2 cursor-pointer pt-2">
-                <input type="checkbox" checked={hasSorting} onChange={e => setHasSorting(e.target.checked)} className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary" />
-                <span className="text-sm text-foreground">Esta unidade possui Sorting?</span>
+              <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <input type="checkbox" checked={hasSorting} onChange={e => setHasSorting(e.target.checked)} className="w-4 h-4 rounded text-[#EE4D2D] focus:ring-[#EE4D2D] accent-[#EE4D2D]" />
+                <span className="text-sm text-gray-700 font-medium">Esta unidade possui Sorting?</span>
               </label>
             </div>
 
-            <div className="flex gap-2 pt-4">
-              <button onClick={handleSave} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 transition-all">
-                {editingId ? 'Salvar Alterações' : 'Cadastrar Unidade'}
-              </button>
-            </div>
+            <button onClick={handleSave} className="w-full py-3 rounded-lg shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md transition-all mt-2">
+              {editingId ? 'Salvar Alterações' : 'Cadastrar Unidade'}
+            </button>
           </div>
         </div>
       )}
 
-      {/* Info Modal */}
+      {/* Info Modal - Light backdrop, centered */}
       {viewingSoc && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-6 shadow-2xl relative">
-            <button onClick={() => setViewingSoc(null)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
-              <X size={20} />
+        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-6 space-y-5 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200 relative">
+            <button onClick={() => setViewingSoc(null)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <X size={18} />
             </button>
             
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border border-primary/20">
-                <Building2 size={32} className="text-primary" />
+              <div className="w-14 h-14 rounded-full bg-[#FEF6F5] flex items-center justify-center mx-auto mb-3 border border-[#EE4D2D]/10">
+                <Building2 size={28} className="text-[#EE4D2D]" />
               </div>
-              <h3 className="text-2xl font-display font-bold text-foreground">{viewingSoc.name}</h3>
-              <p className="text-sm text-muted-foreground">Adicionada em {new Date(viewingSoc.created_at).toLocaleDateString()}</p>
+              <h3 className="text-xl font-black text-gray-900">{viewingSoc.name}</h3>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Adicionada em {new Date(viewingSoc.created_at).toLocaleDateString()}</p>
             </div>
 
-            <div className="space-y-4 pt-2">
-              <div className="flex bg-secondary/50 p-3 rounded-lg gap-3">
-                <MapPin size={18} className="text-muted-foreground mt-0.5 shrink-0" />
+            <div className="space-y-3 pt-1">
+              <div className="flex bg-gray-50 p-3 rounded-lg gap-3">
+                <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Endereço Operacional</p>
-                  <p className="text-sm font-medium text-foreground">{viewingSoc.address || 'Não cadastrado'}</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Endereço Operacional</p>
+                  <p className="text-sm font-bold text-gray-800">{viewingSoc.address || 'Não cadastrado'}</p>
                 </div>
               </div>
 
-              <div className="flex bg-secondary/50 p-3 rounded-lg gap-3">
-                <User size={18} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div className="flex bg-gray-50 p-3 rounded-lg gap-3">
+                <User size={16} className="text-gray-400 mt-0.5 shrink-0" />
                 <div className="grid grid-cols-2 gap-x-4 w-full">
                   <div>
-                    <p className="text-xs text-muted-foreground">PTS Responsável</p>
-                    <p className="text-sm font-medium text-foreground">{viewingSoc.pts_name || '-'}</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">PTS Responsável</p>
+                    <p className="text-sm font-bold text-gray-800">{viewingSoc.pts_name || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Site Leader</p>
-                    <p className="text-sm font-medium text-foreground">{viewingSoc.site_leader || '-'}</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Site Leader</p>
+                    <p className="text-sm font-bold text-gray-800">{viewingSoc.site_leader || '-'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex bg-secondary/50 p-3 rounded-lg gap-3 items-center">
-               {viewingSoc.has_sorting ? <CheckCircle2 size={18} className="text-emerald-500 shrink-0" /> : <XCircle size={18} className="text-red-500 shrink-0" />}
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {viewingSoc.has_sorting ? 'Possui processo de Sorting' : 'Não possui processo de Sorting'}
-                  </p>
-                </div>
+              <div className="flex bg-gray-50 p-3 rounded-lg gap-3 items-center">
+               {viewingSoc.has_sorting ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" /> : <XCircle size={16} className="text-red-500 shrink-0" />}
+                <p className="text-sm font-bold text-gray-800">
+                  {viewingSoc.has_sorting ? 'Possui processo de Sorting' : 'Não possui processo de Sorting'}
+                </p>
               </div>
             </div>
             
-            <button onClick={() => setViewingSoc(null)} className="w-full py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 mt-4 transition-colors">
+            <button onClick={() => setViewingSoc(null)} className="w-full py-2.5 rounded-lg bg-gray-50 text-gray-500 text-[11px] font-black uppercase tracking-widest hover:bg-gray-100 transition-colors">
               Fechar
             </button>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {socs.map((soc) => (
-          <div key={soc.id} onClick={() => setViewingSoc(soc)} className="glass-card-hover p-5 flex flex-col items-center justify-center text-center group cursor-pointer h-36">
-            <Building2 size={32} className="text-primary mb-2" />
-            <p className="font-display font-medium text-lg text-foreground">{soc.name}</p>
+          <div key={soc.id} onClick={() => setViewingSoc(soc)} className="relative bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-[#EE4D2D]/10 flex flex-col items-center justify-center text-center group cursor-pointer h-32 transition-all">
+            <Building2 size={28} className="text-[#EE4D2D] mb-2" />
+            <p className="font-black text-base text-gray-900">{soc.name}</p>
             
-            <div className="mt-2 text-xs flex gap-2 invisible group-hover:visible">
-               <span className="text-muted-foreground underline decoration-dotted">Ver Detalhes</span>
-            </div>
+            <p className="text-[9px] text-gray-400 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Ver Detalhes</p>
 
             {isAdmin && (
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); startEdit(soc); }} className="p-1.5 rounded-md bg-secondary text-muted-foreground hover:text-foreground">
-                  <Edit2 size={14} />
+                <button onClick={(e) => { e.stopPropagation(); startEdit(soc); }} className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all">
+                  <Edit2 size={12} />
                 </button>
-                <button onClick={(e) => handleDelete(soc.id, e)} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                  <Trash2 size={14} />
+                <button onClick={(e) => handleDelete(soc.id, e)} className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                  <Trash2 size={12} />
                 </button>
               </div>
             )}
@@ -223,10 +217,10 @@ export default function SocsPage() {
       </div>
 
       {socs.length === 0 && (
-        <div className="glass-card p-12 text-center">
-          <Building2 size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-lg">Nenhuma SOC cadastrada.</p>
-          <p className="text-muted-foreground text-sm mt-1">{isAdmin ? 'Clique no botão acima para adicionar a primeira unidade.' : 'Aguarde o administrador adicionar unidades.'}</p>
+        <div className="bg-white p-12 rounded-xl border border-gray-100 text-center">
+          <Building2 size={40} className="mx-auto text-gray-200 mb-3" />
+          <p className="text-gray-400 text-sm font-medium">Nenhuma SOC cadastrada.</p>
+          <p className="text-gray-300 text-xs mt-1">{isAdmin ? 'Clique no botão acima para adicionar.' : 'Aguarde o administrador adicionar unidades.'}</p>
         </div>
       )}
     </div>
