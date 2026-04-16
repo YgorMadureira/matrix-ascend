@@ -1,52 +1,65 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @layer base {
   :root {
-    --background: 220 20% 6%;
-    --foreground: 0 0% 95%;
+    /* Shopee White/Light Background */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
 
-    --card: 220 18% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 220 18% 10%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 14 86% 55%;
+    /* Shopee Orange: #EE4D2D */
+    --primary: 11 83% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 16%;
-    --secondary-foreground: 0 0% 90%;
+    /* Light Gray for secondary elements */
+    --secondary: 0 0% 97%;
+    --secondary-foreground: 0 0% 15%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 14 86% 55%;
+    --accent: 11 83% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 14 86% 55%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 11 83% 55%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --sidebar-background: 220 18% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 14 86% 55%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 11 83% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 14%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 220 14% 16%;
-    --sidebar-ring: 14 86% 55%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 11 83% 55%;
+    --sidebar-border: 0 0% 92%;
+    --sidebar-ring: 11 83% 55%;
 
-    --glass-bg: 220 18% 10% / 0.6;
-    --glass-border: 220 14% 20% / 0.4;
-    --glow-primary: 14 86% 55% / 0.3;
+    /* Custom Shopee Tokens */
+    --shopee-orange: #EE4D2D;
+    --shopee-gradient: linear-gradient(180deg, #EE4D2D 0%, #FF7337 100%);
+    --shopee-bg-tint: 10 100% 98%;
+
+    /* Compact Typography Scaling */
+    --font-caption: 10px;
+    --font-body-small: 12px;
+    --font-body: 14px;
+    --font-title-small: 16px;
+    --font-title: 20px;
+    --font-header: 24px;
   }
 }
 
@@ -57,63 +70,51 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-color: hsl(var(--background));
   }
 }
 
 @layer components {
+  .shopee-card {
+    @apply bg-card border border-border shadow-[0_1px_4px_rgba(0,0,0,0.05)] rounded-md;
+  }
+
+  .shopee-gradient-bg {
+    background: var(--shopee-gradient);
+  }
+
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-border/40 rounded-xl;
+    @apply bg-white/80 backdrop-blur-md border border-black/5 rounded-xl shadow-lg;
   }
 
   .glass-card-hover {
-    @apply glass-card transition-all duration-300 hover:border-primary/40 hover:shadow-[0_0_30px_hsl(var(--glow-primary))];
+    @apply glass-card transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px];
   }
 
-  .glow-text {
-    text-shadow: 0 0 20px hsl(var(--glow-primary)), 0 0 40px hsl(var(--glow-primary));
+  /* Compact Mode Utility */
+  .compact-text {
+    font-size: var(--font-body-small);
   }
-
-  .glow-border {
-    box-shadow: 0 0 15px hsl(var(--glow-primary)), inset 0 0 15px hsl(var(--glow-primary));
-  }
-
-  .scan-line {
-    background: linear-gradient(
-      180deg,
-      transparent 0%,
-      hsl(var(--primary) / 0.05) 50%,
-      transparent 100%
-    );
-    animation: scan 4s linear infinite;
+  
+  .caption-text {
+    font-size: var(--font-caption);
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 }
 
-@keyframes scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
-
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(30px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 20px hsl(14 86% 55% / 0.3); }
-  50% { box-shadow: 0 0 40px hsl(14 86% 55% / 0.6), 0 0 60px hsl(14 86% 55% / 0.3); }
 }
 
 @keyframes loginSuccess {
   0% { transform: scale(0); opacity: 0; }
-  30% { transform: scale(1.2); opacity: 1; }
-  50% { transform: scale(1); }
-  70% { transform: scale(1.05); }
+  30% { transform: scale(1.1); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 
@@ -122,25 +123,17 @@
   100% { stroke-dashoffset: 0; }
 }
 
-@keyframes particleFloat {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-100px) scale(0); opacity: 0; }
-}
-
 .animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.animate-glow-pulse {
-  animation: glowPulse 2s ease-in-out infinite;
+  animation: fadeInUp 0.4s ease-out forwards;
 }
 
 .animate-login-success {
-  animation: loginSuccess 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: loginSuccess 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
 }
 
 .animate-check-draw {
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
-  animation: checkDraw 0.6s ease-out 0.4s forwards;
+  animation: checkDraw 0.5s ease-out forwards;
 }
+

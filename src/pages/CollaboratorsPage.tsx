@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown } from 'lucide-react';
+import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'react-router-dom';
 
@@ -355,162 +355,216 @@ export default function CollaboratorsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Colaboradores</h1>
-          <p className="text-sm text-muted-foreground mt-1">{collaborators.length} cadastrados</p>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Colaboradores</h1>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">{collaborators.length} funcionários registrados</p>
         </div>
         {isAdmin && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {selectedIds.size > 0 && (
-              <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm hover:brightness-110 transition-all font-semibold shadow-sm focus:ring-2 focus:ring-destructive/50">
-                <Trash2 size={16} /> Excluir {selectedIds.size} selecionados
+              <button 
+                onClick={handleBulkDelete} 
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all shadow-sm"
+              >
+                <Trash2 size={14} /> Excluir {selectedIds.size}
               </button>
             )}
-            <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
-              <Download size={16} /> Modelo CSV
+            <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200">
+              <Download size={14} /> Modelo
             </button>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors cursor-pointer">
-              <Upload size={16} /> Importar CSV
+            <label className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer">
+              <Upload size={14} /> Importar
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all">
-              <Plus size={16} /> Novo
+            <button 
+              onClick={() => { setForm(emptyForm); setEditingId(null); setShowForm(true); }} 
+              className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md active:scale-95 transition-all"
+            >
+              <Plus size={16} /> Novo Registro
             </button>
           </div>
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-card-hover p-4 flex items-center gap-3">
-          <Users size={20} className="text-primary" />
-          <div><p className="text-xl font-bold text-foreground">{displayTotal}</p><p className="text-xs text-muted-foreground">Colaboradores</p></div>
-        </div>
-        <div className="glass-card-hover p-4 flex items-center gap-3">
-          <Crown size={20} className="text-yellow-400" />
-          <div><p className="text-xl font-bold text-foreground">{totalLeaders}</p><p className="text-xs text-muted-foreground">Líderes</p></div>
-        </div>
-        <div className="glass-card-hover p-4 flex items-center gap-3">
-          <UserCheck size={20} className="text-green-400" />
-          <div><p className="text-xl font-bold text-foreground">{uniqueTrained}</p><p className="text-xs text-muted-foreground">Treinados</p></div>
-        </div>
-        <div className="glass-card-hover p-4 flex items-center gap-3">
-          <UserCheck size={20} className="text-blue-400" />
-          <div><p className="text-xl font-bold text-foreground">{trainedPct}%</p><p className="text-xs text-muted-foreground">% Treinados</p></div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, OPSID, setor..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-        </div>
-        <select value={selectedSoc} onChange={(e) => setSelectedSoc(e.target.value)} className="px-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary min-w-[150px]">
-          <option value="">Todos SOCs</option>
-          {uniqueSocs.map(soc => <option key={soc} value={soc}>{soc}</option>)}
-        </select>
-        <select value={selectedLeader} onChange={(e) => setSelectedLeader(e.target.value)} className="px-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary min-w-[150px]">
-          <option value="">Todos os Líderes</option>
-          {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-      </div>
-
-      {/* Form */}
-      {showForm && isAdmin && (
-        <div className="glass-card p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {fields.map(({ key, label }) => (
-              <input key={key} value={form[key]} onChange={(e) => handleChange(key, e.target.value)} placeholder={label}
-                className="px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-            ))}
+      {/* Summary Cards - More Compact */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { icon: Users, label: 'Total Geral', value: displayTotal, color: 'text-blue-500', bg: 'bg-blue-50' },
+          { icon: Crown, label: 'Líderes', value: totalLeaders, color: 'text-amber-500', bg: 'bg-amber-50' },
+          { icon: UserCheck, label: 'Treinados', value: uniqueTrained, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+          { icon: Percent, label: '% Certificação', value: `${trainedPct}%`, color: 'text-[#EE4D2D]', bg: 'bg-[#FEF6F5]' },
+        ].map((card, idx) => (
+          <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className={`p-3 rounded-lg ${card.bg} ${card.color}`}>
+              <card.icon size={20} />
+            </div>
+            <div>
+              <p className="text-xl font-black text-gray-900 leading-none mb-1">{card.value}</p>
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{card.label}</p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Salvar</button>
-            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+        ))}
+      </div>
+
+      {/* Filters & Search - More Fluid */}
+      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 items-center">
+        <div className="relative flex-1 w-full">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            placeholder="Buscar por nome, OPSID, setor ou unidade..."
+            className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-800 text-[13px] font-medium outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" 
+          />
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <select 
+            value={selectedSoc} 
+            onChange={(e) => setSelectedSoc(e.target.value)} 
+            className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[120px]"
+          >
+            <option value="">Todos SOCs</option>
+            {uniqueSocs.map(soc => <option key={soc} value={soc}>{soc}</option>)}
+          </select>
+          <select 
+            value={selectedLeader} 
+            onChange={(e) => setSelectedLeader(e.target.value)} 
+            className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[140px]"
+          >
+            <option value="">Todos Líderes</option>
+            {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Form Overlay Modal */}
+      {showForm && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-7 w-full max-w-xl shadow-2xl border border-gray-100 space-y-6 animate-in zoom-in-95 duration-200">
+            <div>
+              <h3 className="text-xl font-black text-gray-900">{editingId ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
+              <p className="text-gray-400 font-medium text-xs mt-0.5">Preencha as informações necessárias</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fields.map(({ key, label }) => (
+                <div key={key}>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">{label}</label>
+                  <input 
+                    value={form[key]} 
+                    onChange={(e) => handleChange(key, e.target.value)} 
+                    placeholder={`Digitando...`}
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 text-[13px] font-bold outline-none transition-all" 
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-2 pt-4 border-t border-gray-50">
+              <button 
+                onClick={handleSave} 
+                className="flex-1 py-3 rounded-lg shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md transition-all"
+              >
+                Salvar Alterações
+              </button>
+              <button 
+                onClick={() => { setShowForm(false); setEditingId(null); }} 
+                className="px-6 py-3 rounded-lg bg-gray-100 text-gray-500 text-[11px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Table */}
-      <div className="glass-card overflow-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/40">
-              {isAdmin && (
-                <th className="p-4 w-10">
-                  <div className="flex items-center justify-center">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 rounded border-border bg-secondary cursor-pointer"
-                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                      onChange={toggleSelectAll}
-                    />
-                  </div>
-                </th>
-              )}
-              <th className="text-left p-4 text-muted-foreground font-medium">OPSID</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Gênero</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Colaborador</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Turno</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Setor</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Líder</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Cargo</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">SOC</th>
-              <th className="text-left p-4 text-muted-foreground font-medium">Status</th>
-              {isAdmin && <th className="text-right p-4 text-muted-foreground font-medium">Ações</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => (
-              <tr key={c.id} className={`border-b border-border/20 transition-colors ${selectedIds.has(c.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-secondary/30'}`}>
+      {/* Table Section - Higher Density */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto max-h-[70vh] custom-scrollbar">
+          <table className="w-full text-[13px]">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100">
                 {isAdmin && (
-                  <td className="p-4">
+                  <th className="p-3 w-10">
                     <div className="flex items-center justify-center">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 rounded border-border bg-secondary cursor-pointer"
-                        checked={selectedIds.has(c.id)}
-                        onChange={() => toggleSelect(c.id)}
+                        className="w-4 h-4 rounded border-gray-300 bg-white checked:bg-[#EE4D2D] accent-[#EE4D2D] cursor-pointer"
+                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                        onChange={toggleSelectAll}
                       />
                     </div>
-                  </td>
+                  </th>
                 )}
-                <td className="p-4 text-foreground">{c.opsid}</td>
-                <td className="p-4 text-foreground">{c.gender}</td>
-                <td className="p-4 text-foreground font-medium">{c.name}</td>
-                <td className="p-4 text-foreground">{c.shift}</td>
-                <td className="p-4 text-foreground">{c.sector}</td>
-                <td className="p-4 text-foreground">{c.leader}</td>
-                <td className="p-4 text-foreground">{c.role}</td>
-                <td className="p-4 text-foreground">{c.soc}</td>
-                <td className="p-4 text-foreground">
-                  {isTrained(c) ? (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-600 border border-emerald-500/30">TREINADO</span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-600 border border-rose-500/30">PENDENTE</span>
-                  )}
-                </td>
-                {isAdmin && (
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={() => startEdit(c)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-colors">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                )}
+                {['OPSID', 'Gênero', 'Colaborador', 'Turno', 'Setor', 'Líder', 'Cargo', 'SOC', 'Status'].map((h) => (
+                   <th key={h} className="text-left p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
+                {isAdmin && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <div className="p-8 text-center text-muted-foreground">Nenhum colaborador encontrado</div>}
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((c) => (
+                <tr key={c.id} className={`group transition-colors ${selectedIds.has(c.id) ? 'bg-[#FEF6F5]' : 'hover:bg-gray-50/50'}`}>
+                  {isAdmin && (
+                    <td className="p-2.5">
+                      <div className="flex items-center justify-center">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded border-gray-300 bg-white checked:bg-[#EE4D2D] accent-[#EE4D2D] cursor-pointer"
+                          checked={selectedIds.has(c.id)}
+                          onChange={() => toggleSelect(c.id)}
+                        />
+                      </div>
+                    </td>
+                  )}
+                  <td className="p-2.5 text-gray-500 font-bold whitespace-nowrap">{c.opsid}</td>
+                  <td className="p-2.5 text-gray-400 text-[11px] font-medium whitespace-nowrap">{c.gender}</td>
+                  <td className="p-2.5 font-black text-gray-900 whitespace-nowrap">{c.name}</td>
+                  <td className="p-2.5 text-gray-500 font-bold underline decoration-[#EE4D2D]/20 underline-offset-4 whitespace-nowrap">{c.shift}</td>
+                  <td className="p-2.5 text-gray-700 font-medium whitespace-nowrap">
+                     <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.sector}</span>
+                  </td>
+                  <td className="p-2.5 text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader}</td>
+                  <td className="p-2.5 text-gray-400 text-[11px] font-medium max-w-[120px] truncate">{c.role}</td>
+                  <td className="p-2.5 text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>
+                  <td className="p-2.5 whitespace-nowrap">
+                    {isTrained(c) ? (
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                        CERTIFICADO
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black bg-red-50 text-red-500 border border-red-200">
+                         <div className="w-1 h-1 rounded-full bg-red-500" />
+                         PENDENTE
+                      </div>
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td className="p-2.5 text-right whitespace-nowrap">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => startEdit(c)} className="p-1.5 rounded-lg text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+             <div className="py-20 flex flex-col items-center justify-center text-center px-4">
+                <Search size={40} className="text-gray-100 mb-3" />
+                <h3 className="text-gray-900 font-bold text-sm">Nenhum resultado</h3>
+                <p className="text-gray-400 text-xs max-w-xs mx-auto">Tente ajustar seus filtros ou mude o termo de pesquisa.</p>
+             </div>
+          )}
+        </div>
       </div>
     </div>
   );

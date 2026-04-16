@@ -33,105 +33,115 @@ export default function AppLayout() {
       ];
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-background">
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-border/40 glass-card z-30">
-        <div className="flex items-center gap-3">
-          <img src={logoPts} alt="PTS" className="h-8" />
-          <h1 className="font-display font-bold text-primary text-sm">PTS MATRIX</h1>
+    <div className="flex flex-col h-screen bg-[#F5F5F5]">
+      {/* Top Header - Shopee Style */}
+      <header className="h-16 shopee-gradient-bg flex items-center justify-between px-4 md:px-8 z-50 shadow-md">
+        <div className="flex items-center gap-4">
+          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-1 text-white">
+            <Menu size={24} />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="bg-white p-1.5 rounded-lg shadow-sm">
+              <img src={logoPts} alt="PTS" className="h-8 w-auto object-contain" />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-white font-bold text-lg tracking-tight">MATRIX ASCEND</h1>
+              <p className="text-white/80 text-[10px] uppercase font-bold tracking-widest leading-none">Shopee Training Portal</p>
+            </div>
+          </div>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -mr-2 text-foreground">
-          <Menu size={24} />
-        </button>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex flex-col items-end text-white mr-2">
+            <span className="text-xs font-bold">{profile?.full_name}</span>
+            <span className="text-[10px] opacity-80 uppercase">{profile?.role === 'lider' ? 'Líder' : profile?.role}</span>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold shadow-inner">
+            {profile?.full_name?.charAt(0) ?? '?'}
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="p-2 text-white/80 hover:text-white transition-colors hover:bg-white/10 rounded-full"
+            title="Sair"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside 
+          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-white border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="md:hidden p-4 border-b flex justify-between items-center shopee-gradient-bg text-white">
+            <span className="font-bold">Menu</span>
+            <button onClick={closeMobileMenu}><X size={24} /></button>
+          </div>
+
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 px-4">Navegação Principal</div>
+            {navItems.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={closeMobileMenu}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-[#FEF6F5] text-[#EE4D2D] border border-[#EE4D2D]/10 shadow-sm'
+                      : 'text-gray-600 hover:bg-[#FDFDFD] hover:text-[#EE4D2D]'
+                  }`
+                }
+              >
+                <Icon size={18} />
+                {label}
+              </NavLink>
+            ))}
+            
+            {isAdmin && (
+              <>
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-8 mb-4 px-4">Administração</div>
+                <NavLink
+                  to="/settings"
+                  onClick={closeMobileMenu}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-[#FEF6F5] text-[#EE4D2D] border border-[#EE4D2D]/10 shadow-sm'
+                        : 'text-gray-600 hover:bg-[#FDFDFD] hover:text-[#EE4D2D]'
+                    }`
+                  }
+                >
+                  <Settings size={18} />
+                  Configurações
+                </NavLink>
+              </>
+            )}
+          </nav>
+
+          <div className="p-4 border-t bg-[#FDFDFD]">
+             <p className="text-[10px] text-center text-muted-foreground">© 2026 Shopee Matrix Ascend<br/>v2.4.0 • SPX BR</p>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <main className="flex-1 overflow-y-auto bg-[#F5F5F5] p-3 md:p-6">
+          <div className="max-w-[1550px] mx-auto animate-fade-in-up">
+            <Outlet />
+          </div>
+        </main>
       </div>
 
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
           onClick={closeMobileMenu}
         />
       )}
-
-      {/* Sidebar */}
-      <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-card/95 backdrop-blur-xl border-r border-border/40 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="p-5 flex items-center justify-between border-b border-border/30">
-          <div className="flex items-center gap-3">
-            <img src={logoPts} alt="PTS" className="h-10" />
-            <div>
-              <h1 className="font-display text-xs font-bold text-primary">PTS MATRIX</h1>
-              <p className="text-[10px] text-muted-foreground">Training System</p>
-            </div>
-          </div>
-          <button onClick={closeMobileMenu} className="md:hidden p-1 text-muted-foreground hover:text-foreground">
-            <X size={20} />
-          </button>
-        </div>
-
-        <nav className="flex-1 p-3 space-y-1">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={closeMobileMenu}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-primary/15 text-primary border border-primary/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`
-              }
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
-          {isAdmin && (
-            <NavLink
-              to="/settings"
-              onClick={closeMobileMenu}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-primary/15 text-primary border border-primary/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`
-              }
-            >
-              <Settings size={18} />
-              Configurações
-            </NavLink>
-          )}
-        </nav>
-
-        <div className="p-4 border-t border-border/30">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-              {profile?.full_name?.charAt(0) ?? '?'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{profile?.full_name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role === 'lider' ? 'Líder' : profile?.role}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors w-full"
-          >
-            <LogOut size={16} />
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-24 md:pb-6 relative w-full">
-        <Outlet />
-      </main>
     </div>
   );
 }

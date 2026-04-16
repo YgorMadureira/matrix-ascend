@@ -231,287 +231,337 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Configurações</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerenciamento de usuários e instrutores do sistema</p>
-      </div>
-
-      {/* Users */}
-      <div className="glass-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-            <Shield size={20} className="text-primary" /> Usuários do Sistema
-          </h2>
-          <button onClick={() => setShowNewUser(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-colors">
-            <UserPlus size={16} /> Novo Usuário
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {users.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 group">
-              <div>
-                <p className="text-sm font-medium text-foreground">{u.full_name}</p>
-                <p className="text-xs text-muted-foreground">{u.email}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'}`}>
-                  {u.role}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => openEditUser(u)} title="Editar" className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:bg-secondary/80 transition-all">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => deleteUser(u.id)} title="Excluir" className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {users.length === 0 && <p className="text-muted-foreground text-sm">Nenhum usuário cadastrado</p>}
+    <div className="space-y-10 max-w-5xl mx-auto">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+             <div className="p-3 bg-gray-50 rounded-2xl text-[#EE4D2D] shadow-inner"><Shield size={24} /></div>
+             Configurações Adm
+          </h1>
+          <p className="text-sm text-gray-400 font-medium ml-1">Central de controle para acessos, unidades e avaliações</p>
         </div>
       </div>
 
-      {/* Instructors */}
-      <div className="glass-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-            <GraduationCap size={20} className="text-primary" /> Instrutores de Treinamento
-          </h2>
-          <button onClick={() => setShowNewInstructor(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-colors">
-            <Plus size={16} /> Novo Instrutor
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {instructors.map(inst => (
-            <div key={inst.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 group">
-              <div>
-                <p className="text-sm font-medium text-foreground">{inst.name}</p>
-                <p className="text-xs text-muted-foreground">{inst.soc_name}</p>
-              </div>
-              <button onClick={() => deleteInstructor(inst.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-destructive hover:bg-destructive/20 transition-all">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-          {instructors.length === 0 && <p className="text-muted-foreground text-sm">Nenhum instrutor cadastrado ainda.</p>}
-        </div>
-      </div>
-
-      {/* Trainings Questions */}
-      <div className="glass-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-            <GraduationCap size={20} className="text-primary" /> Configuração de Provas (Treinamentos)
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {trainings.map(t => (
-            <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 group">
-              <span className="text-sm font-medium text-foreground truncate mr-2" title={t.name}>{t.name}</span>
-              <button onClick={() => openQuestionManager(t)} className="opacity-0 group-hover:opacity-100 px-3 py-1.5 rounded-md text-primary bg-primary/10 hover:bg-primary/20 transition-all shadow-sm whitespace-nowrap text-xs font-semibold flex items-center gap-1">
-                <Edit2 size={14} /> Configurar
-              </button>
-            </div>
-          ))}
-          {trainings.length === 0 && <p className="text-muted-foreground text-sm">Nenhum treinamento cadastrado.</p>}
-        </div>
-      </div>
-
-      {/* New User Modal */}
-      {showNewUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-display font-semibold text-foreground">Criar Novo Usuário</h3>
-              <button onClick={() => setShowNewUser(false)} className="text-muted-foreground hover:text-foreground">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome Completo</label>
-                <input value={newUserName} onChange={e => setNewUserName(e.target.value)} type="text" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">E-mail</label>
-                <input value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} type="email" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Senha Forte</label>
-                <input value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} type="password" placeholder="Min. 6 caracteres" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Permissão</label>
-                <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary">
-                  <option value="user">Usuário Comum (Apenas consome)</option>
-                  <option value="lider">Líder (Treinamentos + Meu Time)</option>
-                  <option value="admin">Administrador (Cria/Edita)</option>
-                </select>
-              </div>
-            </div>
-
-            <button disabled={creatingUser} onClick={createUser} className="w-full mt-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 disabled:opacity-50 transition-all">
-              {creatingUser ? 'Criando e Autenticando...' : 'Cadastrar Usuário'}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Users Management */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+               Usuários
+            </h2>
+            <button 
+              onClick={() => setShowNewUser(true)} 
+              className="p-2.5 rounded-xl bg-gray-50 text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all border border-transparent hover:border-[#EE4D2D]/20"
+            >
+              <UserPlus size={20} />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-display font-semibold text-foreground">Editar Usuário</h3>
-              <button onClick={() => setShowEditUser(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Nome Completo</label>
-                <input value={editUserName} onChange={e => setEditUserName(e.target.value)} type="text" className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all" />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Permissão de Acesso</label>
-                <select value={editUserRole} onChange={e => setEditUserRole(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all">
-                  <option value="user">Usuário Comum (Apenas consome)</option>
-                  <option value="lider">Líder (Treinamentos + Meu Time)</option>
-                  <option value="admin">Administrador (Cria/Edita tudo)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-3">
-              <button onClick={() => setShowEditUser(false)} className="flex-1 py-2.5 rounded-lg bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-all">
-                Cancelar
-              </button>
-              <button disabled={savingUserEdit} onClick={saveEditedUser} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 disabled:opacity-50 transition-all shadow-glow">
-                {savingUserEdit ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Instructor Modal */}
-      {showNewInstructor && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-display font-semibold text-foreground">Cadastrar Instrutor</h3>
-              <button onClick={() => setShowNewInstructor(false)} className="text-muted-foreground hover:text-foreground">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome Completo do Instrutor</label>
-                <input value={newInstructorName} onChange={e => setNewInstructorName(e.target.value)} type="text" placeholder="Ex: Carlos Eduardo" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Unidade (SOC) onde atua</label>
-                <select value={newInstructorSoc} onChange={e => setNewInstructorSoc(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary">
-                  <option value="">Selecione uma SOC...</option>
-                  {socs.map(s => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button disabled={savingInstructor} onClick={saveInstructor} className="w-full mt-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 disabled:opacity-50 transition-all">
-              {savingInstructor ? 'Salvando...' : 'Cadastrar Instrutor'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Questions Modal */}
-      {managingTraining && (
-        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-md overflow-y-auto w-full h-full p-4 md:p-8">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <button onClick={() => setManagingTraining(null)} className="text-sm text-primary hover:underline">← Voltar às Configurações</button>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-display font-bold text-foreground">Gerenciar Prova</h1>
-                <p className="text-muted-foreground">{managingTraining.name}</p>
-              </div>
-              <button onClick={() => { setQForm({ id: '', question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', order_num: mgmtQuestions.length + 1 }); setShowQForm(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110">
-                <Plus size={16} /> Nova Questão
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {mgmtQuestions.map(q => (
-                <div key={q.id} className="glass-card p-4 flex justify-between gap-4">
-                  <div>
-                    <p className="font-bold text-primary text-sm mb-1">Questão {q.order_num}</p>
-                    <p className="font-medium text-foreground mb-2">{q.question}</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                      <p className={q.correct_option === 'a' ? 'text-emerald-500 font-bold' : ''}>A) {q.option_a}</p>
-                      <p className={q.correct_option === 'b' ? 'text-emerald-500 font-bold' : ''}>B) {q.option_b}</p>
-                      <p className={q.correct_option === 'c' ? 'text-emerald-500 font-bold' : ''}>C) {q.option_c}</p>
-                      <p className={q.correct_option === 'd' ? 'text-emerald-500 font-bold' : ''}>D) {q.option_d}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <button onClick={() => { setQForm(q); setShowQForm(true); }} className="p-2 rounded-lg bg-secondary text-foreground hover:bg-primary/20 hover:text-primary"><Edit2 size={16}/></button>
-                    <button onClick={() => deleteQuestion(q.id)} className="p-2 rounded-lg bg-secondary text-foreground hover:bg-destructive/20 hover:text-destructive"><Trash2 size={16}/></button>
-                  </div>
+          
+          <div className="p-8 space-y-4 flex-1">
+            {users.map(u => (
+              <div key={u.id} className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group">
+                <div className="flex items-center gap-4">
+                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-xs uppercase
+                     ${u.role === 'admin' ? 'bg-[#EE4D2D] text-white shadow-lg shadow-[#EE4D2D]/20' : 'bg-gray-200 text-gray-500'}`}>
+                      {u.full_name.charAt(0)}
+                   </div>
+                   <div>
+                      <p className="text-sm font-black text-gray-800 leading-none mb-1">{u.full_name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : 'Consulta Ltda'}</p>
+                   </div>
                 </div>
-              ))}
-              {mgmtQuestions.length === 0 && (
-                <div className="text-center p-12 glass-card">
-                  <p className="text-muted-foreground">Nenhuma questão cadastrada para esta prova.</p>
-                </div>
-              )}
-            </div>
-
-            {showQForm && (
-              <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="w-full max-w-2xl bg-card border border-border/40 rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold">{qForm.id ? 'Editar Questão' : 'Nova Questão'}</h3>
-                    <button onClick={() => setShowQForm(false)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex gap-4">
-                      <div className="w-20">
-                        <label className="text-xs text-muted-foreground block mb-1">Nº</label>
-                        <input type="number" value={qForm.order_num} onChange={e => setQForm({...qForm, order_num: parseInt(e.target.value)||1})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none" />
-                      </div>
-                      <div className="flex-1">
-                        <label className="text-xs text-muted-foreground block mb-1">Enunciado da Questão</label>
-                        <textarea value={qForm.question} onChange={e => setQForm({...qForm, question: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none resize-none" rows={2}/>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div><label className="text-xs text-muted-foreground">Alternativa A</label><input value={qForm.option_a} onChange={e=>setQForm({...qForm, option_a: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                      <div><label className="text-xs text-muted-foreground">Alternativa B</label><input value={qForm.option_b} onChange={e=>setQForm({...qForm, option_b: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                      <div><label className="text-xs text-muted-foreground">Alternativa C</label><input value={qForm.option_c} onChange={e=>setQForm({...qForm, option_c: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                      <div><label className="text-xs text-muted-foreground">Alternativa D</label><input value={qForm.option_d} onChange={e=>setQForm({...qForm, option_d: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm"/></div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Alternativa Correta</label>
-                      <select value={qForm.correct_option} onChange={e => setQForm({...qForm, correct_option: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none">
-                        <option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option>
-                      </select>
-                    </div>
-                    <button onClick={saveQuestion} className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110 mt-2">Salvar Questão</button>
-                  </div>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEditUser(u)} className="p-2 rounded-lg text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all"><Edit2 size={16} /></button>
+                  <button onClick={() => deleteUser(u.id)} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 size={16} /></button>
                 </div>
               </div>
+            ))}
+            {users.length === 0 && (
+               <div className="text-center py-10">
+                  <UserPlus size={40} className="mx-auto text-gray-100 mb-2" />
+                  <p className="text-xs text-gray-400 font-medium">Nenhum administrador cadastrado</p>
+               </div>
             )}
           </div>
+        </div>
+
+        {/* Instructors Management */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+               Instrutores
+            </h2>
+            <button 
+               onClick={() => setShowNewInstructor(true)} 
+               className="p-2.5 rounded-xl bg-gray-50 text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all border border-transparent hover:border-[#EE4D2D]/20"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+
+          <div className="p-8 space-y-4 flex-1">
+            {instructors.map(inst => (
+              <div key={inst.id} className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group">
+                <div className="flex items-center gap-4">
+                   <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                      <GraduationCap size={20} />
+                   </div>
+                   <div>
+                      <p className="text-sm font-black text-gray-800 leading-none mb-1">{inst.name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Base: {inst.soc_name}</p>
+                   </div>
+                </div>
+                <button onClick={() => deleteInstructor(inst.id)} className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            {instructors.length === 0 && (
+               <div className="text-center py-10">
+                  <GraduationCap size={40} className="mx-auto text-gray-100 mb-2" />
+                  <p className="text-xs text-gray-400 font-medium">Não há instrutores ativos</p>
+               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Trainings and Quiz Configurations */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-8 border-b border-gray-50">
+          <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Avaliações e Provas</h2>
+          <p className="text-xs text-gray-400 font-medium mt-1">Configure o banco de questões para cada material de treinamento</p>
+        </div>
+        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {trainings.map(t => (
+            <div key={t.id} className="p-6 rounded-2xl bg-[#FBFBFB] border border-transparent hover:border-[#EE4D2D]/10 hover:shadow-lg transition-all group cursor-pointer" onClick={() => openQuestionManager(t)}>
+               <div className="flex flex-col gap-4">
+                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-[#EE4D2D] group-hover:scale-110 transition-transform">
+                     <Edit2 size={24} />
+                  </div>
+                  <div>
+                     <p className="text-sm font-black text-gray-900 line-clamp-1 group-hover:text-[#EE4D2D] transition-colors">{t.name}</p>
+                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Clique para Gerenciar</p>
+                  </div>
+               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modals with Premium Light Style */}
+      
+      {/* New User Overlay */}
+      {showNewUser && (
+        <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-2xl font-black text-gray-900">Novo Usuário</h3>
+              <button onClick={() => setShowNewUser(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+               {[
+                 { label: 'Nome Completo', val: newUserName, setter: setNewUserName, type: 'text' },
+                 { label: 'E-mail Corporativo', val: newUserEmail, setter: setNewUserEmail, type: 'email' },
+                 { label: 'Senha Provisória', val: newUserPassword, setter: setNewUserPassword, type: 'password' },
+               ].map((f, i) => (
+                 <div key={i} className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{f.label}</label>
+                    <input type={f.type} value={f.val} onChange={e => f.setter(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+                 </div>
+               ))}
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nível de Acesso</label>
+                  <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all">
+                    <option value="user">Usuário Comum</option>
+                    <option value="lider">Líder Operacional</option>
+                    <option value="admin">Administrador Geral</option>
+                  </select>
+               </div>
+            </div>
+            <button disabled={creatingUser} onClick={createUser} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-95 transition-all">
+              {creatingUser ? 'PROCESSANDO...' : 'CADASTRAR E SINCRONIZAR'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Overlay */}
+      {showEditUser && (
+        <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-black text-gray-900">Editar Perfil</h3>
+                <button onClick={() => setShowEditUser(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome</label>
+                    <input value={editUserName} onChange={e => setEditUserName(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all" />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Regra de Acesso</label>
+                    <select value={editUserRole} onChange={e => setEditUserRole(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
+                      <option value="user">Usuário Comum</option>
+                      <option value="lider">Líder Operacional</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                 </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                 <button onClick={() => setShowEditUser(false)} className="flex-1 py-4 rounded-xl bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest">Descartar</button>
+                 <button disabled={savingUserEdit} onClick={saveEditedUser} className="flex-2 py-4 px-6 rounded-xl bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:bg-gray-800 transition-all">
+                    {savingUserEdit ? 'SALVANDO...' : 'SALVAR'}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* New Instructor Overlay */}
+      {showNewInstructor && (
+        <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-2xl font-black text-gray-900">Novo Instrutor</h3>
+                 <button onClick={() => setShowNewInstructor(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <input value={newInstructorName} onChange={e => setNewInstructorName(e.target.value)} placeholder="Ex: Rodrigo Souza" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all" />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
+                    <select value={newInstructorSoc} onChange={e => setNewInstructorSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
+                        <option value="">Selecione...</option>
+                        {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                 </div>
+              </div>
+              <button disabled={savingInstructor} onClick={saveInstructor} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">
+                {savingInstructor ? 'FINALIZANDO...' : 'CONFIRMAR INSTRUCTOR'}
+              </button>
+           </div>
+        </div>
+      )}
+
+      {/* Full Management Overlay for Questions */}
+      {managingTraining && (
+        <div className="fixed inset-0 z-[60] bg-[#F5F5F5] overflow-y-auto animate-in fade-in slide-in-from-bottom-10 duration-500">
+           <div className="max-w-4xl mx-auto p-6 md:p-12 space-y-12">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                 <div className="space-y-1">
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Banco de Questões</h2>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{managingTraining.name}</p>
+                 </div>
+                 <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setQForm({ id: '', question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', order_num: mgmtQuestions.length + 1 }); setShowQForm(true); }} 
+                      className="px-6 py-3 rounded-xl bg-[#EE4D2D] text-white font-black text-[10px] uppercase tracking-widest shadow-md hover:brightness-110 transition-all"
+                    >
+                      ADICIONAR QUESTÃO
+                    </button>
+                    <button onClick={() => setManagingTraining(null)} className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-all">
+                      VOLTAR
+                    </button>
+                 </div>
+              </div>
+
+              <div className="space-y-6">
+                 {mgmtQuestions.map((q, i) => (
+                   <div key={q.id} className="relative group bg-white p-8 rounded-3xl border border-gray-100 hover:border-[#EE4D2D]/10 hover:shadow-xl transition-all">
+                      <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#EE4D2D] text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg group-hover:rotate-12 transition-transform">
+                         {i + 1}
+                      </div>
+                      <div className="flex justify-between items-start gap-4">
+                         <div className="flex-1 space-y-6">
+                            <p className="text-lg font-bold text-gray-800 pt-2 leading-relaxed">{q.question}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               {['a', 'b', 'c', 'd'].map(opt => (
+                                 <div key={opt} className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-3
+                                   ${q.correct_option === opt ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-50 bg-gray-50/30 text-gray-400'}`}>
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black uppercase
+                                      ${q.correct_option === opt ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                                       {opt}
+                                    </div>
+                                    <span className="text-xs font-bold leading-tight">{q[`option_${opt}`]}</span>
+                                 </div>
+                               ))}
+                            </div>
+                         </div>
+                         <div className="flex flex-col gap-2">
+                           <button onClick={() => { setQForm(q); setShowQForm(true); }} className="p-3 rounded-xl bg-gray-50 text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all"><Edit2 size={18}/></button>
+                           <button onClick={() => deleteQuestion(q.id)} className="p-3 rounded-xl bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 size={18}/></button>
+                         </div>
+                      </div>
+                   </div>
+                 ))}
+                 {mgmtQuestions.length === 0 && (
+                   <div className="py-24 bg-white rounded-3xl border-2 border-dashed border-gray-100 text-center space-y-4">
+                      <div className="inline-flex p-6 bg-[#FEF6F5] text-[#EE4D2D] rounded-full">
+                         <GraduationCap size={48} />
+                      </div>
+                      <div className="max-w-xs mx-auto space-y-1">
+                         <h3 className="text-gray-900 font-black uppercase tracking-widest text-sm">Prova não Finalizada</h3>
+                         <p className="text-xs text-gray-400 font-medium">Você precisa adicionar pelo menos uma questão para que o treinamento possa ser validado pelos colaboradores.</p>
+                      </div>
+                   </div>
+                 )}
+              </div>
+           </div>
+
+           {/* Nested Small Modal for Question Editing */}
+           {showQForm && (
+              <div className="fixed inset-0 z-[70] bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4">
+                 <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-gray-100 p-10 space-y-8 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[95vh]">
+                    <div className="flex justify-between items-center">
+                       <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{qForm.id ? 'Editar Questão' : 'Nova Questão'}</h3>
+                       <button onClick={() => setShowQForm(false)} className="p-3 rounded-xl bg-gray-50 text-gray-400"><X size={20}/></button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                       <div className="md:col-span-1 space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ordem</label>
+                          <input type="number" value={qForm.order_num} onChange={e => setQForm({...qForm, order_num: parseInt(e.target.value)||1})} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-900 font-black text-center outline-none focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+                       </div>
+                       <div className="md:col-span-3 space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Enunciado</label>
+                          <input value={qForm.question} onChange={e => setQForm({...qForm, question: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {['a', 'b', 'c', 'd'].map(opt => (
+                         <div key={opt} className="space-y-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Opção {opt.toUpperCase()}</label>
+                            <input value={qForm[`option_${opt}`]} onChange={e => setQForm({...qForm, [`option_${opt}`]: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+                         </div>
+                       ))}
+                    </div>
+
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-widest ml-1">Resposta Correta</label>
+                       <div className="flex gap-2">
+                          {['a', 'b', 'c', 'd'].map(opt => (
+                            <button 
+                              key={opt} 
+                              onClick={() => setQForm({...qForm, correct_option: opt})}
+                              className={`flex-1 py-4 rounded-xl font-black text-sm uppercase transition-all border-2
+                                ${qForm.correct_option === opt ? 'bg-[#EE4D2D] border-[#EE4D2D] text-white shadow-lg' : 'bg-gray-50 border-transparent text-gray-400'}`}
+                            >
+                               {opt}
+                            </button>
+                          ))}
+                       </div>
+                    </div>
+
+                    <button onClick={saveQuestion} className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-xs tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-95 transition-all">
+                      FINALIZAR E SALVAR QUESTÃO
+                    </button>
+                 </div>
+              </div>
+           )}
         </div>
       )}
     </div>

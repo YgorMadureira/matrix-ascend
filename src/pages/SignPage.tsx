@@ -169,288 +169,293 @@ export default function SignPage() {
   // ── Tela de sucesso ──────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
-        <div className="animate-in zoom-in duration-500 space-y-6 max-w-sm w-full">
-          <div className="w-28 h-28 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/30">
-            <CheckCircle2 size={56} className="text-emerald-500" />
+      <div className="min-h-screen bg-[#F5F5F5] flex flex-col items-center justify-center p-6 text-center">
+        <div className="animate-in zoom-in duration-500 space-y-8 max-w-sm w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+          <div className="w-24 h-24 bg-[#E8F5E9] rounded-full flex items-center justify-center mx-auto border-4 border-white shadow-sm">
+            <CheckCircle2 size={48} className="text-[#2E7D32]" />
           </div>
           <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">Assinatura Registrada!</h1>
-            <p className="text-muted-foreground mt-2">Seu treinamento foi registrado com sucesso no sistema.</p>
+            <h1 className="text-2xl font-bold text-gray-900">Assinatura Coletada!</h1>
+            <p className="text-gray-500 mt-2 text-sm leading-relaxed">Sua participação no treinamento foi registrada com sucesso.</p>
           </div>
 
-          <div className="glass-card p-4 text-left space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Colaborador</span>
-              <span className="font-semibold text-foreground">{selectedCollab?.name}</span>
+          <div className="bg-[#FAFAFA] rounded-xl p-5 text-left space-y-4 border border-gray-100">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Colaborador</span>
+              <span className="font-semibold text-gray-800 text-sm">{selectedCollab?.name}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Função</span>
-              <span className="font-semibold text-foreground">{selectedCollab?.role}</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Treinamento</span>
+              <span className="font-bold text-[#EE4D2D] text-sm">{trainingName}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Treinamento</span>
-              <span className="font-semibold text-primary">{trainingName}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Instrutor</span>
-              <span className="font-semibold text-foreground">{selectedInstructor}</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Instrutor</span>
+              <span className="font-semibold text-gray-800 text-sm">{selectedInstructor}</span>
             </div>
           </div>
 
           <button
             onClick={() => window.location.reload()}
-            className="w-full py-3 rounded-xl bg-secondary text-foreground font-medium hover:bg-secondary/80 transition-colors"
+            className="w-full py-4 rounded-xl bg-[#EE4D2D] text-white font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-md"
           >
-            Registrar próximo colaborador
+            Registrar Próximo
           </button>
         </div>
+        <p className="mt-8 text-gray-400 text-[10px] uppercase font-bold tracking-widest">© 2026 Shopee Logistics • Matrix Ascend</p>
       </div>
     );
   }
 
   if (!trainingName) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-2xl font-bold text-destructive mb-2">QR Code inválido</h1>
-        <p className="text-muted-foreground">Este QR Code não contém um treinamento identificado.</p>
+      <div className="min-h-screen bg-[#F5F5F5] flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-lg border border-red-50 max-w-sm">
+          <X className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 mb-2">QR Code Inválido</h1>
+          <p className="text-gray-500 text-sm">Este código não contém as informações de treinamento necessárias. Por favor, solicite um novo QR Code ao instrutor.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center p-4 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-md space-y-5 pb-20">
+    <div className="min-h-screen bg-[#F5F5F5] flex flex-col items-center">
+      {/* Top Brand Bar */}
+      <div className="w-full h-1 shopee-gradient-bg" />
+      
+      <div className="w-full max-w-md p-4 sm:p-6 space-y-6 pb-20">
 
-        {/* Header */}
-        <div className="text-center space-y-2 pt-6 pb-2">
-          <div className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider">
-            Registro de Presença
+        {/* Header Section */}
+        <div className="text-center space-y-3 pt-4">
+          <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
+            <img src="/logo_pts.png" alt="Logo" className="h-5" onError={(e) => (e.currentTarget.style.display = 'none')} />
+            <span className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-tighter">Matrix Ascend</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground leading-tight">
-            {trainingName}
-          </h1>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Registro de Presença</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+              {trainingName}
+            </h1>
+          </div>
         </div>
 
-        {/* Progress steps */}
-        <div className="flex items-center justify-center gap-2">
+        {/* Steps Progress */}
+        <div className="flex items-center justify-between px-4">
           {[1, 2, 3, 4].map(s => (
-            <div key={s} className={`flex items-center gap-2`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
-                ${step > s ? 'bg-emerald-500 text-white' : step === s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
+            <div key={s} className="flex flex-col items-center gap-2 flex-1 relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all z-10
+                ${step > s ? 'bg-[#EE4D2D] border-[#EE4D2D] text-white shadow-md' : 
+                  step === s ? 'bg-white border-[#EE4D2D] text-[#EE4D2D] shadow-lg scale-110' : 
+                  'bg-white border-gray-200 text-gray-300'}`}>
                 {step > s ? '✓' : s}
               </div>
-              {s < 4 && <div className={`w-6 h-0.5 ${step > s ? 'bg-emerald-500' : 'bg-secondary'}`} />}
+              {s < 4 && (
+                <div className={`absolute left-1/2 w-full h-[2px] top-5 -z-0
+                  ${step > s ? 'bg-[#EE4D2D]' : 'bg-gray-200'}`} />
+              )}
             </div>
           ))}
         </div>
 
-        {/* ── Passo 1: Escolher SOC ── */}
-        {step === 1 && (
-          <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
-            <div className="flex items-center gap-3 border-b border-border pb-4">
-              <Building2 size={20} className="text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Qual é sua Unidade?</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              {socs.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => loadCollaborators(s.name)}
-                  className="flex items-center gap-3 p-4 rounded-xl bg-secondary/50 hover:bg-primary/20 hover:text-primary hover:border-primary/30 transition-all text-left border border-transparent"
-                >
-                  <Building2 size={18} />
-                  <span className="font-medium text-sm">{s.name}</span>
-                </button>
-              ))}
-              {socs.length === 0 && (
-                <p className="col-span-2 text-center text-muted-foreground text-sm py-4">
-                  Carregando unidades...
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Passo 2: Buscar nome ── */}
-        {step === 2 && (
-          <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <div className="flex items-center gap-3">
-                <User size={20} className="text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Quem é você?</h2>
+        {/* Main Content Area */}
+        <div className="animate-fade-in-up">
+          {/* Passo 1: Escolher Unidade */}
+          {step === 1 && (
+            <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100 space-y-6">
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-gray-900">Sua Unidade</h2>
+                <p className="text-xs text-gray-400 font-medium">Selecione onde você trabalha atualmente</p>
               </div>
-              <button onClick={() => { setStep(1); setSearchName(''); }} className="text-xs text-primary hover:underline">
-                ← Voltar
-              </button>
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <input
-                type="text"
-                placeholder="Busque pelo seu nome..."
-                value={searchName}
-                onChange={e => setSearchName(e.target.value)}
-                autoFocus
-                className="w-full pl-9 pr-4 py-3 rounded-xl bg-secondary border border-border text-foreground outline-none focus:border-primary text-sm"
-              />
-            </div>
-
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {filteredCollabs.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => selectCollab(c)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary transition-colors text-left group"
-                >
-                  <div>
-                    <p className="font-medium text-foreground text-sm">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.role} • {c.sector}</p>
+              <div className="grid grid-cols-1 gap-3">
+                {socs.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => loadCollaborators(s.name)}
+                    className="flex items-center justify-between p-5 rounded-xl border-2 border-transparent bg-gray-50 hover:bg-[#FEF6F5] hover:border-[#EE4D2D]/20 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-white rounded-lg shadow-sm">
+                        <Building2 size={24} className="text-[#EE4D2D]" />
+                      </div>
+                      <span className="font-bold text-gray-800 text-lg">{s.name}</span>
+                    </div>
+                    <ChevronRight size={20} className="text-gray-300" />
+                  </button>
+                ))}
+                {socs.length === 0 && (
+                  <div className="py-12 flex flex-col items-center gap-3">
+                    <Loader2 className="animate-spin text-[#EE4D2D]" />
+                    <p className="text-sm text-gray-400 font-medium tracking-wide">Buscando unidades...</p>
                   </div>
-                  <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                </button>
-              ))}
-              {filteredCollabs.length === 0 && searchName.length > 0 && (
-                <p className="text-center text-muted-foreground py-4 text-sm">
-                  Nenhum colaborador encontrado para "{searchName}"
-                </p>
-              )}
-              {collaborators.length === 0 && (
-                <p className="text-center text-muted-foreground py-4 text-sm">
-                  Nenhum colaborador cadastrado para esta unidade.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Passo 3: Selecionar Instrutor ── */}
-        {step === 3 && selectedCollab && (
-          <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <div className="flex items-center gap-3">
-                <GraduationCap size={20} className="text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Quem ministrou?</h2>
-              </div>
-              <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">
-                ← Voltar
-              </button>
-            </div>
-
-            {/* Ficha do colaborador */}
-            <div className="bg-primary/10 p-4 rounded-xl border border-primary/20">
-              <p className="text-xs text-muted-foreground mb-1">Colaborador Selecionado</p>
-              <p className="font-bold text-primary">{selectedCollab.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{selectedCollab.role} • {selectedCollab.soc} • {selectedCollab.sector}</p>
-            </div>
-
-            <div className="space-y-2 pt-1">
-              <p className="text-sm text-muted-foreground font-medium">Selecione o instrutor:</p>
-              {instructors.map(inst => (
-                <button
-                  key={inst.id}
-                  onClick={() => { setSelectedInstructor(inst.name); setStep(4); }}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left
-                    ${selectedInstructor === inst.name
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-secondary/30 hover:bg-secondary'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <GraduationCap size={18} />
-                    <span className="font-medium text-sm">{inst.name}</span>
-                  </div>
-                  <ChevronRight size={16} className="text-muted-foreground" />
-                </button>
-              ))}
-              {instructors.length === 0 && (
-                <div className="text-center py-6 space-y-2">
-                  <p className="text-muted-foreground text-sm">Nenhum instrutor cadastrado para a unidade <strong>{selectedCollab.soc}</strong>.</p>
-                  <p className="text-xs text-muted-foreground">Peça ao administrador para cadastrar os instrutores nas Configurações.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Passo 4: Assinatura ── */}
-        {step === 4 && selectedCollab && (
-          <div className="glass-card p-6 space-y-4 animate-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <div className="flex items-center gap-3">
-                <PenTool size={20} className="text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Assine aqui</h2>
-              </div>
-              <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">
-                ← Voltar
-              </button>
-            </div>
-
-            {/* Ficha completa */}
-            <div className="bg-secondary/50 rounded-xl p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Colaborador</span>
-                <span className="font-semibold text-foreground">{selectedCollab.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Função</span>
-                <span className="font-semibold text-foreground">{selectedCollab.role}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Setor</span>
-                <span className="font-semibold text-foreground">{selectedCollab.sector}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Unidade</span>
-                <span className="font-semibold text-foreground">{selectedCollab.soc}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Instrutor</span>
-                <span className="font-semibold text-foreground">{selectedInstructor}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Treinamento</span>
-                <span className="font-semibold text-primary">{trainingName}</span>
+                )}
               </div>
             </div>
+          )}
 
-            {/* Canvas de assinatura */}
-            <div className="space-y-2">
+          {/* Passo 2: Buscar Nome */}
+          {step === 2 && (
+            <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100 space-y-6">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-muted-foreground">Desenhe sua assinatura abaixo:</label>
-                <button onClick={clearCanvas} className="text-xs text-destructive hover:underline">Limpar</button>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-gray-900">Quem é você?</h2>
+                  <p className="text-xs text-gray-400 font-medium">Filtre pelo seu nome abaixo</p>
+                </div>
+                <button onClick={() => setStep(1)} className="text-[10px] font-black uppercase text-[#EE4D2D] tracking-widest bg-[#FEF6F5] px-3 py-1.5 rounded-full">Trocar Unidade</button>
               </div>
-              <div className="bg-white rounded-xl border-2 border-border focus-within:border-primary overflow-hidden touch-none h-[200px] w-full shadow-inner">
-                <canvas
-                  ref={canvasRef}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                  className="w-full h-full cursor-crosshair"
+
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Seu nome completo..."
+                  value={searchName}
+                  onChange={e => setSearchName(e.target.value)}
+                  autoFocus
+                  className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-[#EE4D2D] text-gray-800 font-medium outline-none transition-all shadow-inner"
                 />
               </div>
-              {!hasDrawn && (
-                <p className="text-xs text-center text-muted-foreground">Use o dedo para assinar acima</p>
-              )}
-            </div>
 
-            <button
-              disabled={isSubmitting || !hasDrawn}
-              onClick={submitSignature}
-              className="w-full py-4 mt-2 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center shadow-glow"
-            >
-              {isSubmitting
-                ? <><Loader2 size={22} className="animate-spin mr-2" /> Confirmando...</>
-                : 'Confirmar Presença'
-              }
-            </button>
-          </div>
-        )}
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {filteredCollabs.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => selectCollab(c)}
+                    className="w-full flex items-center justify-between p-4 rounded-xl hover:bg-[#FEF6F5] border border-transparent hover:border-[#EE4D2D]/10 transition-all group"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-gray-800 text-base">{c.name}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{c.role} • {c.sector}</p>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-300 group-hover:text-[#EE4D2D] transition-colors" />
+                  </button>
+                ))}
+                {filteredCollabs.length === 0 && searchName.length > 0 && (
+                  <div className="py-8 text-center text-gray-400 text-sm">Nenhum resultado para este critério</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Passo 3: Escolher Instrutor */}
+          {step === 3 && selectedCollab && (
+            <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100 space-y-6">
+               <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-gray-900">Ministrante</h2>
+                  <p className="text-xs text-gray-400 font-medium">Quem aplicou o treinamento?</p>
+                </div>
+                <button onClick={() => setStep(2)} className="text-[10px] font-black uppercase text-[#EE4D2D] tracking-widest bg-[#FEF6F5] px-3 py-1.5 rounded-full">Voltar</button>
+              </div>
+
+              <div className="bg-[#FAFAFA] border border-gray-100 p-4 rounded-xl">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-1">Colaborador</p>
+                <p className="font-bold text-gray-800">{selectedCollab.name}</p>
+              </div>
+
+              <div className="space-y-2">
+                {instructors.map(inst => (
+                  <button
+                    key={inst.id}
+                    onClick={() => { setSelectedInstructor(inst.name); setStep(4); }}
+                    className={`w-full flex items-center justify-between p-5 rounded-xl border-2 transition-all
+                      ${selectedInstructor === inst.name
+                        ? 'border-[#EE4D2D] bg-[#FEF6F5] text-[#EE4D2D]'
+                        : 'border-transparent bg-gray-50 hover:bg-gray-100'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-md ${selectedInstructor === inst.name ? 'bg-[#EE4D2D] text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                        <GraduationCap size={18} />
+                      </div>
+                      <span className="font-bold">{inst.name}</span>
+                    </div>
+                  </button>
+                ))}
+                {instructors.length === 0 && (
+                  <div className="bg-yellow-50 p-4 rounded-xl text-yellow-700 text-xs text-center border border-yellow-100">
+                    Sua unidade ainda não possui instrutores vinculados. Avise seu líder.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Passo 4: Assinatura */}
+          {step === 4 && selectedCollab && (
+            <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-gray-900">Assinatura Digital</h2>
+                  <p className="text-xs text-gray-400 font-medium">Confirme seus dados e assine</p>
+                </div>
+                <button onClick={() => setStep(3)} className="text-[10px] font-black uppercase text-[#EE4D2D] tracking-widest bg-[#FEF6F5] px-3 py-1.5 rounded-full">Alterar Instrutor</button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                 <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                    <p className="font-bold text-gray-400 uppercase tracking-widest mb-0.5">Colaborador</p>
+                    <p className="font-bold text-gray-800 line-clamp-1">{selectedCollab.name}</p>
+                 </div>
+                 <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                    <p className="font-bold text-gray-400 uppercase tracking-widest mb-0.5">Instrutor</p>
+                    <p className="font-bold text-gray-800 line-clamp-1">{selectedInstructor}</p>
+                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Assine Manualmente:</label>
+                  <button onClick={clearCanvas} className="text-[10px] font-bold text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase">Limpar Quadro</button>
+                </div>
+                <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 overflow-hidden touch-none h-48 w-full relative group">
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                    className="w-full h-full cursor-crosshair relative z-10"
+                  />
+                  {!hasDrawn && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 select-none">
+                      <PenTool size={32} strokeWidth={1} />
+                      <p className="text-[10px] mt-2 font-black uppercase tracking-widest">Toque e deslize para assinar</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                disabled={isSubmitting || !hasDrawn}
+                onClick={submitSignature}
+                className="w-full py-5 rounded-xl shopee-gradient-bg text-white font-black text-base uppercase tracking-widest shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 disabled:grayscale"
+              >
+                {isSubmitting
+                  ? <div className="flex items-center justify-center gap-3"><Loader2 className="animate-spin" /> <span>Gravando...</span></div>
+                  : 'Registrar Presença'
+                }
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+      
+      {/* Visual Footer */}
+      <div className="fixed bottom-0 left-0 w-full p-4 bg-[#F5F5F5] border-t border-gray-200 text-center pointer-events-none">
+          <p className="text-gray-400 text-[10px] uppercase font-bold tracking-[0.3em] opacity-40 leading-none mb-1">PORTAL MATRIX ASCEND • SPX BR</p>
+          <div className="flex justify-center gap-1">
+             {[1,2,3,4,5].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-300" />)}
+          </div>
+      </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+      `}</style>
     </div>
   );
+
 }

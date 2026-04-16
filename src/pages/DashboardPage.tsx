@@ -32,41 +32,57 @@ export default function DashboardPage() {
   }, []);
 
   const cards = [
-    { label: 'Colaboradores', value: stats.collaborators, icon: Users, color: 'text-primary' },
-    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent, color: 'text-green-400' },
-    { label: 'Materiais', value: stats.materials, icon: BarChart3, color: 'text-blue-400' },
-    { label: 'Treinamentos', value: stats.trainings, icon: CheckCircle2, color: 'text-yellow-400' },
+    { label: 'Colaboradores', value: stats.collaborators, icon: Users, color: 'text-[#EE4D2D]' },
+    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent, color: 'text-emerald-600' },
+    { label: 'Materiais', value: stats.materials, icon: BarChart3, color: 'text-[#EE4D2D]' },
+    { label: 'Treinamentos', value: stats.trainings, icon: CheckCircle2, color: 'text-amber-500' },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">
-          Bem-vindo, <span className="text-primary">{profile?.full_name}</span>
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Painel de controle do sistema de treinamentos</p>
+    <div className="space-y-8">
+      <div className="bg-white/50 p-6 rounded-2xl border border-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            Bem-vindo, <span className="text-[#EE4D2D]">{profile?.full_name}</span>
+          </h1>
+          <p className="text-gray-500 font-medium mt-1">Matrix Ascend • Painel de Gestão Operacional</p>
+        </div>
+        <div className="flex items-center gap-2 bg-[#FEF6F5] px-4 py-2 rounded-full border border-[#EE4D2D]/10">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-[#EE4D2D] uppercase tracking-wider">Sistema Online • v2.4</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="glass-card-hover p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Icon size={24} className={color} />
-              <span className="text-3xl font-display font-bold text-foreground">{value}</span>
+          <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-3 rounded-lg ${color.replace('text-', 'bg-').replace('600', '100').replace('500', '100').replace('[#EE4D2D]', '[#FEF6F5]')}`}>
+                <Icon size={24} className={color} />
+              </div>
+              <span className="text-3xl font-black text-gray-900">{value}</span>
             </div>
-            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>
           </div>
         ))}
       </div>
 
-      <div className="glass-card p-6">
-        <h2 className="font-display text-lg font-semibold text-foreground mb-4">KPIs de Treinamento</h2>
-        <div className="grid grid-cols-5 gap-3">
-          {['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'].map((t) => (
-            <div key={t} className="glass-card p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1 font-medium">{t}</p>
-              <p className="text-xl font-display font-bold text-primary">—</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Ver relatórios</p>
+      <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Desempenho por Macro-Setor</h2>
+            <p className="text-sm text-gray-400 mt-0.5">Visão consolidada de certificações</p>
+          </div>
+          <button className="text-xs font-bold text-[#EE4D2D] uppercase hover:underline">Ver Detalhes</button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'].map((t) => (
+            <div key={t} className="bg-gray-50 border border-transparent hover:border-[#EE4D2D]/20 hover:bg-white p-5 rounded-xl text-center transition-all group cursor-pointer shadow-sm hover:shadow-md">
+              <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-tighter line-clamp-1">{t}</p>
+              <p className="text-2xl font-black text-gray-300 group-hover:text-[#EE4D2D] transition-colors">—</p>
+              <div className="w-full h-1 bg-gray-200 mt-4 rounded-full overflow-hidden">
+                 <div className="h-full bg-gray-300 group-hover:bg-[#EE4D2D] w-1/4 transition-all" />
+              </div>
             </div>
           ))}
         </div>
@@ -74,3 +90,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

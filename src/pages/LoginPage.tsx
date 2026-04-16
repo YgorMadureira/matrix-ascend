@@ -98,49 +98,45 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
-      {/* Background effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-primary/3 blur-[120px]" />
-        <div className="absolute inset-0 scan-line pointer-events-none opacity-30" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F5] p-4">
+      {/* Shopee Header Logo */}
+      <div className="mb-8 flex flex-col items-center animate-fade-in-up">
+        <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
+          <img src={logoPts} alt="Shopee Matrix" className="h-16 w-auto" />
+        </div>
+        <h1 className="text-2xl font-bold text-[#EE4D2D]">MATRIX ASCEND</h1>
+        <p className="text-gray-500 text-sm mt-1 uppercase tracking-widest font-semibold">Portal de Treinamento Shopee</p>
       </div>
 
-      <div className="glass-card p-10 w-full max-w-md relative z-10 animate-fade-in-up">
-        <div className="flex flex-col items-center mb-8">
-          <img src={logoPts} alt="PTS Logo" className="h-20 mb-4" />
-          <h1 className="font-display text-xl font-bold text-primary glow-text">
-            TRAINING MATRIX
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Sistema de Gestão de Treinamentos</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md animate-fade-in-up border border-gray-100">
+        <h2 className="text-xl font-bold text-gray-800 mb-6">Login do Sistema</h2>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">Email</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Seu Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-secondary border border-border focus:border-primary focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground outline-none transition-all"
-              placeholder="seu@email.com"
+              className="w-full px-4 py-3 rounded-md bg-gray-50 border border-gray-200 focus:border-[#EE4D2D] focus:ring-1 focus:ring-[#EE4D2D] text-gray-800 placeholder:text-gray-400 outline-none transition-all"
+              placeholder="exemplo@shopee.com"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">Senha</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Sua Senha</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg bg-secondary border border-border focus:border-primary focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground outline-none transition-all"
+              className="w-full px-4 py-3 rounded-md bg-gray-50 border border-gray-200 focus:border-[#EE4D2D] focus:ring-1 focus:ring-[#EE4D2D] text-gray-800 placeholder:text-gray-400 outline-none transition-all"
               placeholder="••••••••"
               required
             />
           </div>
 
           {error && (
-            <div className="text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+            <div className="text-red-600 text-xs bg-red-50 border border-red-100 rounded-md p-3">
               {error}
             </div>
           )}
@@ -148,16 +144,22 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 transition-all disabled:opacity-50 animate-glow-pulse"
+            className="w-full py-4 rounded-md shopee-gradient-bg text-white font-bold text-sm tracking-wide shadow-md hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            {submitting ? 'Autenticando...' : 'ACESSAR SISTEMA'}
+            {submitting ? 'AUTENTICANDO...' : 'ACESSAR PORTAL'}
           </button>
         </form>
 
-        <p className="text-center text-muted-foreground text-xs mt-6">
-          Acesso restrito. Contate o administrador para obter credenciais.
-        </p>
+        <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+          <p className="text-gray-400 text-xs">
+            Esta é uma ferramenta interna da Shopee.<br/>
+            Uso restrito a funcionários autorizados.
+          </p>
+        </div>
       </div>
+      
+      <p className="mt-8 text-gray-400 text-[10px] uppercase font-bold tracking-widest">© 2026 SPX BR LOGISTICS</p>
     </div>
   );
 }
+

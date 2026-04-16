@@ -398,110 +398,336 @@ export default function TrainingsPage() {
 
   // ── Normal listing view ──
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Treinamentos</h1>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Capacitação EAD</h1>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
             {breadcrumb.map((b, i) => (
-              <span key={i} className="flex items-center gap-1">
-                {i > 0 && <span>/</span>}
-                <button onClick={() => navigateToBreadcrumb(i)} className="hover:text-primary transition-colors">{b.name}</button>
-              </span>
+              <div key={i} className="flex items-center gap-2 whitespace-nowrap">
+                {i > 0 && <span className="text-gray-300 font-bold">/</span>}
+                <button 
+                  onClick={() => navigateToBreadcrumb(i)} 
+                  className={`text-xs font-black uppercase tracking-widest transition-all
+                    ${i === breadcrumb.length - 1 ? 'text-[#EE4D2D]' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  {b.name}
+                </button>
+              </div>
             ))}
           </div>
         </div>
         {isAdmin && (
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setShowNewTraining(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:brightness-110 transition-all shadow-glow">
-              <Plus size={16} /> Novo Treinamento
+          <div className="flex gap-3 flex-wrap">
+             <button 
+              onClick={() => setShowNewFolder(true)} 
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-50 text-gray-700 text-xs font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200 shadow-sm"
+            >
+              <Folder size={16} /> Nova Pasta
             </button>
-            <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-colors">
-              <Plus size={16} /> Pasta
+            <button 
+              onClick={() => setShowNewTraining(true)} 
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full shopee-gradient-bg text-white text-xs font-black uppercase tracking-widest hover:brightness-110 shadow-lg active:scale-95 transition-all"
+            >
+              <Plus size={18} /> Novo Material
             </button>
           </div>
         )}
       </div>
 
-      {/* New folder */}
+      {/* New folder inline form */}
       {showNewFolder && isAdmin && (
-        <div className="glass-card p-4 flex gap-3">
-          <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="Nome da pasta"
-            className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary"
-            onKeyDown={e => e.key === 'Enter' && createFolder()} />
-          <button onClick={createFolder} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Criar</button>
-          <button onClick={() => setShowNewFolder(false)} className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm">Cancelar</button>
+        <div className="bg-white p-6 rounded-2xl shadow-xl border-2 border-[#EE4D2D]/20 animate-in slide-in-from-top-4 flex flex-col md:flex-row gap-4 items-center">
+          <div className="flex-1 w-full space-y-1">
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome da Pasta</label>
+             <input 
+              value={newFolderName} 
+              onChange={e => setNewFolderName(e.target.value)} 
+              placeholder="Ex: Treinamentos 2026"
+              className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all"
+              onKeyDown={e => e.key === 'Enter' && createFolder()} 
+            />
+          </div>
+          <div className="flex gap-2 w-full md:w-auto pt-5">
+            <button onClick={createFolder} className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-[#EE4D2D] text-white text-xs font-black uppercase tracking-widest">Confirmar</button>
+            <button onClick={() => setShowNewFolder(false)} className="px-6 py-3 rounded-xl bg-gray-100 text-gray-500 text-xs font-black uppercase tracking-widest">Cancelar</button>
+          </div>
         </div>
       )}
 
-      {/* New training modal */}
+      {/* New training modal overlay */}
       {showNewTraining && isAdmin && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border/40 rounded-xl overflow-hidden p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-display font-semibold text-foreground">Novo Treinamento</h3>
-              <button onClick={() => setShowNewTraining(false)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+        <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-2xl font-black text-gray-900">Novo Material</h3>
+              <button onClick={() => setShowNewTraining(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
             </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Nome do Treinamento</label>
-                <input value={trainingName} onChange={e => setTrainingName(e.target.value)} placeholder="Ex: NR-12 Líder" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+            
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Título do Conteúdo</label>
+                <input value={trainingName} onChange={e => setTrainingName(e.target.value)} placeholder="Ex: Onboarding SPX" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1 block">Link do Vídeo (Google Drive)</label>
-                <input value={trainingUrl} onChange={e => setTrainingUrl(e.target.value)} placeholder="https://drive.google.com/..." className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-foreground text-sm outline-none focus:border-primary" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Link do Vídeo (Google Drive)</label>
+                <input value={trainingUrl} onChange={e => setTrainingUrl(e.target.value)} placeholder="Cole o link de compartilhamento aqui" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
               </div>
             </div>
-            <button onClick={addTraining} className="w-full mt-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:brightness-110 transition-all">
-              Adicionar Treinamento
+
+            <button onClick={addTraining} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">
+              Salvar Treinamento
             </button>
           </div>
         </div>
       )}
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {/* Folders & Files Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
         {currentFolder && (
-          <button onClick={() => navigateToBreadcrumb(breadcrumb.length - 2)} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center">
-            <ArrowLeft size={32} className="text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Voltar</span>
+          <button 
+            onClick={() => navigateToBreadcrumb(breadcrumb.length - 2)} 
+            className="flex flex-col items-center justify-center gap-4 p-8 rounded-2xl bg-white border border-dashed border-gray-200 text-gray-300 hover:text-[#EE4D2D] hover:border-[#EE4D2D]/30 transition-all group"
+          >
+            <ArrowLeft size={32} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Voltar</span>
           </button>
         )}
+
         {folders.map(folder => (
-          <div key={folder.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => navigateToFolder(folder)}>
-            <Folder size={40} className="text-primary" />
-            <span className="text-sm font-medium text-foreground">{folder.name}</span>
-            {isAdmin && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={e => { e.stopPropagation(); deleteFolder(folder.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                  <Trash2 size={14} />
-                </button>
+          <div 
+            key={folder.id} 
+            onClick={() => navigateToFolder(folder)}
+            className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl bg-white shadow-sm border border-gray-50 hover:border-[#EE4D2D]/10 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer"
+          >
+            <div className="relative">
+              <Folder size={56} className="text-[#EE4D2D]/80 drop-shadow-sm group-hover:scale-110 transition-transform" fill="currentColor" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <div className="w-4 h-4 bg-white/20 rounded-full blur-sm" />
               </div>
+            </div>
+            <span className="text-xs font-black text-gray-800 uppercase tracking-tight text-center line-clamp-2">{folder.name}</span>
+            
+            {isAdmin && (
+              <button 
+                onClick={e => { e.stopPropagation(); deleteFolder(folder.id); }} 
+                className="absolute top-3 right-3 p-2 rounded-lg bg-red-50 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-100 transition-all scale-75"
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
         ))}
 
         {trainings.map(t => (
-          <div key={t.id} className="glass-card-hover p-5 flex flex-col items-center gap-3 text-center relative group cursor-pointer" onClick={() => (isLider || isAdmin) ? openTraining(t) : undefined}>
-            <div className="p-3 bg-emerald-500/10 rounded-xl">
-              <Play size={32} className="text-emerald-500" />
+          <div 
+            key={t.id} 
+            onClick={() => (isLider || isAdmin) ? openTraining(t) : undefined}
+            className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl bg-white shadow-sm border border-gray-50 hover:border-emerald-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer"
+          >
+            <div className="p-5 bg-emerald-50 rounded-2xl text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-inner">
+               <Play size={32} fill="currentColor" />
             </div>
-            <span className="text-sm font-medium text-foreground">{t.name}</span>
+            <span className="text-xs font-black text-gray-800 uppercase tracking-tight text-center line-clamp-2">{t.name}</span>
+            
             {isAdmin && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={e => { e.stopPropagation(); deleteTraining(t.id); }} className="p-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              <button 
+                onClick={e => { e.stopPropagation(); deleteTraining(t.id); }} 
+                className="absolute top-3 right-3 p-2 rounded-lg bg-red-50 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-100 transition-all scale-75"
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
         ))}
       </div>
 
-      {folders.length === 0 && trainings.length === 0 && !currentFolder && (
-        <div className="glass-card p-12 text-center">
-          <FolderOpen size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Nenhum treinamento ainda. {isAdmin ? 'Crie pastas e treinamentos.' : 'Aguarde o administrador adicionar conteúdo.'}</p>
+      {/* Empty State */}
+      {folders.length === 0 && trainings.length === 0 && (
+        <div className="py-24 bg-white rounded-3xl border border-dashed border-gray-200 text-center space-y-4">
+          <div className="inline-flex p-6 bg-gray-50 rounded-full text-gray-200">
+             <FolderOpen size={48} />
+          </div>
+          <div className="max-w-xs mx-auto space-y-1">
+             <h3 className="text-gray-900 font-black uppercase tracking-widest text-sm">Diretório Vazio</h3>
+             <p className="text-xs text-gray-400 font-medium">Não há materiais disponíveis nesta sub-pasta no momento.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay modal para visualização e prova (mantendo lógica anterior com novo estilo) */}
+      {activeTraining && (
+        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto pt-20 pb-20 animate-in fade-in duration-300">
+           <div className="w-full max-w-4xl bg-[#F5F5F5] rounded-3xl shadow-2xl overflow-hidden border border-white/20 animate-in slide-in-from-bottom-8 duration-500">
+              {/* Header Modal */}
+              <div className="bg-white p-6 border-b border-gray-100 flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl"><Play size={20} /></div>
+                    <div>
+                       <h2 className="text-xl font-black text-gray-900">{activeTraining.name}</h2>
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{examStep === 'video' ? 'Fase 1: Aprendizado' : examStep === 'quiz' ? 'Fase 2: Avaliação' : 'Fase 3: Conclusão'}</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setActiveTraining(null)} className="p-3 rounded-xl bg-gray-50 text-gray-500 hover:bg-gray-100 font-black uppercase text-[10px] tracking-widest flex items-center gap-2">
+                    <X size={16} /> Fechar
+                 </button>
+              </div>
+
+              <div className="p-6 lg:p-10">
+                {examStep === 'video' && (
+                  <div className="space-y-8 max-w-3xl mx-auto">
+                    <div className="relative group overflow-hidden rounded-3xl shadow-2xl border-4 border-white bg-black aspect-video">
+                      {activeTraining.video_url ? (
+                        <iframe
+                          src={getGDriveEmbedUrl(activeTraining.video_url)}
+                          className="w-full h-full"
+                          allow="autoplay; encrypted-media"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest">Nenhum vídeo disponível</div>
+                      )}
+                    </div>
+                    {mustRewatch && (
+                      <div className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-center gap-4 animate-bounce">
+                        <div className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-black">!</div>
+                        <p className="text-red-700 font-bold text-sm">Você errou 5 vezes. Assista ao conteúdo completo com atenção antes de reiniciar a prova.</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
+                      disabled={questions.length === 0}
+                      className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-base tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
+                    </button>
+                  </div>
+                )}
+
+                {examStep === 'quiz' && (
+                  <div className="space-y-8 max-w-2xl mx-auto">
+                    <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 gap-4">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-[#FEF6F5] text-[#EE4D2D] rounded-full flex items-center justify-center font-black">?</div>
+                          <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{questions.length} Questões Totais</span>
+                       </div>
+                       <div className="px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                          Tentativa {attempts + 1} de 5
+                       </div>
+                    </div>
+
+                    <div className="space-y-8">
+                       {questions.map((q, i) => (
+                         <div key={q.id} className="space-y-4">
+                            <div className="flex items-start gap-4">
+                               <span className="text-3xl font-black text-[#EE4D2D] opacity-20">0{i+1}</span>
+                               <p className="text-lg font-bold text-gray-800 pt-2 leading-relaxed">{q.question}</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 ml-0 md:ml-12">
+                               {['a', 'b', 'c', 'd'].map(opt => (
+                                 <label 
+                                  key={opt} 
+                                  className={`flex items-center gap-4 p-5 rounded-2xl cursor-pointer transition-all border-2
+                                    ${answers[q.id] === opt 
+                                      ? 'border-[#EE4D2D] bg-white shadow-md' 
+                                      : 'border-transparent bg-white/50 hover:bg-white'}`}
+                                 >
+                                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-black uppercase text-xs transition-colors
+                                      ${answers[q.id] === opt ? 'bg-[#EE4D2D] border-[#EE4D2D] text-white' : 'border-gray-200 text-gray-400'}`}>
+                                       {opt}
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-700 transition-colors uppercase tracking-tight line-clamp-2">{q[`option_${opt}`]}</span>
+                                    <input
+                                      type="radio"
+                                      name={`q_${q.id}`}
+                                      value={opt}
+                                      checked={answers[q.id] === opt}
+                                      onChange={() => setAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                                      className="hidden"
+                                    />
+                                 </label>
+                               ))}
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+
+                    <button
+                      onClick={submitQuiz}
+                      disabled={Object.keys(answers).length < questions.length}
+                      className="w-full py-6 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-lg tracking-[0.4em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
+                    >
+                      FINALIZAR AVALIAÇÃO
+                    </button>
+                  </div>
+                )}
+
+                {examStep === 'sign' && (
+                   <div className="max-w-md mx-auto space-y-8 py-4">
+                      <div className="text-center space-y-4">
+                         <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm border-4 border-white">
+                            <CheckCircle2 size={40} />
+                         </div>
+                         <div>
+                            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Você foi aprovado!</h3>
+                            <p className="text-sm text-gray-500 font-medium">Nota final: <strong>{quizScore}%</strong>. Agora precisamos da sua assinatura oficial.</p>
+                         </div>
+                      </div>
+
+                      <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 space-y-6">
+                         <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assine no quadro abaixo:</span>
+                            <button onClick={clearCanvas} className="text-[10px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase">Limpar</button>
+                         </div>
+                         <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 overflow-hidden touch-none h-48 w-full relative group">
+                            <canvas
+                              ref={initCanvas}
+                              onMouseDown={startDraw} onMouseMove={drawMove} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+                              onTouchStart={startDraw} onTouchMove={drawMove} onTouchEnd={stopDraw}
+                              className="w-full h-full cursor-crosshair relative z-10"
+                            />
+                            {!hasDrawn && (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 select-none pointer-events-none">
+                                <Edit2 size={32} strokeWidth={1} />
+                                <p className="text-[8px] mt-2 font-black uppercase tracking-[0.2em]">Deslize aqui para assinar</p>
+                              </div>
+                            )}
+                         </div>
+                         <button
+                           onClick={submitSignature}
+                           disabled={isSubmitting || !hasDrawn}
+                           className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
+                         >
+                           {isSubmitting ? 'CERTIFICANDO...' : 'CONFIRMAR CERTIFICAÇÃO'}
+                         </button>
+                      </div>
+                   </div>
+                )}
+
+                {examStep === 'done' && (
+                   <div className="text-center space-y-8 py-12 max-w-sm mx-auto">
+                      <div className="relative">
+                         <div className="w-32 h-32 bg-[#FEF6F5] rounded-full flex items-center justify-center mx-auto border-8 border-white shadow-xl animate-in zoom-in duration-700">
+                             <ClipboardList size={56} className="text-[#EE4D2D]" />
+                         </div>
+                         <div className="absolute top-0 right-1/4 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center text-white animate-bounce">
+                            <CheckCircle2 size={16} />
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                         <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight">Sucesso Total!</h2>
+                         <p className="text-sm border-gray-400 text-gray-500 font-medium leading-relaxed">Parabéns. Sua certificação em <strong>{activeTraining.name}</strong> foi devidamente registrada e já consta nos relatórios oficiais.</p>
+                      </div>
+                      <button 
+                        onClick={() => setActiveTraining(null)} 
+                        className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black uppercase tracking-[0.2em] hover:bg-black shadow-lg transition-all"
+                      >
+                         VOLTAR AO PAINEL
+                      </button>
+                   </div>
+                )}
+              </div>
+           </div>
         </div>
       )}
     </div>
