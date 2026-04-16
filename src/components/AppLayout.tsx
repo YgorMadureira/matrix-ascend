@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X } from 'lucide-react';
-import logoPts from '@/assets/logo_pts.png';
+import shopeeLogoWhite from '@/assets/shopee_logo_white.png';
 
 export default function AppLayout() {
   const { profile, isAdmin, isLider, signOut } = useAuth();
@@ -40,13 +40,14 @@ export default function AppLayout() {
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-1 text-white">
             <Menu size={24} />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="bg-white p-1.5 rounded-lg shadow-sm">
-              <img src={logoPts} alt="PTS" className="h-8 w-auto object-contain" />
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="text-white font-bold text-lg tracking-tight">MATRIX ASCEND</h1>
-              <p className="text-white/80 text-[10px] uppercase font-bold tracking-widest leading-none">Shopee Training Portal</p>
+          <div className="flex items-center gap-4">
+            <img src={shopeeLogoWhite} alt="Shopee" className="h-11 w-auto object-contain drop-shadow-md pb-1" />
+            <div className="hidden sm:block border-l border-white/20 pl-4 py-1">
+              <h1 className="text-white font-black text-sm tracking-widest uppercase leading-[1.2]">
+                Portal de
+                <br />
+                Treinamentos
+              </h1>
             </div>
           </div>
         </div>
