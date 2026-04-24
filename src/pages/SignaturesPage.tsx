@@ -27,15 +27,39 @@ export default function SignaturesPage() {
   useEffect(() => {
     const fetchSignatures = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('trainings_completed')
-        .select(`
-          *,
-          collaborator:collaborator_id (name, sector, soc, role)
-        `)
-        .order('completed_at', { ascending: false });
+      let allRecords: SignatureRecord[] = [];
+      let page = 0;
+      const limit = 1000;
+      let hasMore = true;
 
-      if (!error && data) setRecords(data as any);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('trainings_completed')
+          .select(`
+            *,
+            collaborator:collaborator_id (name, sector, soc, role)
+          `)
+          .order('completed_at', { ascending: false })
+          .range(page * limit, (page + 1) * limit - 1);
+
+        if (error) {
+          console.error(error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allRecords = [...allRecords, ...(data as any)];
+          if (data.length < limit) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setRecords(allRecords);
       setLoading(false);
     };
     fetchSignatures();

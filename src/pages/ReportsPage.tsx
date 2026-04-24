@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle2, XCircle, Upload, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
 
 const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'] as const;
 
@@ -24,6 +24,7 @@ interface Training {
   training_type: string;
   completed_at: string;
   signature_pdf_url: string | null;
+  instructor_name?: string;
 }
 
 export default function ReportsPage() {
@@ -140,21 +141,36 @@ export default function ReportsPage() {
   const generalPct = generalTotal > 0 ? Math.round((generalCompleted / generalTotal) * 100) : 0;
 
   // Chart data by SOC
-  const socList = [...new Set(collaborators.map(c => c.soc))];
+  const socList = [...new Set(collaborators.map(c => c.soc))].sort();
   const chartData = socList.map(soc => {
     const socCollabs = collaborators.filter(c => c.soc === soc);
     const total = socCollabs.length;
     if (selectedTrainingType) {
       const trained = socCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
-      const pct = total > 0 ? Math.round((trained / total) * 100) : 0;
-      return { soc, '% Treinados': pct, Colaboradores: total };
+      const pct = total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0;
+      return { soc, 'Treinados': pct, 'Nº HCs': total };
     }
     const trainedIds = new Set(
       trainings.filter(t => socCollabs.some(c => c.id === t.collaborator_id)).map(t => t.collaborator_id)
     );
-    const pct = total > 0 ? Math.round((trainedIds.size / total) * 100) : 0;
-    return { soc, '% Treinados': pct, Colaboradores: total };
+    const pct = total > 0 ? Number(((trainedIds.size / total) * 100).toFixed(1)) : 0;
+    return { soc, 'Treinados': pct, 'Nº HCs': total };
   });
+
+  // Stats per instructor (unique people trained)
+  const instructorStats = useMemo(() => {
+    const map = new Map<string, Set<string>>(); 
+    trainings.forEach(t => {
+      const inst = t.instructor_name?.trim() || 'Desconhecido';
+      if (!map.has(inst)) map.set(inst, new Set());
+      map.get(inst)!.add(t.collaborator_id);
+    });
+    
+    return Array.from(map.entries())
+      .map(([name, collabSet]) => ({ name, 'Pessoas Treinadas': collabSet.size }))
+      .sort((a, b) => b['Pessoas Treinadas'] - a['Pessoas Treinadas'])
+      .slice(0, 15);
+  }, [trainings]);
 
   // Training types to show in table columns
   const displayTrainingTypes = selectedTrainingType 
@@ -224,16 +240,24 @@ export default function ReportsPage() {
           Desempenho por SOC {selectedTrainingType && <span className="text-[10px] font-normal text-gray-400 ml-1">• {selectedTrainingType}</span>}
         </h2>
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 10, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
               <XAxis dataKey="soc" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+              <YAxis yAxisId="left" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+              <YAxis yAxisId="right" orientation="right" stroke="#1e3a8a" fontSize={10} tickLine={false} axisLine={false} />
               <Tooltip
                 cursor={{ fill: '#FEF6F5' }}
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #f3f4f6', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.08)', color: '#111827', fontSize: '12px' }}
+                formatter={(value: any, name: any) => [name === 'Treinados' ? `${value}%` : value, name]}
               />
-              <Bar dataKey="% Treinados" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36} />
+              <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+              <Bar yAxisId="left" dataKey="Treinados" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={28}>
+                 <LabelList dataKey="Treinados" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" formatter={(val: any) => `${val}%`} />
+              </Bar>
+              <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }}>
+                 <LabelList dataKey="Nº HCs" position="bottom" fill="#4b5563" fontSize={10} fontWeight="bold" />
+              </Line>
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
@@ -305,6 +329,37 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+
+      {/* New Chart: Instrutores */}
+      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
+        <div className="mb-4">
+          <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+            <BarChart2 className="text-[#EE4D2D]" size={18} />
+            Volume de Pessoas por Instrutor
+          </h2>
+          <p className="text-[10px] text-gray-400 font-medium mt-0.5 ml-6">Total de colaboradores distintos treinados por cada instrutor</p>
+        </div>
+        
+        {instructorStats.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={instructorStats} margin={{ top: 20, right: 10, bottom: 20, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+              <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+              <Tooltip
+                cursor={{ fill: '#FEF6F5' }}
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #f3f4f6', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.08)', color: '#111827', fontSize: '12px' }}
+              />
+              <Bar dataKey="Pessoas Treinadas" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36}>
+                 <LabelList dataKey="Pessoas Treinadas" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+           <div className="h-[320px] flex items-center justify-center text-gray-300 italic text-xs">Sem dados disponíveis</div>
+        )}
+      </div>
+
     </div>
   );
 }

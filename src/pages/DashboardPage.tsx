@@ -16,7 +16,7 @@ interface SectorStat {
 export default function DashboardPage() {
   const { profile, isLider } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0 });
+  const [stats, setStats] = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0, trainedCount: 0 });
   const [sectorStats, setSectorStats] = useState<SectorStat[]>([]);
 
   useEffect(() => {
@@ -68,6 +68,7 @@ export default function DashboardPage() {
         materials: mCount.count ?? 0,
         trainings: isLider ? trainedCollabIds.size : (tCount.count ?? 0),
         trainedPct: pct,
+        trainedCount: trainedCollabIds.size,
       });
 
       // Calculate per-sector stats (scoped to leader's team if applicable)
@@ -102,7 +103,7 @@ export default function DashboardPage() {
     { label: 'Meu Time', value: stats.collaborators, icon: Users, color: 'text-[#EE4D2D]' },
     { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent, color: 'text-emerald-600' },
     { label: 'Materiais', value: stats.materials, icon: BarChart2, color: 'text-[#EE4D2D]' },
-    { label: isLider ? 'Certificados' : 'Treinamentos', value: stats.trainings, icon: CheckCircle2, color: 'text-amber-500' },
+    { label: 'Treinados', value: stats.trainedCount, icon: CheckCircle2, color: 'text-amber-500' },
   ];
 
   return (
