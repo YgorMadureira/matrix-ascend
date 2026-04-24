@@ -582,7 +582,12 @@ export default function CollaboratorsPage() {
             }
           }
           // Default logic
-          toInsert.push({ ...row, is_onboarding: isUploadingToOnboarding });
+          const defaultAdmissionDate = isUploadingToOnboarding ? new Date().toISOString().split('T')[0] : null;
+          toInsert.push({ 
+            ...row, 
+            is_onboarding: isUploadingToOnboarding,
+            admission_date: defaultAdmissionDate 
+          });
         }
 
         if (toInsert.length > 0) {

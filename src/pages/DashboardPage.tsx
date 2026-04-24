@@ -40,11 +40,29 @@ export default function DashboardPage() {
         }
       }
 
-      const [mCount, tCount, trainingsRes] = await Promise.all([
+      const [mCount, tCount] = await Promise.all([
         supabase.from('materials').select('id', { count: 'exact', head: true }),
         supabase.from('trainings_completed').select('id', { count: 'exact', head: true }),
-        supabase.from('trainings_completed').select('collaborator_id, training_type'),
       ]);
+
+      let allTrainings: any[] = [];
+      let tPage = 0;
+      let tHasMore = true;
+      while (tHasMore) {
+        const { data, error } = await supabase
+          .from('trainings_completed')
+          .select('collaborator_id, training_type')
+          .range(tPage * limit, (tPage + 1) * limit - 1);
+        
+        if (error) break;
+        if (data) {
+          allTrainings = [...allTrainings, ...data];
+          if (data.length < limit) tHasMore = false;
+          else tPage++;
+        } else {
+          tHasMore = false;
+        }
+      }
 
       // If lider, filter to only their team
       const leaderName = profile?.full_name?.trim().toUpperCase() ?? '';
@@ -52,7 +70,7 @@ export default function DashboardPage() {
         ? allCollabs.filter(c => (c.leader ?? '').trim().toUpperCase() === leaderName)
         : allCollabs;
 
-      const trainings = trainingsRes.data ?? [];
+      const trainings = allTrainings;
       const totalCollabs = collabs.length;
 
       // Unique trained collaborators (for the global %)

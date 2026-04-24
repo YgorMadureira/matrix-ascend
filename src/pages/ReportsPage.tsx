@@ -67,8 +67,27 @@ export default function ReportsPage() {
       }
     }
 
-    const [{ data: trains }, { data: socData }] = await Promise.all([
-      supabase.from('trainings_completed').select('*'),
+    // Fetch Trainings with Pagination
+    let allTrainings: any[] = [];
+    let tPage = 0;
+    let tHasMore = true;
+    while (tHasMore) {
+      const { data, error } = await supabase
+        .from('trainings_completed')
+        .select('*')
+        .range(tPage * limit, (tPage + 1) * limit - 1);
+      
+      if (error) break;
+      if (data) {
+        allTrainings = [...allTrainings, ...data];
+        if (data.length < limit) tHasMore = false;
+        else tPage++;
+      } else {
+        tHasMore = false;
+      }
+    }
+
+    const [{ data: socData }] = await Promise.all([
       supabase.from('socs').select('name').order('name'),
     ]);
 
@@ -76,7 +95,7 @@ export default function ReportsPage() {
     const leaderName = profile?.full_name?.trim().toUpperCase() ?? '';
     const collabData = isLider ? c.filter(x => (x.leader ?? '').trim().toUpperCase() === leaderName) : c;
     setCollaborators(collabData);
-    setTrainings(trains ?? []);
+    setTrainings(allTrainings);
     setUnits(socData ? socData.map(s => s.name) : []);
     setSectors([...new Set(c.map(x => x.sector))]);
   }, [isLider, profile?.full_name]);
