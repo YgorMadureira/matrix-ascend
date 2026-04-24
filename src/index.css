@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Shopee White/Light Background */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    /* Shopee Orange: #EE4D2D */
+    --primary: 11 83% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light Gray for secondary elements */
+    --secondary: 0 0% 97%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 11 83% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 11 83% 55%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 11 83% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 11 83% 55%;
+    --sidebar-border: 0 0% 92%;
+    --sidebar-ring: 11 83% 55%;
+
+    /* Custom Shopee Tokens */
+    --shopee-orange: #EE4D2D;
+    --shopee-gradient: linear-gradient(180deg, #EE4D2D 0%, #FF7337 100%);
+    --shopee-bg-tint: 10 100% 98%;
+
+    /* Compact Typography Scaling */
+    --font-caption: 10px;
+    --font-body-small: 12px;
+    --font-body: 14px;
+    --font-title-small: 16px;
+    --font-title: 20px;
+    --font-header: 24px;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: hsl(var(--background));
+  }
+}
+
+@layer components {
+  .shopee-card {
+    @apply bg-card border border-border shadow-[0_1px_4px_rgba(0,0,0,0.05)] rounded-md;
+  }
+
+  .shopee-gradient-bg {
+    background: var(--shopee-gradient);
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-black/5 rounded-xl shadow-lg;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px];
+  }
+
+  /* Compact Mode Utility */
+  .compact-text {
+    font-size: var(--font-body-small);
+  }
+  
+  .caption-text {
+    font-size: var(--font-caption);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes loginSuccess {
+  0% { transform: scale(0); opacity: 0; }
+  30% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes checkDraw {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-login-success {
+  animation: loginSuccess 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+}
+
+.animate-check-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkDraw 0.5s ease-out forwards;
+}
+
