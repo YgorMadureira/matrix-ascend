@@ -74,12 +74,34 @@ export default function SignPage() {
   }, [step]);
 
   const loadCollaborators = async (socName: string) => {
-    const { data } = await supabase
-      .from('collaborators')
-      .select('id, name, sector, soc, role')
-      .eq('soc', socName)
-      .order('name');
-    setCollaborators(data ?? []);
+    let allCollabs: Collaborator[] = [];
+    let page = 0;
+    const limit = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('id, name, sector, soc, role')
+        .eq('soc', socName)
+        .order('name')
+        .range(page * limit, (page + 1) * limit - 1);
+      
+      if (error) {
+        console.error("Error fetching collaborators:", error);
+        break;
+      }
+      
+      if (data) {
+        allCollabs = [...allCollabs, ...data];
+        if (data.length < limit) hasMore = false;
+        else page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    setCollaborators(allCollabs);
     setSelectedSoc(socName);
     setStep(2);
   };
