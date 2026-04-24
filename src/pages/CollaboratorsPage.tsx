@@ -92,10 +92,31 @@ export default function CollaboratorsPage() {
       }
     }
 
-    const { data: trains } = await supabase.from('trainings_completed').select('collaborator_id, training_type');
+    let allTrainings: any[] = [];
+    let tPage = 0;
+    let tHasMore = true;
+    while (tHasMore) {
+      const { data, error } = await supabase
+        .from('trainings_completed')
+        .select('collaborator_id, training_type')
+        .range(tPage * limit, (tPage + 1) * limit - 1);
+      
+      if (error) {
+        console.error("Error fetching trainings:", error);
+        break;
+      }
+      
+      if (data) {
+        allTrainings = [...allTrainings, ...data];
+        if (data.length < limit) tHasMore = false;
+        else tPage++;
+      } else {
+        tHasMore = false;
+      }
+    }
 
     setCollaborators(allCollabs);
-    setTrainings(trains ?? []);
+    setTrainings(allTrainings);
   }, []);
 
   useEffect(() => {
