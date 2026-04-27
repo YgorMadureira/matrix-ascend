@@ -19,7 +19,34 @@ import React from "react";
 
 const queryClient = new QueryClient();
 
-// Error Boundary para nunca mais ter tela preta
+// ============================================================
+// MAPA DE ACESSO POR PERFIL
+// Define quais roles podem acessar cada rota
+// ============================================================
+type Role = 'admin' | 'user' | 'lider' | 'bpo';
+
+const ROUTE_PERMISSIONS: Record<string, Role[]> = {
+  '/dashboard':    ['admin', 'user', 'lider'],
+  '/materials':    ['admin', 'user'],
+  '/collaborators':['admin', 'user', 'lider', 'bpo'],
+  '/reports':      ['admin', 'user', 'lider'],
+  '/socs':         ['admin', 'user'],
+  '/settings':     ['admin'],
+  '/trainings':    ['admin', 'user', 'lider'],
+  '/signatures':   ['admin', 'user'],
+};
+
+// Página inicial de cada perfil (redirecionamento após login ou acesso negado)
+const ROLE_HOME: Record<Role, string> = {
+  admin:  '/dashboard',
+  user:   '/dashboard',
+  lider:  '/dashboard',
+  bpo:    '/collaborators',
+};
+
+// ============================================================
+// Error Boundary — evita tela preta em erros inesperados
+// ============================================================
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: string }
@@ -50,6 +77,9 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+// ============================================================
+// ProtectedRoute — exige login, mostra loading enquanto carrega
+// ============================================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -69,6 +99,44 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ============================================================
+// RoleRoute — verifica se o perfil tem acesso à rota
+// Se não tiver, redireciona para a página inicial do perfil
+// ============================================================
+function RoleRoute({ path, children }: { path: string; children: React.ReactNode }) {
+  const { profile, loading } = useAuth();
+
+  // Aguarda o perfil carregar antes de decidir
+  if (loading || !profile) return null;
+
+  const allowedRoles = ROUTE_PERMISSIONS[path] ?? [];
+  const userRole = profile.role as Role;
+  const hasAccess = allowedRoles.includes(userRole);
+
+  if (!hasAccess) {
+    const home = ROLE_HOME[userRole] ?? '/dashboard';
+    return <Navigate to={home} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// ============================================================
+// Redirect da raiz: leva o usuário para a página inicial do seu perfil
+// ============================================================
+function RootRedirect() {
+  const { profile, user, loading } = useAuth();
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const role = (profile?.role as Role) ?? 'user';
+  return <Navigate to={ROLE_HOME[role] ?? '/dashboard'} replace />;
+}
+
+// ============================================================
+// App
+// ============================================================
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -79,16 +147,16 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/sign" element={<SignPage />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/materials" element={<MaterialsPage />} />
-                <Route path="/collaborators" element={<CollaboratorsPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/socs" element={<SocsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/trainings" element={<TrainingsPage />} />
-                <Route path="/signatures" element={<SignaturesPage />} />
+                <Route path="/dashboard"    element={<RoleRoute path="/dashboard">   <DashboardPage />    </RoleRoute>} />
+                <Route path="/materials"    element={<RoleRoute path="/materials">   <MaterialsPage />    </RoleRoute>} />
+                <Route path="/collaborators"element={<RoleRoute path="/collaborators"><CollaboratorsPage /></RoleRoute>} />
+                <Route path="/reports"      element={<RoleRoute path="/reports">     <ReportsPage />      </RoleRoute>} />
+                <Route path="/socs"         element={<RoleRoute path="/socs">        <SocsPage />         </RoleRoute>} />
+                <Route path="/settings"     element={<RoleRoute path="/settings">    <SettingsPage />     </RoleRoute>} />
+                <Route path="/trainings"    element={<RoleRoute path="/trainings">   <TrainingsPage />    </RoleRoute>} />
+                <Route path="/signatures"   element={<RoleRoute path="/signatures">  <SignaturesPage />   </RoleRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
