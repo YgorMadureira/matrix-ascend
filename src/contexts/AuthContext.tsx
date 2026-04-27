@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
 
-  const fetchProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
+  const fetchProfile = async (userId: string, email: string, userMetadata?: Record<string, unknown>): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
@@ -45,12 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return data as UserProfile;
       }
 
-      // Perfil não existe — cria como admin
+      // Perfil não existe ainda (trigger pode ter falhado) — cria com role do metadata ou 'user'
+      const metaRole = (userMetadata?.role as string) ?? 'user';
+      const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
+
       const newProfile: UserProfile = {
         id: userId,
         email: email,
-        full_name: email.split('@')[0],
-        role: 'admin',
+        full_name: metaName,
+        role: (metaRole as UserProfile['role']),
       };
 
       const { error: insertErr } = await supabase
@@ -83,7 +86,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (session?.user) {
           setUser(session.user);
-          const p = await fetchProfile(session.user.id, session.user.email ?? '');
+          const p = await fetchProfile(
+            session.user.id,
+            session.user.email ?? '',
+            session.user.user_metadata
+          );
           if (p) setProfile(p);
         }
       } catch (err) {
@@ -112,7 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session.user);
           // Só busca o perfil de novo em eventos relevantes
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            const p = await fetchProfile(session.user.id, session.user.email ?? '');
+            const p = await fetchProfile(
+              session.user.id,
+              session.user.email ?? '',
+              session.user.user_metadata
+            );
             if (p) setProfile(p);
           }
         }

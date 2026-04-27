@@ -31,11 +31,11 @@ interface TrainingItem {
 }
 
 const supabaseUrl = 'https://fezfsekzxtvozyemlncn.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlemZzZWt6eHR2b3p5ZW1sbmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MjUwNjUsImV4cCI6MjA5MTQwMTA2NX0.Gllxc-Qgr-iBKie6K0Ofr1B23Vz_5VPSgn_wJjF5EFc';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlemZzZWt6eHR2b3p5ZW1sbmNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTgyNTA2NSwiZXhwIjoyMDkxNDAxMDY1fQ.9PqJd3Z7RSRrCnDkIu-vPzoihGKIfv2oNINi1E3IuXs';
 
-// Cliente secundário para não deslogar o Admin
-const supaSecondary = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+// Cliente Admin com service_role — cria usuários confirmados sem e-mail
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: { autoRefreshToken: false, persistSession: false }
 });
 
 export default function SettingsPage() {
@@ -101,36 +101,78 @@ export default function SettingsPage() {
 
   const createUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
-      toast.error('Preencha os dados do usuário');
+      toast.error('Preencha todos os dados do usuário');
+      return;
+    }
+    if (newUserPassword.trim().length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
     }
     setCreatingUser(true);
 
-    const { data: authData, error: authError } = await supaSecondary.auth.signUp({
-      email: newUserEmail.trim(),
-      password: newUserPassword.trim(),
-      options: { 
-        data: { 
+    try {
+      // 1. Criar usuário via Admin API — já confirmado, sem e-mail, sem rate limit
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: newUserEmail.trim().toLowerCase(),
+        password: newUserPassword.trim(),
+        email_confirm: true,
+        user_metadata: {
           full_name: newUserName.trim(),
           role: newUserRole
-        } 
+        }
+      });
+
+      if (authError) {
+        if (authError.message.toLowerCase().includes('already registered') ||
+            authError.message.toLowerCase().includes('already been registered') ||
+            authError.message.toLowerCase().includes('duplicate')) {
+          toast.error('Este e-mail já está cadastrado no sistema.');
+        } else {
+          toast.error('Erro ao criar usuário: ' + authError.message);
+        }
+        return;
       }
-    });
 
-    if (authError) {
-      toast.error('Erro ao Criar Login: ' + authError.message);
+      if (!authData.user) {
+        toast.error('Erro inesperado: usuário não retornado pelo servidor.');
+        return;
+      }
+
+      // 2. Upsert do perfil na tabela users_profiles com o role selecionado
+      // (o trigger handle_new_user já faz isso, mas fazemos upsert para garantir o role correto)
+      const { error: profileError } = await supabase.from('users_profiles').upsert({
+        id: authData.user.id,
+        email: newUserEmail.trim().toLowerCase(),
+        full_name: newUserName.trim(),
+        role: newUserRole
+      }, { onConflict: 'id' });
+
+      if (profileError) {
+        toast.error('Usuário criado, mas erro ao salvar perfil: ' + profileError.message);
+        // Ainda assim atualiza a lista pois o auth user foi criado
+        fetchAll();
+        return;
+      }
+
+      const roleLabels: Record<string, string> = {
+        admin: 'Administrador',
+        lider: 'Líder Operacional',
+        bpo: 'BPO Onboarding',
+        user: 'Usuário Comum'
+      };
+      toast.success(`✅ Usuário "${newUserName}" criado com acesso "${roleLabels[newUserRole] ?? newUserRole}"! Login disponível imediatamente.`);
+      setShowNewUser(false);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('user');
+      fetchAll();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Tente novamente.';
+      toast.error('Erro inesperado: ' + msg);
+    } finally {
       setCreatingUser(false);
-      return;
     }
-
-    toast.success(`Usuário ${newUserName} criado com sucesso! Perfil sincronizado automaticamente.`);
-    setShowNewUser(false);
-    setNewUserName('');
-    setNewUserEmail('');
-    setNewUserPassword('');
-    setNewUserRole('user');
-    fetchAll();
-    setCreatingUser(false);
   };
 
   const openEditUser = (user: UserProfile) => {
