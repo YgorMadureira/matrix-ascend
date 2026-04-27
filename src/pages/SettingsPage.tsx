@@ -267,7 +267,7 @@ export default function SettingsPage() {
                    </div>
                    <div>
                       <p className="text-sm font-black text-gray-800 leading-none mb-1">{u.full_name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : 'Consulta Ltda'}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : u.role === 'bpo' ? 'BPO Onboarding' : 'Consulta Ltda'}</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -375,6 +375,7 @@ export default function SettingsPage() {
                   <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all">
                     <option value="user">Usuário Comum</option>
                     <option value="lider">Líder Operacional</option>
+                    <option value="bpo">BPO (Acesso Onboarding)</option>
                     <option value="admin">Administrador Geral</option>
                   </select>
                </div>
@@ -404,6 +405,7 @@ export default function SettingsPage() {
                     <select value={editUserRole} onChange={e => setEditUserRole(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
                       <option value="user">Usuário Comum</option>
                       <option value="lider">Líder Operacional</option>
+                      <option value="bpo">BPO (Acesso Onboarding)</option>
                       <option value="admin">Administrador</option>
                     </select>
                  </div>

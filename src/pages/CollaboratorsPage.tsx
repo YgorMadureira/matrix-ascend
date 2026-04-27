@@ -27,7 +27,7 @@ const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift:
 const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LwfzukkjRDLD-NqioPJoWmFv5FfeDfUdInkavetnDr7p-OhoB-sKvvXWqy6jilxBc4g8olgkOjsJ/pub?gid=0&single=true&output=csv';
 
 export default function CollaboratorsPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, isBpo, loading: authLoading } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
@@ -38,7 +38,7 @@ export default function CollaboratorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedSoc, setSelectedSoc] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
-  const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding'>('ativos');
+  const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding'>(isBpo ? 'onboarding' : 'ativos');
   const isSyncing = useRef(false); // Guard against concurrent syncs
 
   const handleChange = (key: keyof typeof form, value: string) => {
@@ -642,11 +642,13 @@ export default function CollaboratorsPage() {
 
   const downloadTemplate = () => {
     const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
-    const csv = bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;João Silva;A;RECEBIMENTO;Carlos;Operador Logístico;SP6\n002;FEMININO;Maria Souza;B;EXPEDIÇÃO;Ana;Auxiliar;SP6';
+    const csv = currentTab === 'onboarding'
+      ? bom + 'Gênero;Colaborador;Turno;BPO;Cargo;SOC\nMASCULINO;João Silva;T1;GI Group;Auxiliar;SP6\nFEMININO;Maria Souza;T2;Randstad;Operador Logístico;SP6'
+      : bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;João Silva;T1;RECEBIMENTO;Carlos;Operador Logístico;SP6\n002;FEMININO;Maria Souza;T2;EXPEDIÇÃO;Ana;Auxiliar;SP6';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'modelo_colaboradores.csv';
+    a.download = currentTab === 'onboarding' ? 'modelo_onboarding.csv' : 'modelo_colaboradores.csv';
 
     a.click();
   };
@@ -677,26 +679,28 @@ export default function CollaboratorsPage() {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <div className="flex items-center gap-4 mb-4 border-b border-gray-100">
-            <button 
-              onClick={() => { setCurrentTab('ativos'); setSelectedIds(new Set()); }}
-              className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'ativos' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-            >
-              Base Ativa
-            </button>
-            <button 
-              onClick={() => { setCurrentTab('onboarding'); setSelectedIds(new Set()); }}
-              className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'onboarding' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-            >
-              Em Onboarding
-            </button>
-          </div>
+          {!isBpo && (
+            <div className="flex items-center gap-4 mb-4 border-b border-gray-100">
+              <button 
+                onClick={() => { setCurrentTab('ativos'); setSelectedIds(new Set()); }}
+                className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'ativos' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              >
+                Base Ativa
+              </button>
+              <button 
+                onClick={() => { setCurrentTab('onboarding'); setSelectedIds(new Set()); }}
+                className={`pb-2 px-1 text-sm font-bold uppercase tracking-widest transition-colors border-b-4 ${currentTab === 'onboarding' ? 'border-[#EE4D2D] text-[#EE4D2D]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              >
+                Em Onboarding
+              </button>
+            </div>
+          )}
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">{currentTab === 'ativos' ? 'Colaboradores Ativos' : 'Integração Onboarding'}</h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">{displayTotal} funcionários nesta aba</p>
         </div>
-        {isAdmin && (
+        {(isAdmin || isBpo) && (
           <div className="flex gap-2 flex-wrap items-center">
-            {selectedIds.size > 0 && (
+            {selectedIds.size > 0 && isAdmin && (
               <button 
                 onClick={handleBulkDelete} 
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all shadow-sm"
@@ -711,12 +715,14 @@ export default function CollaboratorsPage() {
               <Upload size={14} /> Importar
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            <button 
-              onClick={() => handleGSheetSync()} 
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
-            >
-              <RefreshCw size={14} /> Sincronizar Sheets
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => handleGSheetSync()} 
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
+              >
+                <RefreshCw size={14} /> Sincronizar Sheets
+              </button>
+            )}
             <button 
               onClick={() => { setForm({ ...emptyForm, is_onboarding: currentTab === 'onboarding' }); setEditingId(null); setShowForm(true); }} 
               className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md active:scale-95 transition-all"
@@ -779,7 +785,7 @@ export default function CollaboratorsPage() {
       </div>
 
       {/* Form Overlay Modal */}
-      {showForm && isAdmin && (
+      {showForm && (isAdmin || isBpo) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-7 w-full max-w-xl shadow-2xl border border-gray-100 space-y-6 animate-in zoom-in-95 duration-200">
             <div>
@@ -871,7 +877,7 @@ export default function CollaboratorsPage() {
                 {['Setor', 'Atividade', 'Líder', 'SOC', 'Status'].map((h) => (
                    <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
-                {isAdmin && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
+                {(isAdmin || isBpo) && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -926,15 +932,17 @@ export default function CollaboratorsPage() {
                       </div>
                     )}
                   </td>
-                  {isAdmin && (
+                  {(isAdmin || isBpo) && (
                     <td className="p-2.5 text-right whitespace-nowrap">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => startEdit(c)} className="p-1.5 rounded-lg text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all">
                           <Edit2 size={14} />
                         </button>
-                        <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                          <Trash2 size={14} />
-                        </button>
+                        {isAdmin && (
+                          <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}

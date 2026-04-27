@@ -6,7 +6,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'user' | 'lider';
+  role: 'admin' | 'user' | 'lider' | 'bpo';
 }
 
 interface AuthContextType {
@@ -15,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isLider: boolean;
+  isBpo: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -141,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

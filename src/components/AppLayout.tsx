@@ -5,7 +5,7 @@ import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Buildi
 import shopeeLogoWhite from '@/assets/shopee_logo_white.png';
 
 export default function AppLayout() {
-  const { profile, isAdmin, isLider, signOut } = useAuth();
+  const { profile, isAdmin, isLider, isBpo, signOut } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -17,21 +17,27 @@ export default function AppLayout() {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   // Menu items differ by role
-  const navItems = isLider
-    ? [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
-        { to: '/reports', icon: BarChart2, label: 'Meu Time' },
-      ]
-    : [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { to: '/materials', icon: FolderOpen, label: 'Materiais' },
-        { to: '/collaborators', icon: Users, label: 'Colaboradores' },
-        { to: '/reports', icon: BarChart2, label: 'Relatórios' },
-        { to: '/signatures', icon: PenTool, label: 'Assinaturas' },
-        { to: '/socs', icon: Building2, label: 'SOCs' },
-        { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
-      ];
+  let navItems = [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/materials', icon: FolderOpen, label: 'Materiais' },
+    { to: '/collaborators', icon: Users, label: 'Colaboradores' },
+    { to: '/reports', icon: BarChart2, label: 'Relatórios' },
+    { to: '/signatures', icon: PenTool, label: 'Assinaturas' },
+    { to: '/socs', icon: Building2, label: 'SOCs' },
+    { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
+  ];
+
+  if (isBpo) {
+    navItems = [
+      { to: '/collaborators', icon: Users, label: 'Colaboradores' },
+    ];
+  } else if (isLider) {
+    navItems = [
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
+      { to: '/reports', icon: BarChart2, label: 'Meu Time' },
+    ];
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#F5F5F5]">

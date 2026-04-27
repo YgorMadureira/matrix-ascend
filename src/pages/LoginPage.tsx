@@ -92,7 +92,7 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const { user, signIn, loading } = useAuth();
+  const { user, profile, signIn, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -101,7 +101,10 @@ export default function LoginPage() {
   const [loginComplete, setLoginComplete] = useState(false);
 
   if (loading) return null;
-  if (loginComplete || (user && !showSuccess)) return <Navigate to="/dashboard" replace />;
+  if (loginComplete || (user && !showSuccess)) {
+    const isBpo = profile?.role === 'bpo';
+    return <Navigate to={isBpo ? "/collaborators" : "/dashboard"} replace />;
+  }
 
   if (showSuccess) {
     return <LoginSuccessAnimation onComplete={() => setLoginComplete(true)} />;
