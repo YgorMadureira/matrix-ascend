@@ -39,10 +39,7 @@ export default function ReportsPage() {
   const [selectedTrainingType, setSelectedTrainingType] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
 
-  const isGenerallyTrained = useCallback((collabId: string) => {
-    const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
-    return coreSectors.some(type => hasTraining(collabId, type));
-  }, [trainings]);
+
 
   const toggleSectorFilter = (type: string) => {
     setSelectedTrainingType(prev => prev === type ? '' : type);
@@ -112,11 +109,11 @@ export default function ReportsPage() {
       return false;
     };
 
-    const collabData = isLider ? c.filter(x => matchLeader(x.leader)) : c;
+    const collabData = isLider ? allCollabs.filter(x => matchLeader(x.leader)) : allCollabs;
     setCollaborators(collabData);
     setTrainings(allTrainings);
     setUnits(socData ? socData.map(s => s.name) : []);
-    setSectors([...new Set(c.map(x => x.sector))]);
+    setSectors([...new Set(allCollabs.map(x => x.sector as string))]);
   }, [isLider, profile?.full_name]);
 
   // Reload when navigating to this page
@@ -170,6 +167,11 @@ export default function ReportsPage() {
       return matchSector || matchRole;
     });
   };
+
+  const isGenerallyTrained = useCallback((collabId: string) => {
+    const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
+    return coreSectors.some(type => hasTraining(collabId, type));
+  }, [trainings, collaborators]);
 
   const toggleTraining = async (collabId: string, type: string) => {
     // Manually checking/unchecking is disabled as requested.

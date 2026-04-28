@@ -309,6 +309,27 @@ export default function CollaboratorsPage() {
     }
   };
 
+  const isTrained = (c: Collaborator) => {
+    return trainings.some((t) => {
+      if (t.collaborator_id !== c.id) return false;
+
+      const tName = t.training_type?.toUpperCase() || '';
+      const cSec = c.sector?.toUpperCase() || '';
+      const cRole = c.role?.toUpperCase() || '';
+      
+      // 1. Match Direto: Se o nome do treinamento contém o setor ou cargo
+      if (cSec && (tName.includes(cSec) || cSec.includes(tName))) return true;
+      if (cRole && (tName.includes(cRole) || cRole.includes(tName))) return true;
+      
+      // 2. Regra de Onboarding:
+      // Se for um treinamento de Onboarding, aceita para setores operacionais ou se o usuário estiver em onboarding
+      const isOperational = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO' || cSec.includes('LOGISTICA') || cRole.includes('LOGISTICA');
+      if (tName.includes('ONBOARDING') && (isOperational || c.is_onboarding)) return true;
+
+      return false;
+    });
+  };
+
   useEffect(() => {
     const checkAutoSync = () => {
       if (!isAdmin || authLoading) return;
