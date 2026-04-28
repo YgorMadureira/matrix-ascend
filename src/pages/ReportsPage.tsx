@@ -36,8 +36,13 @@ export default function ReportsPage() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
-
   const [selectedTrainingType, setSelectedTrainingType] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
+
+  const isGenerallyTrained = useCallback((collabId: string) => {
+    const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
+    return coreSectors.some(type => hasTraining(collabId, type));
+  }, [trainings]);
 
   const toggleSectorFilter = (type: string) => {
     setSelectedTrainingType(prev => prev === type ? '' : type);
@@ -124,15 +129,25 @@ export default function ReportsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [loadData, authLoading]);
 
-  const filtered = collaborators.filter(c =>
-    (!selectedUnit || c.soc === selectedUnit) &&
-    (!selectedSector || c.sector === selectedSector)
-  );
+  const filtered = collaborators.filter(c => {
+    const matchUnit = !selectedUnit || c.soc === selectedUnit;
+    const matchSector = !selectedSector || c.sector === selectedSector;
+    
+    if (!matchUnit || !matchSector) return false;
 
-  // When a training type is selected, further filter to only show collaborators who have/don't have that training
-  const displayFiltered = selectedTrainingType 
-    ? filtered 
-    : filtered;
+    if (statusFilter !== 'all') {
+      const done = selectedTrainingType 
+        ? hasTraining(c.id, selectedTrainingType)
+        : isGenerallyTrained(c.id);
+        
+      if (statusFilter === 'trained' && !done) return false;
+      if (statusFilter === 'pending' && done) return false;
+    }
+
+    return true;
+  });
+
+  const displayFiltered = filtered;
 
   const hasTraining = (collabId: string, type: string) => {
     const isCoreSector = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].includes(type.toUpperCase());
@@ -231,6 +246,19 @@ export default function ReportsPage() {
             className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/20 transition-all">
             <option value="">Todas as Unidades</option>
             {units.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value as any)} 
+            className={`px-3 py-2 rounded-lg text-[12px] font-black outline-none transition-all border-2 ${
+              statusFilter === 'trained' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 
+              statusFilter === 'pending' ? 'bg-red-50 border-red-200 text-red-500' : 
+              'bg-gray-50 border-transparent text-gray-700'
+            }`}
+          >
+            <option value="all">Todos Status</option>
+            <option value="trained">Certificados</option>
+            <option value="pending">Pendentes</option>
           </select>
         </div>
       </div>

@@ -38,6 +38,7 @@ export default function CollaboratorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedSoc, setSelectedSoc] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
   const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding'>(isBpo ? 'onboarding' : 'ativos');
   const isSyncing = useRef(false); // Guard against concurrent syncs
 
@@ -353,6 +354,13 @@ export default function CollaboratorsPage() {
     
     const matchSoc = selectedSoc ? c.soc === selectedSoc : true;
     const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
+    
+    // Status Filter
+    if (statusFilter !== 'all') {
+      const trained = isTrained(c);
+      if (statusFilter === 'trained' && !trained) return false;
+      if (statusFilter === 'pending' && trained) return false;
+    }
     
     return matchSearch && matchSoc && matchLeader;
   });
@@ -785,6 +793,19 @@ export default function CollaboratorsPage() {
           >
             <option value="">Todos Líderes</option>
             {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value as any)} 
+            className={`flex-1 md:flex-none px-3 py-2.5 rounded-lg text-[12px] font-black outline-none transition-all min-w-[130px] border-2 ${
+              statusFilter === 'trained' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 
+              statusFilter === 'pending' ? 'bg-red-50 border-red-200 text-red-500' : 
+              'bg-gray-50 border-transparent text-gray-700'
+            }`}
+          >
+            <option value="all">Todos Status</option>
+            <option value="trained">Certificados</option>
+            <option value="pending">Pendentes</option>
           </select>
         </div>
       </div>
