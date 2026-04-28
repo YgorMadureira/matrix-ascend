@@ -366,11 +366,16 @@ export default function CollaboratorsPage() {
 
       const tName = t.training_type?.toUpperCase() || '';
       const cSec = c.sector?.toUpperCase() || '';
+      const cRole = c.role?.toUpperCase() || '';
       
-      if (tName.includes(cSec) || cSec.includes(tName) || tName === cSec) return true;
+      // 1. Match Direto: Se o nome do treinamento contém o setor ou cargo
+      if (cSec && (tName.includes(cSec) || cSec.includes(tName))) return true;
+      if (cRole && (tName.includes(cRole) || cRole.includes(tName))) return true;
       
-      const isPtsSector = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO';
-      if (tName.includes('ONBOARDING') && isPtsSector) return true;
+      // 2. Regra de Onboarding:
+      // Se for um treinamento de Onboarding, aceita para setores operacionais ou se o usuário estiver em onboarding
+      const isOperational = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO' || cSec.includes('LOGISTICA') || cRole.includes('LOGISTICA');
+      if (tName.includes('ONBOARDING') && (isOperational || c.is_onboarding)) return true;
 
       return false;
     });
@@ -643,8 +648,8 @@ export default function CollaboratorsPage() {
   const downloadTemplate = () => {
     const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
     const csv = currentTab === 'onboarding'
-      ? bom + 'Gênero;Colaborador;Turno;BPO;Cargo;SOC\nMASCULINO;João Silva;T1;GI Group;Auxiliar;SP6\nFEMININO;Maria Souza;T2;Randstad;Operador Logístico;SP6'
-      : bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;João Silva;T1;RECEBIMENTO;Carlos;Operador Logístico;SP6\n002;FEMININO;Maria Souza;T2;EXPEDIÇÃO;Ana;Auxiliar;SP6';
+      ? bom + 'Gênero;Colaborador;Data de Admissão;BPO;Cargo;SOC\nFEMININO;VIVIAN KAROLINE;27/04/2026;GI Group;AUXILIAR DE LOGISTICA;SP6'
+      : bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;JOÃO SILVA;T1;RECEBIMENTO;CARLOS;OPERADOR LOGISTICO;SP6';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -867,14 +872,18 @@ export default function CollaboratorsPage() {
                    <th key={h} className={`${h === 'Colaborador' ? 'text-left' : 'text-center'} p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap`}>{h}</th>
                 ))}
                 {currentTab === 'onboarding' ? (
-                  <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Admissão</th>
+                  <>
+                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Admissão</th>
+                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
+                  </>
                 ) : (
                   <>
                     <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
                     <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Turno</th>
+                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Setor</th>
                   </>
                 )}
-                {['Setor', 'Atividade', 'Líder', 'SOC', 'Status'].map((h) => (
+                {['Atividade', 'Líder', 'SOC', 'Status'].map((h) => (
                    <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
                 {(isAdmin || isBpo) && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
@@ -901,21 +910,25 @@ export default function CollaboratorsPage() {
                   <td className="p-2.5 text-center text-gray-500 font-bold whitespace-nowrap">{c.bpo || '-'}</td>
                   
                   {currentTab === 'onboarding' ? (
-                     <td className="p-2.5 text-center">
-                       <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">{c.admission_date ? new Date(c.admission_date).toLocaleDateString('pt-BR') : '—'}</span>
-                     </td>
+                    <>
+                      <td className="p-2.5 text-center">
+                        <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">{c.admission_date ? new Date(c.admission_date).toLocaleDateString('pt-BR') : '—'}</span>
+                      </td>
+                      <td className="p-2.5 text-center text-gray-900 font-bold whitespace-nowrap">
+                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.role}</span>
+                      </td>
+                    </>
                   ) : (
                     <>
                       <td className="p-2.5 text-center text-gray-900 font-bold whitespace-nowrap">{c.role}</td>
                       <td className="p-2.5 text-center">
                         <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full inline-block border border-gray-200">Turno {c.shift}</span>
                       </td>
+                      <td className="p-2.5 text-center text-gray-700 font-medium whitespace-nowrap">
+                         <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.sector}</span>
+                      </td>
                     </>
                   )}
-                  
-                  <td className="p-2.5 text-center text-gray-700 font-medium whitespace-nowrap">
-                     <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.sector}</span>
-                  </td>
                   <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.activity || '-'}</td>
                   <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader}</td>
                   <td className="p-2.5 text-center text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>

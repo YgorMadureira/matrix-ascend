@@ -11,6 +11,7 @@ interface UserProfile {
   email: string;
   full_name: string;
   role: string;
+  leader_key?: string | null;
 }
 
 interface Soc {
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserRole, setEditUserRole] = useState('user');
+  const [editLeaderKey, setEditLeaderKey] = useState('');
   const [savingUserEdit, setSavingUserEdit] = useState(false);
 
   // New User
@@ -179,6 +181,7 @@ export default function SettingsPage() {
     setEditingUserId(user.id);
     setEditUserName(user.full_name);
     setEditUserRole(user.role);
+    setEditLeaderKey(user.leader_key ?? '');
     setShowEditUser(true);
   };
 
@@ -188,10 +191,17 @@ export default function SettingsPage() {
       return;
     }
     setSavingUserEdit(true);
-    const { error } = await supabase.from('users_profiles').update({
+    const updatePayload: Record<string, unknown> = {
       full_name: editUserName.trim(),
-      role: editUserRole
-    }).eq('id', editingUserId);
+      role: editUserRole,
+    };
+    // Salva leader_key apenas para líderes; limpa para outros perfis
+    if (editUserRole === 'lider') {
+      updatePayload.leader_key = editLeaderKey.trim() || null;
+    } else {
+      updatePayload.leader_key = null;
+    }
+    const { error } = await supabase.from('users_profiles').update(updatePayload).eq('id', editingUserId);
 
     if (error) {
       toast.error('Erro ao editar usuário: ' + error.message);
@@ -451,6 +461,19 @@ export default function SettingsPage() {
                       <option value="admin">Administrador</option>
                     </select>
                  </div>
+                 {/* Campo de chave do líder — visível somente quando perfil = lider */}
+                 {editUserRole === 'lider' && (
+                   <div className="space-y-1">
+                     <label className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-widest ml-1">Chave de Identificação (Líder)</label>
+                     <input
+                       value={editLeaderKey}
+                       onChange={e => setEditLeaderKey(e.target.value)}
+                       placeholder="Ex: RICARDO MARTINS (como aparece no sistema)"
+                       className="w-full px-4 py-3 rounded-xl bg-[#FEF6F5] text-sm font-bold outline-none border border-[#EE4D2D]/20 focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all"
+                     />
+                     <p className="text-[9px] text-gray-400 font-medium ml-1 mt-1">Preencha com o nome <strong>exatamente</strong> como aparece na coluna "Líder" da planilha de colaboradores. Deixe em branco para usar o nome do perfil.</p>
+                   </div>
+                 )}
               </div>
               <div className="flex gap-3 pt-2">
                  <button onClick={() => setShowEditUser(false)} className="flex-1 py-4 rounded-xl bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest">Descartar</button>

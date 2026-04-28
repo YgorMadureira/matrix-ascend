@@ -7,6 +7,7 @@ interface UserProfile {
   email: string;
   full_name: string;
   role: 'admin' | 'user' | 'lider' | 'bpo';
+  leader_key?: string | null; // Nome exato como aparece em collaborators.leader
 }
 
 interface AuthContextType {

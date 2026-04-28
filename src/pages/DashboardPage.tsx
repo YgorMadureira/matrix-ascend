@@ -29,7 +29,7 @@ export default function DashboardPage() {
       while (hasMore) {
         const { data } = await supabase
           .from('collaborators')
-          .select('id, sector, leader')
+          .select('id, sector, leader, role')
           .range(page * limit, (page + 1) * limit - 1);
         if (data && data.length > 0) {
           allCollabs = [...allCollabs, ...data];
@@ -64,10 +64,29 @@ export default function DashboardPage() {
         }
       }
 
-      // If lider, filter to only their team
-      const leaderName = profile?.full_name?.trim().toUpperCase() ?? '';
+      // Função robusta de correspondência de líder
+      // Prioridade: leader_key → full_name exato → matching por palavras
+      const matchLeader = (collaboratorLeader: string): boolean => {
+        const cLeader = (collaboratorLeader ?? '').trim().toUpperCase();
+        if (!cLeader) return false;
+        // 1. Usa leader_key se definido pelo admin (mais confiável)
+        if (profile?.leader_key) {
+          return cLeader === profile.leader_key.trim().toUpperCase();
+        }
+        // 2. Correspondência exata com full_name
+        const profileName = (profile?.full_name ?? '').trim().toUpperCase();
+        if (cLeader === profileName) return true;
+        // 3. Todas as palavras do perfil estão no campo leader
+        const nameWords = profileName.split(/\s+/).filter(w => w.length > 2);
+        if (nameWords.length > 0 && nameWords.every(w => cLeader.includes(w))) return true;
+        // 4. Todas as palavras do campo leader estão no full_name
+        const leaderWords = cLeader.split(/\s+/).filter(w => w.length > 2);
+        if (leaderWords.length > 0 && leaderWords.every(w => profileName.includes(w))) return true;
+        return false;
+      };
+
       const collabs = isLider
-        ? allCollabs.filter(c => (c.leader ?? '').trim().toUpperCase() === leaderName)
+        ? allCollabs.filter(c => matchLeader(c.leader))
         : allCollabs;
 
       const trainings = allTrainings;
@@ -97,11 +116,12 @@ export default function DashboardPage() {
           trainings.some(t => {
             if (t.collaborator_id !== c.id) return false;
             const tType = t.training_type?.toUpperCase() ?? '';
-            const isCoreSector = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].includes(sector);
+            const cRole = c.role?.toUpperCase() ?? '';
+            const isCoreSector = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO'].includes(sector) || sector.includes('LOGISTICA') || cRole.includes('LOGISTICA');
             
             if (isCoreSector && tType.includes('ONBOARDING')) return true;
             
-            return tType.includes(sector) || sector.includes(tType) || tType === sector;
+            return tType.includes(sector) || sector.includes(tType) || (cRole && (tType.includes(cRole) || cRole.includes(tType)));
           })
         ).length;
         return {

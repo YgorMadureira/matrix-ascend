@@ -91,9 +91,23 @@ export default function ReportsPage() {
       supabase.from('socs').select('name').order('name'),
     ]);
 
-    const c = allCollabs;
-    const leaderName = profile?.full_name?.trim().toUpperCase() ?? '';
-    const collabData = isLider ? c.filter(x => (x.leader ?? '').trim().toUpperCase() === leaderName) : c;
+    // Função robusta de correspondência de líder
+    const matchLeader = (collaboratorLeader: string): boolean => {
+      const cLeader = (collaboratorLeader ?? '').trim().toUpperCase();
+      if (!cLeader) return false;
+      if (profile?.leader_key) {
+        return cLeader === profile.leader_key.trim().toUpperCase();
+      }
+      const profileName = (profile?.full_name ?? '').trim().toUpperCase();
+      if (cLeader === profileName) return true;
+      const nameWords = profileName.split(/\s+/).filter(w => w.length > 2);
+      if (nameWords.length > 0 && nameWords.every(w => cLeader.includes(w))) return true;
+      const leaderWords = cLeader.split(/\s+/).filter(w => w.length > 2);
+      if (leaderWords.length > 0 && leaderWords.every(w => profileName.includes(w))) return true;
+      return false;
+    };
+
+    const collabData = isLider ? c.filter(x => matchLeader(x.leader)) : c;
     setCollaborators(collabData);
     setTrainings(allTrainings);
     setUnits(socData ? socData.map(s => s.name) : []);
@@ -126,12 +140,19 @@ export default function ReportsPage() {
     return trainings.some(t => {
       if (t.collaborator_id !== collabId) return false;
       
+      const collab = collaborators.find(x => x.id === collabId);
       const tType = t.training_type?.toUpperCase() ?? '';
       const reqType = type.toUpperCase();
+      const cRole = collab?.role?.toUpperCase() ?? '';
       
-      if (isCoreSector && tType.includes('ONBOARDING')) return true;
+      // Onboarding para setores operacionais, logística ou pelo cargo
+      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType.includes('LOGISTICA') || cRole.includes('LOGISTICA');
+      if (tType.includes('ONBOARDING') && isOp) return true;
       
-      return tType === reqType || tType.includes(reqType) || reqType.includes(tType);
+      const matchSector = tType === reqType || tType.includes(reqType) || reqType.includes(tType);
+      const matchRole = cRole && (tType.includes(cRole) || cRole.includes(tType));
+      
+      return matchSector || matchRole;
     });
   };
 
