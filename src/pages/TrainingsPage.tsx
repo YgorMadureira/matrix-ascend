@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FolderOpen, Plus, Trash2, ArrowLeft, Edit2, Play, ClipboardList, X } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, ArrowLeft, Edit2, Play, ClipboardList, X, CheckCircle2, Clock, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FolderItem { id: string; name: string; parent_id: string | null; }
@@ -26,6 +26,11 @@ export default function TrainingsPage() {
   const [attempts, setAttempts] = useState(0);
   const [mustRewatch, setMustRewatch] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+
+  // Video completion validation
+  const [hasWatchedVideo, setHasWatchedVideo] = useState(false);
+  const [watchTimer, setWatchTimer] = useState(0);
+  const REQUIRED_WATCH_TIME = 60; // seconds
 
   // Signature
   const [canvasRef, setCanvasRefState] = useState<HTMLCanvasElement | null>(null);
@@ -55,6 +60,22 @@ export default function TrainingsPage() {
   };
 
   useEffect(() => { fetchData(currentFolder); }, [currentFolder]);
+
+  // Timer: counts seconds while video is being watched
+  useEffect(() => {
+    if (!activeTraining || examStep !== 'video' || hasWatchedVideo) return;
+    const interval = setInterval(() => {
+      setWatchTimer(prev => {
+        const next = prev + 1;
+        if (next >= REQUIRED_WATCH_TIME) {
+          setHasWatchedVideo(true);
+          clearInterval(interval);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeTraining, examStep, hasWatchedVideo]);
 
   const navigateToFolder = (folder: FolderItem) => {
     setBreadcrumb(prev => [...prev, { id: folder.id, name: folder.name }]);
@@ -106,6 +127,8 @@ export default function TrainingsPage() {
     setAnswers({});
     setQuizScore(0);
     setHasDrawn(false);
+    setHasWatchedVideo(false);
+    setWatchTimer(0);
 
     // Check attempts
     if (user) {
@@ -322,13 +345,19 @@ export default function TrainingsPage() {
                 <p className="text-destructive font-semibold">Você errou 5 vezes. Assista o vídeo completo antes de tentar novamente.</p>
               </div>
             )}
-            <button
-              onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
-              disabled={questions.length === 0}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:brightness-110 disabled:opacity-50 transition-all"
-            >
-              {questions.length === 0 ? 'Sem questões configuradas' : 'Ir para a Prova'}
-            </button>
+            {!hasWatchedVideo ? (
+              <div className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 font-bold text-center flex items-center justify-center gap-2">
+                <Lock size={16} /> Assista o conteúdo completo ({Math.max(0, REQUIRED_WATCH_TIME - watchTimer)}s restantes)
+              </div>
+            ) : (
+              <button
+                onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
+                disabled={questions.length === 0}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:brightness-110 disabled:opacity-50 transition-all animate-in fade-in duration-500"
+              >
+                {questions.length === 0 ? 'Sem questões configuradas' : 'Ir para a Prova'}
+              </button>
+            )}
           </div>
         )}
 
@@ -614,13 +643,33 @@ export default function TrainingsPage() {
                         <p className="text-red-700 font-bold text-sm">Você errou 5 vezes. Assista ao conteúdo completo com atenção antes de reiniciar a prova.</p>
                       </div>
                     )}
-                    <button
-                      onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
-                      disabled={questions.length === 0}
-                      className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-base tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                      {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
-                    </button>
+
+                    {/* Progress bar + timer */}
+                    {!hasWatchedVideo && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest">
+                          <span className="flex items-center gap-2"><Clock size={14} /> Assistindo o conteúdo...</span>
+                          <span>{Math.min(watchTimer, REQUIRED_WATCH_TIME)}s / {REQUIRED_WATCH_TIME}s</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-[#EE4D2D] to-[#FF6B47] rounded-full transition-all duration-1000" style={{ width: `${Math.min((watchTimer / REQUIRED_WATCH_TIME) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {hasWatchedVideo ? (
+                      <button
+                        onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
+                        disabled={questions.length === 0}
+                        className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-base tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                      >
+                        {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
+                      </button>
+                    ) : (
+                      <div className="w-full py-5 rounded-2xl bg-gray-100 text-gray-400 font-black uppercase text-base tracking-[0.3em] text-center flex items-center justify-center gap-3">
+                        <Lock size={18} /> CONCLUA O CONTEÚDO PARA LIBERAR A PROVA
+                      </div>
+                    )}
                   </div>
                 )}
 

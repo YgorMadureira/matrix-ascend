@@ -554,31 +554,59 @@ export default function CollaboratorsPage() {
         return result;
       };
 
-      const header = splitLine(firstLine).map(h => h.toLowerCase().trim());
+      // Normalize header for robust matching (remove accents)
+      const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      const header = splitLine(firstLine).map(normalize);
       console.log('[CSV] Cabeçalho detectado:', header);
+
+      const isUploadingToOnboarding = currentTab === 'onboarding';
 
       const rows = lines.slice(1).map((line, idx) => {
         const p = splitLine(line);
-        // Try to map by header or by position (fallback)
-        const get = (names: string[], pos: number) => {
+        // Map ONLY by header name — no positional fallback to avoid misalignment
+        const getByHeader = (names: string[]) => {
           for (const n of names) {
-            const i = header.indexOf(n);
+            const normalizedN = normalize(n);
+            const i = header.indexOf(normalizedN);
             if (i >= 0 && p[i]) return p[i].trim();
           }
-          return p[pos]?.trim() ?? '';
+          return '';
         };
 
-        return {
-          opsid: get(['opsid', 'ops id', 'matricula', 'id'], 0),
-          gender: get(['genero', 'gênero', 'gender', 'sexo'], 1),
-          name: get(['colaborador', 'nome', 'name', 'colaborador'], 2),
-          shift: get(['turno', 'shift'], 3),
-          sector: get(['setor', 'sector', 'area', 'área'], 4),
-          leader: get(['lider', 'líder', 'leader', 'gestor'], 5),
-          role: get(['cargo', 'role', 'função', 'funcao'], 6),
-          soc: get(['soc', 'unidade', 'unit'], 7),
-          activity: get(['atividade', 'activity'], 8),
+        // Parse admission date from CSV (dd/mm/yyyy → yyyy-mm-dd)
+        const admRaw = getByHeader(['data de admissão', 'data de admissao', 'data admissao', 'admissao', 'admission']);
+        let admissionDate: string | null = null;
+        if (admRaw && admRaw.includes('/')) {
+          const parts = admRaw.split('/');
+          if (parts.length === 3) {
+            const [day, month, year] = parts;
+            const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            const d = new Date(iso);
+            if (!isNaN(d.getTime())) admissionDate = iso;
+          }
+        }
+
+        const row: any = {
+          name: getByHeader(['colaborador', 'nome', 'name', 'colaboradores']),
+          gender: getByHeader(['genero', 'gênero', 'gender', 'sexo']),
+          role: getByHeader(['cargo', 'role', 'funcao', 'função']),
+          soc: getByHeader(['soc', 'unidade', 'unit']),
+          opsid: getByHeader(['opsid', 'ops id', 'matricula', 'id']),
+          bpo: getByHeader(['bpo', 'empresa']),
+          shift: getByHeader(['turno', 'shift', 'periodo']),
+          sector: getByHeader(['setor', 'sector', 'area', 'área']),
+          leader: getByHeader(['lider', 'líder', 'leader', 'gestor']),
+          activity: getByHeader(['atividade', 'activity', 'funcao real']),
         };
+
+        // Set admission date: from CSV or default to today for onboarding
+        if (admissionDate) {
+          row.admission_date = admissionDate;
+        } else if (isUploadingToOnboarding) {
+          row.admission_date = new Date().toISOString().split('T')[0];
+        }
+
+        return row;
       }).filter(r => r.name && r.name.length > 1);
 
       console.log(`[CSV] ${rows.length} linha(s) válida(s) encontradas`);
@@ -591,12 +619,10 @@ export default function CollaboratorsPage() {
 
       const onboardings = collaborators.filter(c => c.is_onboarding);
 
-      // Insert in batches of 50
       let totalInserted = 0;
       let totalUpdated = 0;
       let lastError = '';
       const BATCH = 50;
-      const isUploadingToOnboarding = currentTab === 'onboarding';
 
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH);
@@ -607,7 +633,6 @@ export default function CollaboratorsPage() {
             // WE ARE UPLOADING OFFICIAL ABS DATA. Try matching against onboarding!
             const matched = onboardings.find(o => o.name.trim().toUpperCase() === row.name.toUpperCase());
             if (matched) {
-               // UPDATE the existing record instead of inserting!
                const { error } = await supabase.from('collaborators').update({
                   ...row,
                   is_onboarding: false
@@ -617,12 +642,9 @@ export default function CollaboratorsPage() {
                continue;
             }
           }
-          // Default logic
-          const defaultAdmissionDate = isUploadingToOnboarding ? new Date().toISOString().split('T')[0] : null;
           toInsert.push({ 
             ...row, 
             is_onboarding: isUploadingToOnboarding,
-            admission_date: defaultAdmissionDate 
           });
         }
 
