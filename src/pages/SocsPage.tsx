@@ -155,7 +155,7 @@ export default function SocsPage() {
                 <Building2 size={28} className="text-[#EE4D2D]" />
               </div>
               <h3 className="text-xl font-black text-gray-900">{viewingSoc.name}</h3>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Adicionada em {new Date(viewingSoc.created_at).toLocaleDateString()}</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Adicionada em {new Date(viewingSoc.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
             </div>
 
             <div className="space-y-3 pt-1">

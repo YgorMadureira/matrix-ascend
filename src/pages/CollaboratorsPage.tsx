@@ -336,7 +336,9 @@ export default function CollaboratorsPage() {
 
       const lastSyncStr = localStorage.getItem('last_gsheet_sync');
       const now = new Date();
-      const today = now.toISOString().split('T')[0];
+      // Brasilia Today
+      const localNow = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+      const today = localNow.toISOString().split('T')[0];
       
       const configTime = localStorage.getItem('auto_sync_hour') || '05:00';
       const [configH, configM] = configTime.split(':').map(Number);
@@ -603,7 +605,10 @@ export default function CollaboratorsPage() {
         if (admissionDate) {
           row.admission_date = admissionDate;
         } else if (isUploadingToOnboarding) {
-          row.admission_date = new Date().toISOString().split('T')[0];
+          // Use local date (Brasilia) instead of UTC
+          const now = new Date();
+          const localDate = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+          row.admission_date = localDate.toISOString().split('T')[0];
         }
 
         return row;
@@ -753,12 +758,19 @@ export default function CollaboratorsPage() {
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
             {isAdmin && (
-              <button 
-                onClick={() => handleGSheetSync()} 
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
-              >
-                <RefreshCw size={14} /> Sincronizar Sheets
-              </button>
+              <div className="flex flex-col items-end">
+                <button 
+                  onClick={() => handleGSheetSync()} 
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
+                >
+                  <RefreshCw size={14} /> Sincronizar Sheets
+                </button>
+                {localStorage.getItem('last_gsheet_sync') && (
+                  <span className="text-[7px] font-bold text-gray-400 uppercase mt-1 mr-2">
+                    Última Sinc: {new Date(localStorage.getItem('last_gsheet_sync')!).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                  </span>
+                )}
+              </div>
             )}
             <button 
               onClick={() => { setForm({ ...emptyForm, is_onboarding: currentTab === 'onboarding' }); setEditingId(null); setShowForm(true); }} 
@@ -957,7 +969,9 @@ export default function CollaboratorsPage() {
                   {currentTab === 'onboarding' ? (
                     <>
                       <td className="p-2.5 text-center">
-                        <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">{c.admission_date ? new Date(c.admission_date).toLocaleDateString('pt-BR') : '—'}</span>
+                        <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-md">
+                          {c.admission_date ? new Date(c.admission_date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
+                        </span>
                       </td>
                       <td className="p-2.5 text-center text-gray-900 font-bold whitespace-nowrap">
                          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.role}</span>

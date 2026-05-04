@@ -184,8 +184,10 @@ export default function SignPage() {
     }
   };
 
+  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const filteredCollabs = collaborators.filter(c =>
-    c.name.toLowerCase().includes(searchName.toLowerCase())
+    normalize(c.name).includes(normalize(searchName))
   );
 
   // ── Tela de sucesso ──────────────────────────────────────
