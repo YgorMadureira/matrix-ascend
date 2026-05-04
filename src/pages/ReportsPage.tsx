@@ -24,6 +24,7 @@ interface Training {
   collaborator_id: string;
   training_type: string;
   completed_at: string;
+  created_at?: string;
   signature_pdf_url: string | null;
   instructor_name?: string;
 }
@@ -37,6 +38,9 @@ export default function ReportsPage() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
+  const [selectedLeader, setSelectedLeader] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedTrainingType, setSelectedTrainingType] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
 
@@ -44,8 +48,22 @@ export default function ReportsPage() {
     setSelectedTrainingType(prev => prev === type ? '' : type);
   };
 
-  const hasTraining = (collabId: string, type: string) => {
-    return trainings.some(t => {
+  // Filtro de treinamentos por data
+  const filteredTrainings = useMemo(() => {
+    if (!startDate && !endDate) return trainings;
+    
+    return trainings.filter(t => {
+      const dateVal = t.created_at || t.completed_at;
+      if (!dateVal) return true;
+      const tDate = new Date(dateVal).toISOString().split('T')[0];
+      if (startDate && tDate < startDate) return false;
+      if (endDate && tDate > endDate) return false;
+      return true;
+    });
+  }, [trainings, startDate, endDate]);
+
+  const hasTraining = useCallback((collabId: string, type: string) => {
+    return filteredTrainings.some((t) => {
       if (t.collaborator_id !== collabId) return false;
       
       const collab = collaborators.find(x => x.id === collabId);
@@ -69,12 +87,12 @@ export default function ReportsPage() {
       
       return matchSector || matchRole;
     });
-  };
+  }, [filteredTrainings, collaborators]);
 
   const isGenerallyTrained = useCallback((collabId: string) => {
     const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
     return coreSectors.some(type => hasTraining(collabId, type));
-  }, [trainings, collaborators]);
+  }, [hasTraining]);
 
   const loadData = useCallback(async () => {
     let allCollabs: any[] = [];
@@ -219,8 +237,21 @@ export default function ReportsPage() {
   });
 
   const instructorStats = useMemo(() => {
-    const map = new Map<string, Set<string>>(); 
-    trainings.forEach(t => {
+    const map = new Map<string, Set<string>>();
+    const filteredIds = new Set(filtered.map(c => c.id));
+    
+    filteredTrainings.forEach(t => {
+      // 1. Filtro de Colaborador (Unidade/Setor/Status)
+      if (!filteredIds.has(t.collaborator_id)) return;
+      
+      // 2. Filtro de Tipo de Treinamento (se selecionado nos cards do topo)
+      if (selectedTrainingType) {
+        const tType = t.training_type?.toUpperCase() ?? '';
+        const target = selectedTrainingType.toUpperCase();
+        const matches = tType === target || tType.includes(target) || target.includes(tType);
+        if (!matches) return;
+      }
+      
       const inst = t.instructor_name?.trim() || 'Desconhecido';
       if (!map.has(inst)) map.set(inst, new Set());
       map.get(inst)!.add(t.collaborator_id);
@@ -230,7 +261,7 @@ export default function ReportsPage() {
       .map(([name, collabSet]) => ({ name, 'Pessoas Treinadas': collabSet.size }))
       .sort((a, b) => b['Pessoas Treinadas'] - a['Pessoas Treinadas'])
       .slice(0, 15);
-  }, [trainings]);
+  }, [filteredTrainings, filtered, selectedTrainingType]);
 
   const displayTrainingTypes = selectedTrainingType 
     ? TRAINING_TYPES.filter(t => t === selectedTrainingType) 
@@ -250,6 +281,24 @@ export default function ReportsPage() {
             <option value="">Todas as Unidades</option>
             {units.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
+            <span className="text-[9px] font-black text-gray-400 uppercase">Período:</span>
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)}
+              className="text-[10px] font-bold outline-none bg-transparent"
+            />
+            <span className="text-gray-300">|</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)}
+              className="text-[10px] font-bold outline-none bg-transparent"
+            />
+          </div>
+
           <select 
             value={statusFilter} 
             onChange={(e) => setStatusFilter(e.target.value as any)} 
@@ -265,6 +314,7 @@ export default function ReportsPage() {
           </select>
         </div>
       </div>
+    </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
         <div onClick={() => setSelectedTrainingType('')}
@@ -420,10 +470,20 @@ export default function ReportsPage() {
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={instructorStats}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" fontSize={10} />
+              <XAxis 
+                dataKey="name" 
+                fontSize={10} 
+                interval={0} 
+                angle={-20} 
+                textAnchor="end" 
+                height={70} 
+                tick={{ fill: '#6b7280', fontWeight: '500' }}
+              />
               <YAxis fontSize={10} />
-              <Tooltip />
-              <Bar dataKey="Pessoas Treinadas" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36} />
+              <Tooltip cursor={{ fill: '#FEF6F5' }} />
+              <Bar dataKey="Pessoas Treinadas" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36}>
+                <LabelList dataKey="Pessoas Treinadas" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         ) : (
