@@ -174,28 +174,47 @@ export default function ReportsPage() {
     const sectorCollabs = filtered.filter(c => c.sector?.toUpperCase() === type);
     const total = sectorCollabs.length;
     const completed = sectorCollabs.filter(c => hasTraining(c.id, type)).length;
-    return { type, total, completed, pct: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    const pct = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+    return { type, total, completed, pct };
   });
 
   const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS'];
   const coreStats = sectorStats.filter(s => coreSectors.includes(s.type));
   const generalTotal = coreStats.reduce((sum, s) => sum + s.total, 0);
   const generalCompleted = coreStats.reduce((sum, s) => sum + s.completed, 0);
-  const generalPct = generalTotal > 0 ? Math.round((generalCompleted / generalTotal) * 100) : 0;
+  const generalPct = generalTotal > 0 ? Number(((generalCompleted / generalTotal) * 100).toFixed(1)) : 0;
 
   const socList = [...new Set(collaborators.map(c => c.soc))].sort();
   const chartData = socList.map(soc => {
     const socCollabs = collaborators.filter(c => c.soc === soc);
-    const total = socCollabs.length;
+    
+    // Filtrar apenas setores operacionais (mesma lógica dos cards do topo)
+    const coreCollabs = socCollabs.filter(c => {
+      const s = c.sector?.toUpperCase() || '';
+      return coreSectors.includes(s) || s === 'EXPEDICAO';
+    });
+
+    let total = coreCollabs.length;
+    let trainedCount = 0;
+
     if (selectedTrainingType) {
-      const trained = socCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
-      const pct = total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0;
-      return { soc, 'Treinados': pct, 'Nº HCs': total };
+      // Se um setor específico está selecionado, focar apenas nele
+      const specificCollabs = socCollabs.filter(c => {
+        const s = c.sector?.toUpperCase() || '';
+        const target = selectedTrainingType.toUpperCase();
+        return s === target || (target === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
+      });
+      total = specificCollabs.length;
+      trainedCount = specificCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
+    } else {
+      // Lógica Geral: Certificados no seu setor / Total do operacional
+      trainedCount = coreCollabs.filter(c => {
+        if (!c.sector) return false;
+        return hasTraining(c.id, c.sector);
+      }).length;
     }
-    const trainedIds = new Set(
-      trainings.filter(t => socCollabs.some(c => c.id === t.collaborator_id)).map(t => t.collaborator_id)
-    );
-    const pct = total > 0 ? Number(((trainedIds.size / total) * 100).toFixed(1)) : 0;
+
+    const pct = total > 0 ? Number(((trainedCount / total) * 100).toFixed(1)) : 0;
     return { soc, 'Treinados': pct, 'Nº HCs': total };
   });
 

@@ -389,7 +389,11 @@ export default function CollaboratorsPage() {
   });
 
   const displayTotal = filtered.length;
-  const totalLeaders = filtered.filter(c => c.role?.toUpperCase().includes('LÍDER') || c.role?.toUpperCase().includes('LIDER')).length;
+  const totalLeaders = new Set(
+    filtered
+      .map(c => c.leader?.trim().toUpperCase())
+      .filter(l => l && l !== '-' && l !== 'N/A')
+  ).size;
 
 
 

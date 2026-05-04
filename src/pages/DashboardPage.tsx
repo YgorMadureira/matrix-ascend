@@ -110,12 +110,17 @@ export default function DashboardPage() {
 
       // Calculate per-sector stats (scoped to leader's team if applicable)
       const sStats: SectorStat[] = SECTORS.map(sector => {
-        const sectorCollabs = collabs.filter(c => c.sector?.toUpperCase() === sector);
-        const sectorTotal = sectorCollabs.length;
-        const trainedInSector = sectorCollabs.filter(c =>
+        const isTransversal = sector === 'HSE' || sector === 'PEOPLE';
+        const targetCollabs = isTransversal ? collabs : collabs.filter(c => c.sector?.toUpperCase() === sector);
+        const total = targetCollabs.length;
+
+        const trained = targetCollabs.filter(c =>
           trainings.some(t => {
             if (t.collaborator_id !== c.id) return false;
             const tType = t.training_type?.toUpperCase() ?? '';
+            
+            if (isTransversal) return tType.includes(sector);
+            
             const cRole = c.role?.toUpperCase() ?? '';
             const isCoreSector = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO'].includes(sector) || sector.includes('LOGISTICA') || cRole.includes('LOGISTICA');
             
@@ -124,11 +129,12 @@ export default function DashboardPage() {
             return tType.includes(sector) || sector.includes(tType) || (cRole && (tType.includes(cRole) || cRole.includes(tType)));
           })
         ).length;
+        
         return {
           sector,
-          total: sectorTotal,
-          trained: trainedInSector,
-          pct: sectorTotal > 0 ? Math.round((trainedInSector / sectorTotal) * 100) : 0,
+          total,
+          trained,
+          pct: total > 0 ? Math.round((trained / total) * 100) : 0,
         };
       });
 
