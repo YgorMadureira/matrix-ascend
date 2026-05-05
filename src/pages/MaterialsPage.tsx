@@ -28,27 +28,7 @@ export default function MaterialsPage() {
   const { isAdmin, user, loading: authLoading } = useAuth();
 
   // Core navigation state
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Raiz' }]);
-
-  // Data state
-  const [folders, setFolders] = useState<FolderItem[]>([]);
-  const [materials, setMaterials] = useState<MaterialItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // UI state
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-
-  const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
-  const [editFolderName, setEditFolderName] = useState('');
-
-  const [showNewMaterial, setShowNewMaterial] = useState(false);
-  const [materialName, setMaterialName] = useState('');
-  const [materialUrl, setMaterialUrl] = useState('');
-  const [isAddingLink, setIsAddingLink] = useState(false);
-
+  const [searchTerm, setSearchTerm] = useState('');
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
   // Helper para evitar requisições presas infinitamente (ex: timeout de conexão)
@@ -62,7 +42,7 @@ export default function MaterialsPage() {
   };
 
   // ─── Data Loading ───────────────────────────────────────────
-  const loadFolder = async (folderId: string | null) => {
+  const loadFolder = async (folderId: string | null, search: string = '') => {
     setIsLoading(true);
 
     try {
@@ -70,29 +50,40 @@ export default function MaterialsPage() {
       setFolders([]);
       setMaterials([]);
 
-      let folderQuery;
-      let materialQuery;
-
-      if (folderId === null) {
-        folderQuery = supabase.from('folders').select('*').is('parent_id', null).order('name');
-        materialQuery = supabase.from('materials').select('*').is('folder_id', null).order('name');
+      if (search.trim()) {
+        // Global search using ILIKE
+        const materialQuery = supabase.from('materials').select('*').ilike('name', `%${search.trim()}%`).order('name');
+        const folderQuery = supabase.from('folders').select('*').ilike('name', `%${search.trim()}%`).order('name');
+        
+        const [materialResult, folderResult] = await Promise.all([materialQuery, folderQuery]);
+        
+        setFolders(folderResult.data ?? []);
+        setMaterials(materialResult.data ?? []);
       } else {
-        folderQuery = supabase.from('folders').select('*').eq('parent_id', folderId).order('name');
-        materialQuery = supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
-      }
+        let folderQuery;
+        let materialQuery;
 
-      const [folderResult, materialResult] = await Promise.all([folderQuery, materialQuery]);
+        if (folderId === null) {
+          folderQuery = supabase.from('folders').select('*').is('parent_id', null).order('name');
+          materialQuery = supabase.from('materials').select('*').is('folder_id', null).order('name');
+        } else {
+          folderQuery = supabase.from('folders').select('*').eq('parent_id', folderId).order('name');
+          materialQuery = supabase.from('materials').select('*').eq('folder_id', folderId).order('name');
+        }
 
-      if (folderResult.error) {
-        console.error('[Materials] Erro ao buscar pastas:', folderResult.error);
-        toast.error('Erro ao carregar pastas: ' + folderResult.error.message);
-      }
-      if (materialResult.error) {
-        console.error('[Materials] Erro ao buscar materiais:', materialResult.error);
-      }
+        const [folderResult, materialResult] = await Promise.all([folderQuery, materialQuery]);
 
-      setFolders(folderResult.data ?? []);
-      setMaterials(materialResult.data ?? []);
+        if (folderResult.error) {
+          console.error('[Materials] Erro ao buscar pastas:', folderResult.error);
+          toast.error('Erro ao carregar pastas: ' + folderResult.error.message);
+        }
+        if (materialResult.error) {
+          console.error('[Materials] Erro ao buscar materiais:', materialResult.error);
+        }
+
+        setFolders(folderResult.data ?? []);
+        setMaterials(materialResult.data ?? []);
+      }
     } catch (err) {
       console.error('[Materials] Erro crítico:', err);
       toast.error('Erro de conexão ao carregar materiais.');
@@ -101,12 +92,16 @@ export default function MaterialsPage() {
     }
   };
 
-  // Load when currentFolderId changes (single source of truth)
+  // Load when currentFolderId or searchTerm changes
   useEffect(() => {
     if (!authLoading) {
-      loadFolder(currentFolderId);
+      const delaySearch = setTimeout(() => {
+        loadFolder(currentFolderId, searchTerm);
+      }, searchTerm ? 400 : 0);
+      
+      return () => clearTimeout(delaySearch);
     }
-  }, [currentFolderId, authLoading]);
+  }, [currentFolderId, searchTerm, authLoading]);
 
   // ─── Navigation ─────────────────────────────────────────────
   const navigateToFolder = (folder: FolderItem) => {
@@ -264,25 +259,54 @@ export default function MaterialsPage() {
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Materiais</h1>
 
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-1 text-sm mt-2 flex-wrap">
-            {breadcrumb.map((b, i) => (
-              <span key={`${b.id ?? 'root'}-${i}`} className="flex items-center gap-1">
-                {i > 0 && <ChevronRight size={14} className="text-muted-foreground/50" />}
-                <button
-                  onClick={() => navigateToBreadcrumb(i)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
-                    i === breadcrumb.length - 1
-                      ? 'text-primary font-semibold'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                  }`}
+          <div className="flex items-center gap-3 mt-4">
+            <div className="relative flex-1 max-w-sm">
+              <input
+                type="text"
+                placeholder="Buscar treinamento ou pasta..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-4 pr-10 py-2 rounded-xl bg-white border border-gray-100 text-sm focus:ring-2 focus:ring-[#EE4D2D]/20 transition-all outline-none shadow-sm"
+              />
+              {searchTerm ? (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {i === 0 && <Home size={14} />}
-                  {b.name}
+                  <X size={16} />
                 </button>
+              ) : (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
+              )}
+            </div>
+            {!searchTerm && (
+              <nav className="flex items-center gap-1 text-sm flex-wrap">
+                {breadcrumb.map((b, i) => (
+                  <span key={`${b.id ?? 'root'}-${i}`} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight size={14} className="text-muted-foreground/50" />}
+                    <button
+                      onClick={() => navigateToBreadcrumb(i)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
+                        i === breadcrumb.length - 1
+                          ? 'text-[#EE4D2D] font-semibold'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      }`}
+                    >
+                      {i === 0 && <Home size={14} />}
+                      {b.name}
+                    </button>
+                  </span>
+                ))}
+              </nav>
+            )}
+            {searchTerm && (
+              <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest bg-gray-100 px-2 py-1 rounded">
+                Resultados para: {searchTerm}
               </span>
-            ))}
-          </nav>
+            )}
+          </div>
         </div>
 
         {isAdmin && (
