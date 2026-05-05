@@ -28,7 +28,28 @@ export default function MaterialsPage() {
   const { isAdmin, user, loading: authLoading } = useAuth();
 
   // Core navigation state
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Raiz' }]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Data state
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [materials, setMaterials] = useState<MaterialItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // UI state
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  const [editingFolder, setEditingFolder] = useState<FolderItem | null>(null);
+  const [editFolderName, setEditFolderName] = useState('');
+
+  const [showNewMaterial, setShowNewMaterial] = useState(false);
+  const [materialName, setMaterialName] = useState('');
+  const [materialUrl, setMaterialUrl] = useState('');
+  const [isAddingLink, setIsAddingLink] = useState(false);
+
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
   // Helper para evitar requisições presas infinitamente (ex: timeout de conexão)
