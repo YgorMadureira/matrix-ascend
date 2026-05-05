@@ -14,6 +14,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import SignPage from "@/pages/SignPage";
 import TrainingsPage from "@/pages/TrainingsPage";
 import SignaturesPage from "@/pages/SignaturesPage";
+import SchedulePage from "@/pages/SchedulePage";
 import NotFound from "./pages/NotFound";
 import React from "react";
 
@@ -23,7 +24,7 @@ const queryClient = new QueryClient();
 // MAPA DE ACESSO POR PERFIL
 // Define quais roles podem acessar cada rota
 // ============================================================
-type Role = 'admin' | 'user' | 'lider' | 'bpo';
+type Role = 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/dashboard':    ['admin', 'user', 'lider'],
@@ -31,6 +32,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/collaborators':['admin', 'user', 'lider', 'bpo'],
   '/reports':      ['admin', 'user', 'lider'],
   '/socs':         ['admin', 'user'],
+  '/schedule':     ['admin', 'user', 'lider', 'pcp'],
   '/settings':     ['admin'],
   '/trainings':    ['admin', 'user', 'lider'],
   '/signatures':   ['admin', 'user'],
@@ -42,6 +44,7 @@ const ROLE_HOME: Record<Role, string> = {
   user:   '/dashboard',
   lider:  '/dashboard',
   bpo:    '/collaborators',
+  pcp:    '/schedule',
 };
 
 // ============================================================
@@ -157,6 +160,7 @@ const App = () => (
                 <Route path="/settings"     element={<RoleRoute path="/settings">    <SettingsPage />     </RoleRoute>} />
                 <Route path="/trainings"    element={<RoleRoute path="/trainings">   <TrainingsPage />    </RoleRoute>} />
                 <Route path="/signatures"   element={<RoleRoute path="/signatures">  <SignaturesPage />   </RoleRoute>} />
+                <Route path="/schedule"     element={<RoleRoute path="/schedule">    <SchedulePage />     </RoleRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

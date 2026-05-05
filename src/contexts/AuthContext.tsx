@@ -6,7 +6,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'user' | 'lider' | 'bpo';
+  role: 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
   leader_key?: string | null; // Nome exato como aparece em collaborators.leader
 }
 
@@ -17,6 +17,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isLider: boolean;
   isBpo: boolean;
+  isPcp: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -154,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', isPcp: profile?.role === 'pcp', signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

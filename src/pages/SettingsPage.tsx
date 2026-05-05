@@ -319,7 +319,7 @@ export default function SettingsPage() {
                    </div>
                    <div>
                       <p className="text-sm font-black text-gray-800 leading-none mb-1">{u.full_name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : u.role === 'bpo' ? 'BPO Onboarding' : 'Consulta Ltda'}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : u.role === 'bpo' ? 'BPO Onboarding' : u.role === 'pcp' ? 'PCP Agenda' : 'Consulta Ltda'}</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -429,6 +429,7 @@ export default function SettingsPage() {
                     <option value="lider">Líder Operacional</option>
                     <option value="bpo">BPO (Acesso Onboarding)</option>
                     <option value="admin">Administrador Geral</option>
+                    <option value="pcp">PCP (Agenda)</option>
                   </select>
                </div>
             </div>
@@ -459,6 +460,7 @@ export default function SettingsPage() {
                       <option value="lider">Líder Operacional</option>
                       <option value="bpo">BPO (Acesso Onboarding)</option>
                       <option value="admin">Administrador</option>
+                      <option value="pcp">PCP (Agenda)</option>
                     </select>
                  </div>
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}

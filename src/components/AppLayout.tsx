@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X, CalendarDays } from 'lucide-react';
 import shopeeLogoWhite from '@/assets/shopee_logo_white.png';
 
 export default function AppLayout() {
-  const { profile, isAdmin, isLider, isBpo, signOut } = useAuth();
+  const { profile, isAdmin, isLider, isBpo, isPcp, signOut } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -22,6 +22,7 @@ export default function AppLayout() {
     { to: '/materials', icon: FolderOpen, label: 'Materiais' },
     { to: '/collaborators', icon: Users, label: 'Colaboradores' },
     { to: '/reports', icon: BarChart2, label: 'Relatórios' },
+    { to: '/schedule', icon: CalendarDays, label: 'Agenda' },
     { to: '/signatures', icon: PenTool, label: 'Assinaturas' },
     { to: '/socs', icon: Building2, label: 'SOCs' },
     { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
@@ -31,9 +32,14 @@ export default function AppLayout() {
     navItems = [
       { to: '/collaborators', icon: Users, label: 'Colaboradores' },
     ];
+  } else if (isPcp) {
+    navItems = [
+      { to: '/schedule', icon: CalendarDays, label: 'Agenda' },
+    ];
   } else if (isLider) {
     navItems = [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/schedule', icon: CalendarDays, label: 'Agenda' },
       { to: '/trainings', icon: GraduationCap, label: 'Treinamentos' },
       { to: '/reports', icon: BarChart2, label: 'Meu Time' },
     ];
