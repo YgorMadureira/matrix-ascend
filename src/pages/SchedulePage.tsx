@@ -21,6 +21,8 @@ interface Schedule {
   color: string;
   is_active: boolean;
   soc: string;
+  is_recurring: boolean;
+  specific_date: string | null;
 }
 
 interface Enrollment {
@@ -95,6 +97,7 @@ export default function SchedulePage() {
     title: '', training_type: 'RECEBIMENTO', day_of_week: 1,
     start_time: '10:00', end_time: '11:00',
     instructor_name: '', instructor_email: '', location: 'SPX BR', color: '#EE4D2D', soc: 'SPX BR',
+    is_recurring: true, specific_date: '',
   });
   const [saving, setSaving] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
@@ -120,9 +123,17 @@ export default function SchedulePage() {
     ? enrollments.filter(e => e.schedule_id === selectedSlot.schedule.id && e.scheduled_date === toLocalISODate(selectedSlot.date))
     : [];
 
+  // D+2: só permite inscrever em datas >= hoje + 2 dias
+  const minEnrollDate = new Date();
+  minEnrollDate.setDate(minEnrollDate.getDate() + 2);
+  minEnrollDate.setHours(0, 0, 0, 0);
+  const canEnrollDate = selectedSlot ? selectedSlot.date >= minEnrollDate : false;
+
+  // Filtra colaboradores pelo SOC do slot selecionado
   const filteredCollabs = collaborators.filter(c =>
     c.name.toLowerCase().includes(collabSearch.toLowerCase()) &&
-    !slotEnrollments.find(e => e.collaborator_id === c.id)
+    !slotEnrollments.find(e => e.collaborator_id === c.id) &&
+    (!selectedSlot || c.soc === selectedSlot.schedule.soc)
   );
 
   const buildEventDateTime = (date: Date, time: string) => {
@@ -189,13 +200,19 @@ export default function SchedulePage() {
 
   const handleSaveSchedule = async () => {
     if (!form.title || !form.start_time || !form.end_time) { toast.error('Preencha todos os campos obrigatórios'); return; }
+    if (!form.is_recurring && !form.specific_date) { toast.error('Selecione a data específica'); return; }
     setSaving(true);
+    const payload = {
+      ...form,
+      specific_date: form.is_recurring ? null : form.specific_date || null,
+      day_of_week: form.is_recurring ? form.day_of_week : (form.specific_date ? new Date(form.specific_date + 'T12:00:00').getDay() : form.day_of_week),
+    };
     if (editingSchedule) {
-      const { error } = await supabase.from('training_schedules').update(form).eq('id', editingSchedule.id);
+      const { error } = await supabase.from('training_schedules').update(payload).eq('id', editingSchedule.id);
       if (error) toast.error('Erro ao salvar');
       else { toast.success('Agenda atualizada!'); setEditingSchedule(null); setShowNewForm(false); await loadData(); }
     } else {
-      const { error } = await supabase.from('training_schedules').insert(form);
+      const { error } = await supabase.from('training_schedules').insert(payload);
       if (error) toast.error('Erro ao criar agenda');
       else { toast.success('Agenda criada!'); setShowNewForm(false); await loadData(); }
     }
@@ -220,6 +237,7 @@ export default function SchedulePage() {
       day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time,
       instructor_name: s.instructor_name ?? '', instructor_email: s.instructor_email ?? '',
       location: s.location ?? 'SPX BR', color: s.color, soc: s.soc ?? 'SPX BR',
+      is_recurring: s.is_recurring ?? true, specific_date: s.specific_date ?? '',
     });
     setEditingSchedule(s);
     setShowNewForm(true);
@@ -283,7 +301,7 @@ export default function SchedulePage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-black text-gray-900 text-sm">Slots Cadastrados</h2>
-            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location:'SPX BR', color:'#EE4D2D', soc: 'SPX BR' }); }}
+            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location:'SPX BR', color:'#EE4D2D', soc: 'SPX BR', is_recurring: true, specific_date: '' }); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EE4D2D] text-white text-[11px] font-black rounded-lg hover:bg-[#D04426] transition-colors">
               <Plus size={13}/> Novo Slot
             </button>
@@ -304,11 +322,29 @@ export default function SchedulePage() {
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-black text-gray-500 uppercase">Dia da Semana *</label>
-                <select value={form.day_of_week} onChange={e => setForm(f => ({...f, day_of_week: +e.target.value}))}
+                <label className="text-[10px] font-black text-gray-500 uppercase">Recorrência *</label>
+                <select value={form.is_recurring ? 'recurring' : 'specific'} onChange={e => setForm(f => ({...f, is_recurring: e.target.value === 'recurring', specific_date: ''}))}
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none">
-                  {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                  <option value="recurring">Recorrente (toda semana)</option>
+                  <option value="specific">Data específica</option>
                 </select>
+              </div>
+              <div>
+                {form.is_recurring ? (
+                  <>
+                    <label className="text-[10px] font-black text-gray-500 uppercase">Dia da Semana *</label>
+                    <select value={form.day_of_week} onChange={e => setForm(f => ({...f, day_of_week: +e.target.value}))}
+                      className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none">
+                      {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label className="text-[10px] font-black text-gray-500 uppercase">Data *</label>
+                    <input type="date" value={form.specific_date} onChange={e => setForm(f => ({...f, specific_date: e.target.value}))}
+                      className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none"/>
+                  </>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-black text-gray-500 uppercase">Cor</label>
@@ -438,15 +474,35 @@ export default function SchedulePage() {
             </table>
           </div>
         </div>
-      ) : (
-      /* Weekly Calendar */
+      ) : (() => {
+      /* Weekly Time-Grid Calendar */
+      const HOUR_HEIGHT = 60; // px per hour
+      const START_HOUR = 6;
+      const END_HOUR = 22;
+      const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+
+      // Função para obter schedules de um dia (recorrente ou data específica)
+      const getSchedulesForDate = (date: Date) => {
+        const dow = date.getDay();
+        const dateStr = toLocalISODate(date);
+        return schedules.filter(s => {
+          if (socFilter !== 'ALL' && s.soc !== socFilter) return false;
+          if (s.is_recurring === false && s.specific_date) return s.specific_date === dateStr;
+          return s.day_of_week === dow;
+        });
+      };
+
+      const timeToMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
+      return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Day Headers */}
-        <div className="grid grid-cols-7 border-b border-gray-100">
+        <div className="grid border-b border-gray-100" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
+          <div className="p-2 border-r border-gray-50" />
           {weekDates.map((date, i) => {
             const isToday = toLocalISODate(date) === today;
             return (
-              <div key={i} className={`p-3 text-center border-r last:border-r-0 border-gray-50 ${isToday ? 'bg-[#FEF6F5]' : ''}`}>
+              <div key={i} className={`p-2 text-center border-r last:border-r-0 border-gray-50 ${isToday ? 'bg-[#FEF6F5]' : ''}`}>
                 <p className={`text-[10px] font-black uppercase ${isToday ? 'text-[#EE4D2D]' : 'text-gray-400'}`}>{DAYS_SHORT[date.getDay()]}</p>
                 <p className={`text-lg font-black mt-0.5 ${isToday ? 'text-[#EE4D2D]' : 'text-gray-800'}`}>{date.getDate()}</p>
                 <p className="text-[9px] text-gray-300 font-medium">{date.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'America/Sao_Paulo' })}</p>
@@ -455,42 +511,61 @@ export default function SchedulePage() {
           })}
         </div>
 
-        {/* Calendar Body */}
-        <div className="grid grid-cols-7 min-h-[420px]">
-          {weekDates.map((date, i) => {
-            const dow = date.getDay();
-            const isToday = toLocalISODate(date) === today;
-            const daySchedules = schedules.filter(s => s.day_of_week === dow && (socFilter === 'ALL' || s.soc === socFilter));
-            return (
-              <div key={i} className={`border-r last:border-r-0 border-gray-50 p-2 space-y-2 ${isToday ? 'bg-[#FEF6F5]/30' : ''}`}>
-                {daySchedules.map(sch => {
-                  const dateStr = toLocalISODate(date);
-                  const count = enrollments.filter(e => e.schedule_id === sch.id && e.scheduled_date === dateStr).length;
-                  const isSelected = selectedSlot?.schedule.id === sch.id && toLocalISODate(selectedSlot.date) === dateStr;
-                  return (
-                    <button key={sch.id}
-                      onClick={() => setSelectedSlot(isSelected ? null : { schedule: sch, date })}
-                      className={`w-full text-left rounded-xl p-2.5 transition-all border-2 ${isSelected ? 'border-gray-900 shadow-lg scale-[1.02]' : 'border-transparent hover:border-gray-200 hover:shadow-sm'}`}
-                      style={{ backgroundColor: sch.color + '18', borderColor: isSelected ? sch.color : undefined }}
-                    >
-                      <p className="text-[10px] font-black leading-tight truncate" style={{ color: sch.color }}>{sch.title}</p>
-                      <p className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1"><Clock size={8}/>{sch.start_time}</p>
-                      {count > 0 && (
-                        <div className="mt-1.5 flex items-center gap-1">
-                          <div className="flex items-center gap-0.5 bg-white/80 rounded-full px-1.5 py-0.5">
-                            <Users size={8} style={{ color: sch.color }}/>
-                            <span className="text-[9px] font-black" style={{ color: sch.color }}>{count}</span>
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+        {/* Time Grid Body */}
+        <div className="overflow-y-auto max-h-[520px]">
+          <div className="grid relative" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
+            {/* Hour labels + grid lines */}
+            {hours.map(h => (
+              <div key={h} className="contents">
+                <div className="border-r border-gray-50 border-b border-gray-50 flex items-start justify-end pr-2 pt-0.5" style={{ height: HOUR_HEIGHT }}>
+                  <span className="text-[9px] font-bold text-gray-300">{String(h).padStart(2,'0')}:00</span>
+                </div>
+                {weekDates.map((_, di) => (
+                  <div key={di} className="border-r last:border-r-0 border-b border-gray-50" style={{ height: HOUR_HEIGHT }} />
+                ))}
               </div>
-            );
-          })}
+            ))}
+
+            {/* Schedule cards (absolute positioned over grid) */}
+            {weekDates.map((date, colIdx) => {
+              const daySchedules = getSchedulesForDate(date);
+              const dateStr = toLocalISODate(date);
+              return daySchedules.map(sch => {
+                const startMin = timeToMinutes(sch.start_time);
+                const endMin = timeToMinutes(sch.end_time);
+                const topPx = ((startMin / 60) - START_HOUR) * HOUR_HEIGHT;
+                const heightPx = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT - 4, 28);
+                const count = enrollments.filter(e => e.schedule_id === sch.id && e.scheduled_date === dateStr).length;
+                const isSelected = selectedSlot?.schedule.id === sch.id && toLocalISODate(selectedSlot.date) === dateStr;
+                // Column position: skip 56px left col, then each col = (100% - 56px) / 7
+                return (
+                  <button key={`${sch.id}-${dateStr}`}
+                    onClick={() => setSelectedSlot(isSelected ? null : { schedule: sch, date })}
+                    className={`absolute rounded-lg px-1.5 py-1 text-left transition-all overflow-hidden ${isSelected ? 'ring-2 ring-offset-1 shadow-lg z-10' : 'hover:shadow-md hover:z-10'}`}
+                    style={{
+                      top: topPx,
+                      height: heightPx,
+                      left: `calc(56px + ${colIdx} * ((100% - 56px) / 7) + 2px)`,
+                      width: `calc((100% - 56px) / 7 - 4px)`,
+                      backgroundColor: sch.color + '22',
+                      borderLeft: `3px solid ${sch.color}`,
+                      ringColor: isSelected ? sch.color : undefined,
+                    }}
+                  >
+                    <p className="text-[9px] font-black leading-tight truncate" style={{ color: sch.color }}>{sch.title}</p>
+                    <p className="text-[8px] text-gray-500 truncate">{sch.start_time}–{sch.end_time}</p>
+                    {count > 0 && (
+                      <span className="text-[8px] font-black" style={{ color: sch.color }}>👥 {count}</span>
+                    )}
+                  </button>
+                );
+              });
+            })}
+          </div>
         </div>
       </div>
+      );
+      })()
       )}
 
       {/* Enrollment Side Panel */}
@@ -608,26 +683,35 @@ export default function SchedulePage() {
             {canManageEnrollments && (
               <div className="p-5">
                 <h3 className="text-[11px] font-black uppercase text-gray-500 mb-3">Adicionar Colaborador</h3>
-                <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)}
-                  placeholder="Buscar pelo nome..."
-                  className="w-full px-3 py-2 rounded-xl border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 shadow-sm mb-3"/>
-                <ul className="space-y-1.5 max-h-60 overflow-y-auto">
-                  {filteredCollabs.slice(0, 30).map(c => (
-                    <li key={c.id}>
-                      <button onClick={() => handleEnroll(c)} disabled={enrolling}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-[#FEF6F5] transition-colors group border border-transparent hover:border-[#EE4D2D]/10">
-                        <p className="text-sm font-bold text-gray-800 group-hover:text-[#EE4D2D] transition-colors">{c.name}</p>
-                        <p className="text-[9px] text-gray-400 uppercase">{c.role} • {c.soc}</p>
-                      </button>
-                    </li>
-                  ))}
-                  {filteredCollabs.length === 0 && collabSearch && (
-                    <li className="text-center text-gray-300 text-xs italic py-4">Nenhum colaborador encontrado</li>
-                  )}
-                  {!collabSearch && filteredCollabs.length > 30 && (
-                    <li className="text-center text-gray-400 text-xs py-2">Digite para filtrar...</li>
-                  )}
-                </ul>
+                {!canEnrollDate ? (
+                  <div className="text-center py-6">
+                    <p className="text-xs text-orange-500 font-bold">⚠️ Inscrições disponíveis apenas em D+2</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Mínimo: {minEnrollDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+                  </div>
+                ) : (
+                  <>
+                    <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)}
+                      placeholder="Buscar pelo nome..."
+                      className="w-full px-3 py-2 rounded-xl border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 shadow-sm mb-3"/>
+                    <ul className="space-y-1.5 max-h-60 overflow-y-auto">
+                      {filteredCollabs.slice(0, 30).map(c => (
+                        <li key={c.id}>
+                          <button onClick={() => handleEnroll(c)} disabled={enrolling}
+                            className="w-full text-left p-2.5 rounded-xl hover:bg-[#FEF6F5] transition-colors group border border-transparent hover:border-[#EE4D2D]/10">
+                            <p className="text-sm font-bold text-gray-800 group-hover:text-[#EE4D2D] transition-colors">{c.name}</p>
+                            <p className="text-[9px] text-gray-400 uppercase">{c.role} • {c.soc}</p>
+                          </button>
+                        </li>
+                      ))}
+                      {filteredCollabs.length === 0 && collabSearch && (
+                        <li className="text-center text-gray-300 text-xs italic py-4">Nenhum colaborador encontrado</li>
+                      )}
+                      {!collabSearch && filteredCollabs.length > 30 && (
+                        <li className="text-center text-gray-400 text-xs py-2">Digite para filtrar...</li>
+                      )}
+                    </ul>
+                  </>
+                )}
               </div>
             )}
           </div>
