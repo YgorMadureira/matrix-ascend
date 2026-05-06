@@ -42,6 +42,7 @@ interface Collaborator {
   role: string;
   soc: string;
   leader: string;
+  sector: string;
 }
 
 interface AuditLog {
@@ -91,6 +92,7 @@ export default function SchedulePage() {
   const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
   const [socList, setSocList] = useState<string[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [areaFilter, setAreaFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
 
   // New schedule form
@@ -109,7 +111,7 @@ export default function SchedulePage() {
       const [{ data: sch }, { data: enr }, { data: col }] = await Promise.all([
         supabase.from('training_schedules').select('*').eq('is_active', true).order('day_of_week').order('start_time'),
         supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
-        supabase.from('collaborators').select('id, name, role, soc, leader').order('name'),
+        supabase.from('collaborators').select('id, name, role, soc, leader, sector').order('name'),
       ]);
       setSchedules(sch ?? []);
       setEnrollments(enr ?? []);
@@ -142,12 +144,19 @@ export default function SchedulePage() {
     if (slotEnrollments.find(e => e.collaborator_id === c.id)) return false;
     if (selectedSlot && c.soc !== selectedSlot.schedule.soc) return false;
     if (isLider && profile?.leader_key && c.leader?.toUpperCase() !== profile.leader_key.trim().toUpperCase()) return false;
+    const area = c.sector?.trim() || '';
+    if (areaFilter !== 'ALL') {
+      if (areaFilter === 'SEM_AREA' && area !== '') return false;
+      if (areaFilter !== 'SEM_AREA' && area.toUpperCase() !== areaFilter.toUpperCase()) return false;
+    }
     if (roleFilter !== 'ALL' && c.role !== roleFilter) return false;
     return true;
   });
 
-  // Lista de áreas únicas para o filtro
-  const roleOptions = [...new Set(collaborators.filter(c => selectedSlot ? c.soc === selectedSlot.schedule.soc : true).map(c => c.role).filter(Boolean))].sort();
+  // Listas únicas para os filtros
+  const socCollabs = collaborators.filter(c => selectedSlot ? c.soc === selectedSlot.schedule.soc : true);
+  const areaOptions = [...new Set(socCollabs.map(c => c.sector?.trim()).filter(Boolean))].sort();
+  const roleOptions = [...new Set(socCollabs.map(c => c.role?.trim()).filter(Boolean))].sort();
 
   const buildEventDateTime = (date: Date, time: string) => {
     const [h, m] = time.split(':');
@@ -695,13 +704,21 @@ export default function SchedulePage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex gap-2 mb-3">
+                    <div className="flex gap-2 mb-2">
                       <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)}
                         placeholder="Buscar pelo nome..."
                         className="flex-1 px-3 py-2 rounded-xl border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 shadow-sm"/>
-                      <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-                        className="px-2 py-2 rounded-xl border border-gray-100 text-[10px] font-black text-gray-600 outline-none shadow-sm">
+                    </div>
+                    <div className="flex gap-2 mb-3">
+                      <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)}
+                        className="flex-1 px-2 py-1.5 rounded-lg border border-gray-100 text-[10px] font-black text-gray-600 outline-none shadow-sm">
                         <option value="ALL">Todas Áreas</option>
+                        {areaOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                        <option value="SEM_AREA">Sem área cadastrada</option>
+                      </select>
+                      <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+                        className="flex-1 px-2 py-1.5 rounded-lg border border-gray-100 text-[10px] font-black text-gray-600 outline-none shadow-sm">
+                        <option value="ALL">Todos Cargos</option>
                         {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>
