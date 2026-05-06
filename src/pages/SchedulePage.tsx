@@ -756,7 +756,7 @@ export default function SchedulePage() {
                       </select>
                     </div>
                     <ul className="space-y-1.5 max-h-60 overflow-y-auto">
-                      {filteredCollabs.slice(0, 30).map(c => {
+                      {filteredCollabs.map(c => {
                         const trained = isTrained(c);
                         return (
                         <li key={c.id}>
@@ -775,9 +775,6 @@ export default function SchedulePage() {
                       })}
                       {filteredCollabs.length === 0 && collabSearch && (
                         <li className="text-center text-gray-300 text-xs italic py-4">Nenhum colaborador encontrado</li>
-                      )}
-                      {!collabSearch && filteredCollabs.length > 30 && (
-                        <li className="text-center text-gray-400 text-xs py-2">Digite para filtrar...</li>
                       )}
                     </ul>
                   </>
