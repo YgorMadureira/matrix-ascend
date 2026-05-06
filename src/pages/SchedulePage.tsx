@@ -80,6 +80,7 @@ export default function SchedulePage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [completedTrainings, setCompletedTrainings] = useState<{ collaborator_id: string; training_type: string }[]>([]);
   const [weekBase, setWeekBase] = useState<Date>(new Date());
   const weekDates = getWeekDates(weekBase);
 
@@ -94,6 +95,7 @@ export default function SchedulePage() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [areaFilter, setAreaFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'trained' | 'pending'>('ALL');
 
   // New schedule form
   const [showNewForm, setShowNewForm] = useState(false);
@@ -123,6 +125,11 @@ export default function SchedulePage() {
         const { data: logs } = await supabase.from('schedule_audit_log').select('*').order('created_at', { ascending: false }).limit(200);
         setAuditLogs(logs ?? []);
       } catch { setAuditLogs([]); }
+      // Treinamentos concluídos (para status Certificado/Pendente)
+      try {
+        const { data: tc } = await supabase.from('trainings_completed').select('collaborator_id, training_type');
+        setCompletedTrainings(tc ?? []);
+      } catch { setCompletedTrainings([]); }
     } catch (err) { console.error('[Schedule] Erro ao carregar dados:', err); }
   }, []);
 
@@ -150,8 +157,28 @@ export default function SchedulePage() {
       if (areaFilter !== 'SEM_AREA' && area.toUpperCase() !== areaFilter.toUpperCase()) return false;
     }
     if (roleFilter !== 'ALL' && c.role !== roleFilter) return false;
+    if (statusFilter !== 'ALL') {
+      const trained = isTrained(c);
+      if (statusFilter === 'trained' && !trained) return false;
+      if (statusFilter === 'pending' && trained) return false;
+    }
     return true;
   });
+
+  // Verifica se colaborador está certificado (mesma lógica de CollaboratorsPage)
+  function isTrained(c: Collaborator): boolean {
+    return completedTrainings.some(t => {
+      if (t.collaborator_id !== c.id) return false;
+      const tName = t.training_type?.toUpperCase() || '';
+      const cSec = c.sector?.toUpperCase() || '';
+      const cRole = c.role?.toUpperCase() || '';
+      if (cSec && (tName.includes(cSec) || cSec.includes(tName))) return true;
+      if (cRole && (tName.includes(cRole) || cRole.includes(tName))) return true;
+      const isOp = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO';
+      if (tName.includes('ONBOARDING') && isOp) return true;
+      return false;
+    });
+  }
 
   // Listas únicas para os filtros
   const socCollabs = collaborators.filter(c => selectedSlot ? c.soc === selectedSlot.schedule.soc : true);
@@ -721,17 +748,31 @@ export default function SchedulePage() {
                         <option value="ALL">Todos Cargos</option>
                         {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
+                      <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'ALL' | 'trained' | 'pending')}
+                        className={`flex-1 px-2 py-1.5 rounded-lg border text-[10px] font-black outline-none shadow-sm ${statusFilter === 'trained' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' : statusFilter === 'pending' ? 'border-orange-200 text-orange-600 bg-orange-50' : 'border-gray-100 text-gray-600'}`}>
+                        <option value="ALL">Todos Status</option>
+                        <option value="trained">✅ Certificado</option>
+                        <option value="pending">⏳ Pendente</option>
+                      </select>
                     </div>
                     <ul className="space-y-1.5 max-h-60 overflow-y-auto">
-                      {filteredCollabs.slice(0, 30).map(c => (
+                      {filteredCollabs.slice(0, 30).map(c => {
+                        const trained = isTrained(c);
+                        return (
                         <li key={c.id}>
                           <button onClick={() => handleEnroll(c)} disabled={enrolling}
                             className="w-full text-left p-2.5 rounded-xl hover:bg-[#FEF6F5] transition-colors group border border-transparent hover:border-[#EE4D2D]/10">
-                            <p className="text-sm font-bold text-gray-800 group-hover:text-[#EE4D2D] transition-colors">{c.name}</p>
-                            <p className="text-[9px] text-gray-400 uppercase">{c.role} • {c.soc}</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-gray-800 group-hover:text-[#EE4D2D] transition-colors">{c.name}</p>
+                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${trained ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                                {trained ? 'CERTIFICADO' : 'PENDENTE'}
+                              </span>
+                            </div>
+                            <p className="text-[9px] text-gray-400 uppercase">{c.role} • {c.sector || 'Sem área'} • {c.soc}</p>
                           </button>
                         </li>
-                      ))}
+                        );
+                      })}
                       {filteredCollabs.length === 0 && collabSearch && (
                         <li className="text-center text-gray-300 text-xs italic py-4">Nenhum colaborador encontrado</li>
                       )}
