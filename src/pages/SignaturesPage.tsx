@@ -23,6 +23,7 @@ export default function SignaturesPage() {
   const [search, setSearch] = useState('');
   const [viewing, setViewing] = useState<SignatureRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [socFilter, setSocFilter] = useState('ALL');
 
   useEffect(() => {
     const fetchSignatures = async () => {
@@ -65,12 +66,16 @@ export default function SignaturesPage() {
     fetchSignatures();
   }, []);
 
+  const socOptions = [...new Set(records.map(r => r.collaborator?.soc).filter(Boolean))].sort();
+
   const filtered = records.filter(r => {
     const name = r.collaborator?.name?.toLowerCase() ?? '';
     const training = r.training_type?.toLowerCase() ?? '';
     const instructor = r.instructor_name?.toLowerCase() ?? '';
     const q = search.toLowerCase();
-    return name.includes(q) || training.includes(q) || instructor.includes(q);
+    if (!(name.includes(q) || training.includes(q) || instructor.includes(q))) return false;
+    if (socFilter !== 'ALL' && r.collaborator?.soc !== socFilter) return false;
+    return true;
   });
 
   const formatDate = (d: string) => {
@@ -115,15 +120,22 @@ export default function SignaturesPage() {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por colaborador, treinamento ou instrutor..."
-          className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-white border border-gray-100 text-gray-800 text-[13px] font-medium outline-none focus:ring-2 focus:ring-[#EE4D2D]/10 shadow-sm transition-all"
-        />
+      {/* Search + SOC Filter */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por colaborador, treinamento ou instrutor..."
+            className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-white border border-gray-100 text-gray-800 text-[13px] font-medium outline-none focus:ring-2 focus:ring-[#EE4D2D]/10 shadow-sm transition-all"
+          />
+        </div>
+        <select value={socFilter} onChange={e => setSocFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-lg bg-white border border-gray-100 text-[12px] font-black text-gray-600 outline-none shadow-sm">
+          <option value="ALL">Todas SOCs</option>
+          {socOptions.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       {/* Table */}

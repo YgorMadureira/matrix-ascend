@@ -41,6 +41,7 @@ interface Collaborator {
   name: string;
   role: string;
   soc: string;
+  leader: string;
 }
 
 interface AuditLog {
@@ -90,6 +91,7 @@ export default function SchedulePage() {
   const [activeTab, setActiveTab] = useState<'calendar' | 'history'>('calendar');
   const [socList, setSocList] = useState<string[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [roleFilter, setRoleFilter] = useState('ALL');
 
   // New schedule form
   const [showNewForm, setShowNewForm] = useState(false);
@@ -103,18 +105,23 @@ export default function SchedulePage() {
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
   const loadData = useCallback(async () => {
-    const [{ data: sch }, { data: enr }, { data: col }, { data: logs }] = await Promise.all([
-      supabase.from('training_schedules').select('*').eq('is_active', true).order('day_of_week').order('start_time'),
-      supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
-      supabase.from('collaborators').select('id, name, role, soc').order('name'),
-      supabase.from('schedule_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
-    ]);
-    setSchedules(sch ?? []);
-    setEnrollments(enr ?? []);
-    setCollaborators(col ?? []);
-    setAuditLogs(logs ?? []);
-    const socs = [...new Set((sch ?? []).map((s: Schedule) => s.soc).filter(Boolean))];
-    setSocList(socs as string[]);
+    try {
+      const [{ data: sch }, { data: enr }, { data: col }] = await Promise.all([
+        supabase.from('training_schedules').select('*').eq('is_active', true).order('day_of_week').order('start_time'),
+        supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
+        supabase.from('collaborators').select('id, name, role, soc, leader').order('name'),
+      ]);
+      setSchedules(sch ?? []);
+      setEnrollments(enr ?? []);
+      setCollaborators(col ?? []);
+      const socs = [...new Set((sch ?? []).map((s: Schedule) => s.soc).filter(Boolean))];
+      setSocList(socs as string[]);
+      // Audit log (tabela pode não existir ainda)
+      try {
+        const { data: logs } = await supabase.from('schedule_audit_log').select('*').order('created_at', { ascending: false }).limit(200);
+        setAuditLogs(logs ?? []);
+      } catch { setAuditLogs([]); }
+    } catch (err) { console.error('[Schedule] Erro ao carregar dados:', err); }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -129,12 +136,18 @@ export default function SchedulePage() {
   minEnrollDate.setHours(0, 0, 0, 0);
   const canEnrollDate = selectedSlot ? selectedSlot.date >= minEnrollDate : false;
 
-  // Filtra colaboradores pelo SOC do slot selecionado
-  const filteredCollabs = collaborators.filter(c =>
-    c.name.toLowerCase().includes(collabSearch.toLowerCase()) &&
-    !slotEnrollments.find(e => e.collaborator_id === c.id) &&
-    (!selectedSlot || c.soc === selectedSlot.schedule.soc)
-  );
+  // Filtra colaboradores: SOC do slot + leader do perfil (se líder) + área
+  const filteredCollabs = collaborators.filter(c => {
+    if (!c.name.toLowerCase().includes(collabSearch.toLowerCase())) return false;
+    if (slotEnrollments.find(e => e.collaborator_id === c.id)) return false;
+    if (selectedSlot && c.soc !== selectedSlot.schedule.soc) return false;
+    if (isLider && profile?.leader_key && c.leader?.toUpperCase() !== profile.leader_key.trim().toUpperCase()) return false;
+    if (roleFilter !== 'ALL' && c.role !== roleFilter) return false;
+    return true;
+  });
+
+  // Lista de áreas únicas para o filtro
+  const roleOptions = [...new Set(collaborators.filter(c => selectedSlot ? c.soc === selectedSlot.schedule.soc : true).map(c => c.role).filter(Boolean))].sort();
 
   const buildEventDateTime = (date: Date, time: string) => {
     const [h, m] = time.split(':');
@@ -245,6 +258,22 @@ export default function SchedulePage() {
   };
 
   const today = toLocalISODate(new Date());
+
+  // Time-grid calendar helpers
+  const HOUR_HEIGHT = 60;
+  const START_HOUR = 6;
+  const END_HOUR = 22;
+  const calendarHours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  const timeToMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const getSchedulesForDate = (date: Date) => {
+    const dow = date.getDay();
+    const dateStr = toLocalISODate(date);
+    return schedules.filter(s => {
+      if (socFilter !== 'ALL' && s.soc !== socFilter) return false;
+      if (s.is_recurring === false && s.specific_date) return s.specific_date === dateStr;
+      return s.day_of_week === dow;
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -474,27 +503,7 @@ export default function SchedulePage() {
             </table>
           </div>
         </div>
-      ) : (() => {
-      /* Weekly Time-Grid Calendar */
-      const HOUR_HEIGHT = 60; // px per hour
-      const START_HOUR = 6;
-      const END_HOUR = 22;
-      const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
-
-      // Função para obter schedules de um dia (recorrente ou data específica)
-      const getSchedulesForDate = (date: Date) => {
-        const dow = date.getDay();
-        const dateStr = toLocalISODate(date);
-        return schedules.filter(s => {
-          if (socFilter !== 'ALL' && s.soc !== socFilter) return false;
-          if (s.is_recurring === false && s.specific_date) return s.specific_date === dateStr;
-          return s.day_of_week === dow;
-        });
-      };
-
-      const timeToMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-
-      return (
+      ) : (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Day Headers */}
         <div className="grid border-b border-gray-100" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
@@ -515,7 +524,7 @@ export default function SchedulePage() {
         <div className="overflow-y-auto max-h-[520px]">
           <div className="grid relative" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
             {/* Hour labels + grid lines */}
-            {hours.map(h => (
+            {calendarHours.map(h => (
               <div key={h} className="contents">
                 <div className="border-r border-gray-50 border-b border-gray-50 flex items-start justify-end pr-2 pt-0.5" style={{ height: HOUR_HEIGHT }}>
                   <span className="text-[9px] font-bold text-gray-300">{String(h).padStart(2,'0')}:00</span>
@@ -537,7 +546,6 @@ export default function SchedulePage() {
                 const heightPx = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT - 4, 28);
                 const count = enrollments.filter(e => e.schedule_id === sch.id && e.scheduled_date === dateStr).length;
                 const isSelected = selectedSlot?.schedule.id === sch.id && toLocalISODate(selectedSlot.date) === dateStr;
-                // Column position: skip 56px left col, then each col = (100% - 56px) / 7
                 return (
                   <button key={`${sch.id}-${dateStr}`}
                     onClick={() => setSelectedSlot(isSelected ? null : { schedule: sch, date })}
@@ -549,7 +557,6 @@ export default function SchedulePage() {
                       width: `calc((100% - 56px) / 7 - 4px)`,
                       backgroundColor: sch.color + '22',
                       borderLeft: `3px solid ${sch.color}`,
-                      ringColor: isSelected ? sch.color : undefined,
                     }}
                   >
                     <p className="text-[9px] font-black leading-tight truncate" style={{ color: sch.color }}>{sch.title}</p>
@@ -564,8 +571,6 @@ export default function SchedulePage() {
           </div>
         </div>
       </div>
-      );
-      })()
       )}
 
       {/* Enrollment Side Panel */}
@@ -690,9 +695,16 @@ export default function SchedulePage() {
                   </div>
                 ) : (
                   <>
-                    <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)}
-                      placeholder="Buscar pelo nome..."
-                      className="w-full px-3 py-2 rounded-xl border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 shadow-sm mb-3"/>
+                    <div className="flex gap-2 mb-3">
+                      <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)}
+                        placeholder="Buscar pelo nome..."
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 shadow-sm"/>
+                      <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+                        className="px-2 py-2 rounded-xl border border-gray-100 text-[10px] font-black text-gray-600 outline-none shadow-sm">
+                        <option value="ALL">Todas Áreas</option>
+                        {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
                     <ul className="space-y-1.5 max-h-60 overflow-y-auto">
                       {filteredCollabs.slice(0, 30).map(c => (
                         <li key={c.id}>
