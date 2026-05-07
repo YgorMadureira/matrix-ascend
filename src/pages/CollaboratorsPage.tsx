@@ -27,7 +27,7 @@ const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift:
 const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LwfzukkjRDLD-NqioPJoWmFv5FfeDfUdInkavetnDr7p-OhoB-sKvvXWqy6jilxBc4g8olgkOjsJ/pub?gid=0&single=true&output=csv';
 
 export default function CollaboratorsPage() {
-  const { isAdmin, isBpo, loading: authLoading } = useAuth();
+  const { isAdmin, isBpo, loading: authLoading, profile } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
@@ -375,6 +375,8 @@ export default function CollaboratorsPage() {
       c.soc.toLowerCase().includes(search.toLowerCase()) || 
       (c.sector || '').toLowerCase().includes(search.toLowerCase());
     
+    if (profile?.soc && c.soc !== profile.soc) return false;
+
     const matchSoc = selectedSoc ? c.soc === selectedSoc : true;
     const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
     

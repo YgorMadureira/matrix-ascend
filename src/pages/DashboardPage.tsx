@@ -22,14 +22,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       // Fetch all collaborators (with pagination) and other counts in parallel
-      let allCollabs: { id: string; sector: string; leader: string }[] = [];
+      let allCollabs: { id: string; sector: string; leader: string; soc: string; role: string }[] = [];
       let page = 0;
       const limit = 1000;
       let hasMore = true;
       while (hasMore) {
         const { data } = await supabase
           .from('collaborators')
-          .select('id, sector, leader, role')
+          .select('id, sector, leader, role, soc')
           .range(page * limit, (page + 1) * limit - 1);
         if (data && data.length > 0) {
           allCollabs = [...allCollabs, ...data];
@@ -85,9 +85,11 @@ export default function DashboardPage() {
         return false;
       };
 
+      const socCollabs = profile?.soc ? allCollabs.filter(c => c.soc === profile.soc) : allCollabs;
+
       const collabs = isLider
-        ? allCollabs.filter(c => matchLeader(c.leader))
-        : allCollabs;
+        ? socCollabs.filter(c => matchLeader(c.leader))
+        : socCollabs;
 
       const trainings = allTrainings;
       const totalCollabs = collabs.length;

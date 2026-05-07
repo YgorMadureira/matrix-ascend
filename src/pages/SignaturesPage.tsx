@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { PenTool, Search, Eye, X, Download, Calendar, User, GraduationCap, Trash2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface SignatureRecord {
@@ -24,6 +25,7 @@ export default function SignaturesPage() {
   const [viewing, setViewing] = useState<SignatureRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [socFilter, setSocFilter] = useState('ALL');
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchSignatures = async () => {
@@ -60,11 +62,14 @@ export default function SignaturesPage() {
         }
       }
 
+      if (profile?.soc) {
+        allRecords = allRecords.filter(r => r.collaborator?.soc === profile.soc);
+      }
       setRecords(allRecords);
       setLoading(false);
     };
     fetchSignatures();
-  }, []);
+  }, [profile?.soc]);
 
   const socOptions = [...new Set(records.map(r => r.collaborator?.soc).filter(Boolean))].sort();
 

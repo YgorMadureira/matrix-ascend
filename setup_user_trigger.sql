@@ -10,14 +10,16 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Insere o novo usuário na tabela public.users_profiles
-  INSERT INTO public.users_profiles (id, email, full_name, role)
+  INSERT INTO public.users_profiles (id, email, full_name, role, soc)
   VALUES (
     NEW.id,
     NEW.email,
     -- Pega o Full Name dos metadados (que seu front-end envia) ou usa o email de fallback
     COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
     -- Pega a permissão específica 'admin' / 'lider' dos metadados, ou cai no padrão 'user'
-    COALESCE(NEW.raw_user_meta_data->>'role', 'user')
+    COALESCE(NEW.raw_user_meta_data->>'role', 'user'),
+    -- Pega a unidade operacional ou cai no padrão 'SP6'
+    COALESCE(NEW.raw_user_meta_data->>'soc', 'SP6')
   )
   -- Se o perfil por algum milagre já existir, ignora para não dar erro
   ON CONFLICT (id) DO NOTHING;

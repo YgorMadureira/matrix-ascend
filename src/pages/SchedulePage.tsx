@@ -115,10 +115,18 @@ export default function SchedulePage() {
         supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
         supabase.from('collaborators').select('id, name, role, soc, leader, sector').order('name'),
       ]);
-      setSchedules(sch ?? []);
+      let fetchedSchedules = sch ?? [];
+      let fetchedCollabs = col ?? [];
+
+      if (profile?.soc) {
+        fetchedSchedules = fetchedSchedules.filter((s: Schedule) => s.soc === profile.soc);
+        fetchedCollabs = fetchedCollabs.filter((c: any) => c.soc === profile.soc);
+      }
+
+      setSchedules(fetchedSchedules);
       setEnrollments(enr ?? []);
-      setCollaborators(col ?? []);
-      const socs = [...new Set((sch ?? []).map((s: Schedule) => s.soc).filter(Boolean))];
+      setCollaborators(fetchedCollabs);
+      const socs = [...new Set(fetchedSchedules.map((s: Schedule) => s.soc).filter(Boolean))];
       setSocList(socs as string[]);
       // Audit log (tabela pode não existir ainda)
       try {
@@ -131,7 +139,7 @@ export default function SchedulePage() {
         setCompletedTrainings(tc ?? []);
       } catch { setCompletedTrainings([]); }
     } catch (err) { console.error('[Schedule] Erro ao carregar dados:', err); }
-  }, []);
+  }, [profile?.soc]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

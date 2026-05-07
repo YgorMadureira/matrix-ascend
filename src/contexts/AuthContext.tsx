@@ -8,6 +8,7 @@ interface UserProfile {
   full_name: string;
   role: 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
   leader_key?: string | null; // Nome exato como aparece em collaborators.leader
+  soc?: string | null;
 }
 
 interface AuthContextType {
@@ -50,12 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Perfil não existe ainda (trigger pode ter falhado) — cria com role do metadata ou 'user'
       const metaRole = (userMetadata?.role as string) ?? 'user';
       const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
+      const metaSoc = (userMetadata?.soc as string) ?? 'SP6';
 
       const newProfile: UserProfile = {
         id: userId,
         email: email,
         full_name: metaName,
         role: (metaRole as UserProfile['role']),
+        soc: metaSoc,
       };
 
       const { error: insertErr } = await supabase

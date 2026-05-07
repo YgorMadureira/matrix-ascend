@@ -12,6 +12,7 @@ interface UserProfile {
   full_name: string;
   role: string;
   leader_key?: string | null;
+  soc?: string | null;
 }
 
 interface Soc {
@@ -57,6 +58,7 @@ export default function SettingsPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUserName, setEditUserName] = useState('');
   const [editUserRole, setEditUserRole] = useState('user');
+  const [editUserSoc, setEditUserSoc] = useState('');
   const [editLeaderKey, setEditLeaderKey] = useState('');
   const [savingUserEdit, setSavingUserEdit] = useState(false);
 
@@ -66,6 +68,7 @@ export default function SettingsPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState('user');
+  const [newUserSoc, setNewUserSoc] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
 
   // New Instructor
@@ -146,7 +149,8 @@ export default function SettingsPage() {
         id: authData.user.id,
         email: newUserEmail.trim().toLowerCase(),
         full_name: newUserName.trim(),
-        role: newUserRole
+        role: newUserRole,
+        soc: newUserSoc || null
       }, { onConflict: 'id' });
 
       if (profileError) {
@@ -168,6 +172,7 @@ export default function SettingsPage() {
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserRole('user');
+      setNewUserSoc('');
       fetchAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Tente novamente.';
@@ -181,6 +186,7 @@ export default function SettingsPage() {
     setEditingUserId(user.id);
     setEditUserName(user.full_name);
     setEditUserRole(user.role);
+    setEditUserSoc(user.soc ?? '');
     setEditLeaderKey(user.leader_key ?? '');
     setShowEditUser(true);
   };
@@ -194,6 +200,7 @@ export default function SettingsPage() {
     const updatePayload: Record<string, unknown> = {
       full_name: editUserName.trim(),
       role: editUserRole,
+      soc: editUserSoc || null,
     };
     // Salva leader_key apenas para líderes; limpa para outros perfis
     if (editUserRole === 'lider') {
@@ -432,6 +439,13 @@ export default function SettingsPage() {
                     <option value="pcp">PCP (Agenda)</option>
                   </select>
                </div>
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
+                  <select value={newUserSoc} onChange={e => setNewUserSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all">
+                    <option value="">Selecione...</option>
+                    {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+               </div>
             </div>
             <button disabled={creatingUser} onClick={createUser} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-95 transition-all">
               {creatingUser ? 'PROCESSANDO...' : 'CADASTRAR E SINCRONIZAR'}
@@ -461,6 +475,13 @@ export default function SettingsPage() {
                       <option value="bpo">BPO (Acesso Onboarding)</option>
                       <option value="admin">Administrador</option>
                       <option value="pcp">PCP (Agenda)</option>
+                    </select>
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
+                    <select value={editUserSoc} onChange={e => setEditUserSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
+                      <option value="">Selecione...</option>
+                      {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                     </select>
                  </div>
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}
