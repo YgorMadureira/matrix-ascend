@@ -19,6 +19,7 @@ interface AuthContextType {
   isLider: boolean;
   isBpo: boolean;
   isPcp: boolean;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -157,8 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const mustChangePassword = !!(user?.user_metadata?.must_change_password);
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', isPcp: profile?.role === 'pcp', signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', isPcp: profile?.role === 'pcp', mustChangePassword, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -42,6 +42,31 @@ export default function CollaboratorsPage() {
   const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding'>(isBpo ? 'onboarding' : 'ativos');
   const isSyncing = useRef(false); // Guard against concurrent syncs
 
+  // Onboarding extra filters
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [onboardingModuleFilter, setOnboardingModuleFilter] = useState<string>('all');
+
+  // Mapping of onboarding training types to badge initials
+  const ONBOARDING_MODULES = [
+    { key: 'HSE',         initial: 'H', label: 'Onboarding HSE',         color: 'bg-red-100 text-red-600 border-red-200' },
+    { key: 'MEIO',        initial: 'M', label: 'Onboarding Meio Ambiente', color: 'bg-green-100 text-green-600 border-green-200' },
+    { key: 'SECURITY',    initial: 'S', label: 'Onboarding Security',     color: 'bg-blue-100 text-blue-600 border-blue-200' },
+    { key: 'QUALIDADE',   initial: 'Q', label: 'Onboarding Qualidade',    color: 'bg-amber-100 text-amber-600 border-amber-200' },
+    { key: 'PEOPLE',      initial: 'R', label: 'Onboarding People',       color: 'bg-purple-100 text-purple-600 border-purple-200' },
+    { key: 'PTS',         initial: 'P', label: 'Onboarding PTS',          color: 'bg-cyan-100 text-cyan-600 border-cyan-200' },
+  ] as const;
+
+  const getCompletedModules = (collabId: string) => {
+    const done = trainings
+      .filter(t => t.collaborator_id === collabId)
+      .map(t => t.training_type?.toUpperCase() ?? '');
+    return ONBOARDING_MODULES.map(m => ({
+      ...m,
+      done: done.some(t => t.includes('ONBOARDING') && t.includes(m.key)),
+    }));
+  };
+
   const handleChange = (key: keyof typeof form, value: string) => {
     let val = value.toUpperCase();
     if (key === 'gender' || key === 'name' || key === 'sector' || key === 'leader' || key === 'role') {
@@ -246,23 +271,31 @@ export default function CollaboratorsPage() {
       let totalUpdated = 0;
       let totalInserted = 0;
       let totalPromoted = 0;
+      let totalRemoved = 0;
       const BATCH = 50;
+      const matchedIds = new Set<string>(); // IDs que existem na planilha
 
       const failedRows: string[] = [];
+
+      // Helper: remove acentos para comparação robusta de nomes
+      const stripAccents = (s: string) =>
+        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH);
         
         for (const row of batch) {
-          // Normalize names for better matching — use freshCollaborators (just fetched from DB)
-          const normName = row.name.trim().toUpperCase();
-          const existing = freshCollaborators.find(c => 
-            (c.opsid && row.opsid && c.opsid.trim().toUpperCase() === row.opsid.trim().toUpperCase()) || 
-            (c.name.trim().toUpperCase() === normName)
+          const normName = stripAccents(row.name);
+          const existing = freshCollaborators.find(c =>
+            // Match por OPSID (mais confiável)
+            (c.opsid && row.opsid && c.opsid.trim().toUpperCase() === row.opsid.trim().toUpperCase()) ||
+            // Match por nome sem acentos (tolerante a variações)
+            (stripAccents(c.name) === normName)
           );
 
           if (existing) {
             if (existing.is_onboarding) totalPromoted++;
+            matchedIds.add(existing.id); // marca como presente na planilha
             const { error } = await supabase.from('collaborators').update(row).eq('id', existing.id);
             if (error) {
               console.error(`[Sync] ERRO ao atualizar "${row.name}":`, error.message, '| Dados:', row);
@@ -271,12 +304,29 @@ export default function CollaboratorsPage() {
               totalUpdated++;
             }
           } else {
-            const { error } = await supabase.from('collaborators').insert(row);
-            if (error) {
-              console.error(`[Sync] ERRO ao inserir "${row.name}":`, error.message, '| Dados:', row);
+            const { error: insertError } = await supabase.from('collaborators').insert(row);
+            if (insertError) {
+              console.error(`[Sync] ERRO ao inserir "${row.name}":`, insertError.message, '| Dados:', row);
               failedRows.push(row.name);
+              // Se falhou ao inserir, tenta encontrar no banco por nome (pode ser duplicata)
+              // e marca como presente para evitar remoção incorreta
+              const { data: existing2 } = await supabase
+                .from('collaborators')
+                .select('id')
+                .ilike('name', row.name.trim())
+                .eq('is_onboarding', false)
+                .maybeSingle();
+              if (existing2?.id) matchedIds.add(existing2.id);
             } else {
               totalInserted++;
+              // Busca o ID do recém-inserido para marcar como presente
+              const { data: inserted } = await supabase
+                .from('collaborators')
+                .select('id')
+                .eq('name', row.name)
+                .eq('soc', row.soc)
+                .maybeSingle();
+              if (inserted?.id) matchedIds.add(inserted.id);
             }
           }
         }
@@ -286,17 +336,44 @@ export default function CollaboratorsPage() {
         console.warn(`[Sync] ${failedRows.length} registros falharam:`, failedRows);
       }
 
+      // ── REMOÇÃO: colaboradores da Base Ativa que sumiram da planilha ──────────
+      // Apenas remove os que são is_onboarding = false (base ativa), para não
+      // apagar quem ainda está no fluxo de integração.
+      const activosNoBanco = freshCollaborators.filter(c => !c.is_onboarding);
+      const idsParaRemover = activosNoBanco
+        .filter(c => !matchedIds.has(c.id))
+        .map(c => c.id);
+
+      if (idsParaRemover.length > 0) {
+        console.log(`[Sync] ${idsParaRemover.length} colaboradores não encontrados na planilha. Removendo...`);
+        const CHUNK = 100;
+        for (let i = 0; i < idsParaRemover.length; i += CHUNK) {
+          const chunk = idsParaRemover.slice(i, i + CHUNK);
+          const { error: delErr } = await supabase
+            .from('collaborators')
+            .delete()
+            .in('id', chunk);
+          if (delErr) {
+            console.error('[Sync] Erro ao remover desligados:', delErr.message);
+          } else {
+            totalRemoved += chunk.length;
+          }
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────────
+
       // Summary of sync
       const totalProcessed = totalInserted + totalUpdated;
       const totalInSheet = lines.length - 1;
       const diff = totalInSheet - totalProcessed;
 
-      console.log(`[Sync] Processamento finalizado. Inseridos: ${totalInserted}, Atualizados: ${totalUpdated}.`);
+      console.log(`[Sync] Processamento finalizado. Inseridos: ${totalInserted}, Atualizados: ${totalUpdated}, Removidos: ${totalRemoved}.`);
       if (diff > 0) {
         console.warn(`[Sync] ${diff} linhas foram ignoradas ou unificadas (duplicatas).`);
       }
 
-      toast.success(`Sincronização concluída! ${totalInserted} novos, ${totalUpdated} atualizados. (${rows.length} válidos)`, { id: toastId });
+      const removedMsg = totalRemoved > 0 ? ` | ${totalRemoved} desligados removidos.` : '';
+      toast.success(`Sincronização concluída! ${totalInserted} novos, ${totalUpdated} atualizados${removedMsg} (${rows.length} válidos)`, { id: toastId });
       
       // Update last sync time
       localStorage.setItem('last_gsheet_sync', new Date().toISOString());
@@ -385,6 +462,19 @@ export default function CollaboratorsPage() {
       const trained = isTrained(c);
       if (statusFilter === 'trained' && !trained) return false;
       if (statusFilter === 'pending' && trained) return false;
+    }
+
+    // Onboarding-only: date range filter
+    if (currentTab === 'onboarding' && c.admission_date) {
+      if (dateFrom && c.admission_date < dateFrom) return false;
+      if (dateTo   && c.admission_date > dateTo)   return false;
+    }
+
+    // Onboarding-only: module filter
+    if (currentTab === 'onboarding' && onboardingModuleFilter !== 'all') {
+      const modules = getCompletedModules(c.id);
+      const mod = modules.find(m => m.key === onboardingModuleFilter);
+      if (!mod?.done) return false;
     }
     
     return matchSearch && matchSoc && matchLeader;
@@ -809,47 +899,95 @@ export default function CollaboratorsPage() {
       </div>
 
       {/* Filters & Search - More Fluid */}
-      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 items-center">
-        <div className="relative flex-1 w-full">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            placeholder="Buscar por nome, OPSID, setor ou unidade..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-800 text-[13px] font-medium outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" 
-          />
+      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+        {/* Row 1: search + SOC + Leader + Status */}
+        <div className="flex flex-col md:flex-row gap-3 items-center">
+          <div className="relative flex-1 w-full">
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              placeholder="Buscar por nome, OPSID, setor ou unidade..."
+              className="w-full pl-11 pr-4 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-800 text-[13px] font-medium outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" 
+            />
+          </div>
+          <div className="flex gap-3 w-full md:w-auto flex-wrap">
+            <select 
+              value={selectedSoc} 
+              onChange={(e) => setSelectedSoc(e.target.value)} 
+              className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[120px]"
+            >
+              <option value="">Todos SOCs</option>
+              {uniqueSocs.map(soc => <option key={soc} value={soc}>{soc}</option>)}
+            </select>
+            <select 
+              value={selectedLeader} 
+              onChange={(e) => setSelectedLeader(e.target.value)} 
+              className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[140px]"
+            >
+              <option value="">Todos Líderes</option>
+              {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value as any)} 
+              className={`flex-1 md:flex-none px-3 py-2.5 rounded-lg text-[12px] font-black outline-none transition-all min-w-[130px] border-2 ${
+                statusFilter === 'trained' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 
+                statusFilter === 'pending' ? 'bg-red-50 border-red-200 text-red-500' : 
+                'bg-gray-50 border-transparent text-gray-700'
+              }`}
+            >
+              <option value="all">Todos Status</option>
+              <option value="trained">Certificados</option>
+              <option value="pending">Pendentes</option>
+            </select>
+          </div>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <select 
-            value={selectedSoc} 
-            onChange={(e) => setSelectedSoc(e.target.value)} 
-            className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[120px]"
-          >
-            <option value="">Todos SOCs</option>
-            {uniqueSocs.map(soc => <option key={soc} value={soc}>{soc}</option>)}
-          </select>
-          <select 
-            value={selectedLeader} 
-            onChange={(e) => setSelectedLeader(e.target.value)} 
-            className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[140px]"
-          >
-            <option value="">Todos Líderes</option>
-            {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value as any)} 
-            className={`flex-1 md:flex-none px-3 py-2.5 rounded-lg text-[12px] font-black outline-none transition-all min-w-[130px] border-2 ${
-              statusFilter === 'trained' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 
-              statusFilter === 'pending' ? 'bg-red-50 border-red-200 text-red-500' : 
-              'bg-gray-50 border-transparent text-gray-700'
-            }`}
-          >
-            <option value="all">Todos Status</option>
-            <option value="trained">Certificados</option>
-            <option value="pending">Pendentes</option>
-          </select>
-        </div>
+
+        {/* Row 2: Onboarding-specific filters (only shown on onboarding tab) */}
+        {currentTab === 'onboarding' && (
+          <div className="flex flex-col sm:flex-row gap-3 items-center border-t border-gray-50 pt-3">
+            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Filtros Onboarding</span>
+            <div className="flex gap-2 flex-1 flex-wrap items-center">
+              {/* Date range */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Admissão de</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[11px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">até</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[11px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-[9px] font-black text-[#EE4D2D] uppercase tracking-widest bg-[#FEF6F5] px-2 py-1 rounded-full hover:bg-red-50 transition-colors">
+                  Limpar datas
+                </button>
+              )}
+
+              {/* Module filter */}
+              <select
+                value={onboardingModuleFilter}
+                onChange={e => setOnboardingModuleFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[11px] font-black outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all"
+              >
+                <option value="all">Todos os módulos</option>
+                {ONBOARDING_MODULES.map(m => (
+                  <option key={m.key} value={m.key}>{m.initial} — {m.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Form Overlay Modal */}
@@ -938,6 +1076,7 @@ export default function CollaboratorsPage() {
                   <>
                     <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Admissão</th>
                     <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
+                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Onboardings</th>
                   </>
                 ) : (
                   <>
@@ -981,6 +1120,24 @@ export default function CollaboratorsPage() {
                       </td>
                       <td className="p-2.5 text-center text-gray-900 font-bold whitespace-nowrap">
                          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.role}</span>
+                      </td>
+                      {/* Onboarding badges */}
+                      <td className="p-2.5">
+                        <div className="flex items-center justify-center gap-1">
+                          {getCompletedModules(c.id).map(m => (
+                            <div
+                              key={m.key}
+                              title={`${m.label}${m.done ? ' ✓ Concluído' : ' ✗ Pendente'}`}
+                              className={`w-6 h-6 rounded-full border flex items-center justify-center text-[9px] font-black transition-all ${
+                                m.done
+                                  ? m.color
+                                  : 'bg-gray-100 text-gray-300 border-gray-200'
+                              }`}
+                            >
+                              {m.initial}
+                            </div>
+                          ))}
+                        </div>
                       </td>
                     </>
                   ) : (

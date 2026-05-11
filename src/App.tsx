@@ -16,6 +16,7 @@ import TrainingsPage from "@/pages/TrainingsPage";
 import SignaturesPage from "@/pages/SignaturesPage";
 import SchedulePage from "@/pages/SchedulePage";
 import NotFound from "./pages/NotFound";
+import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import React from "react";
 
 const queryClient = new QueryClient();
@@ -84,7 +85,7 @@ class ErrorBoundary extends React.Component<
 // ProtectedRoute — exige login, mostra loading enquanto carrega
 // ============================================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, mustChangePassword } = useAuth();
 
   if (loading) {
     return (
@@ -99,6 +100,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Primeiro acesso: redireciona para redefinição de senha obrigatória
+  if (mustChangePassword) {
+    return (
+      <ChangePasswordPage
+        onDone={() => {
+          // Força reload da sessão para limpar a flag do metadata
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
   return <>{children}</>;
 }
 

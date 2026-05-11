@@ -69,6 +69,7 @@ export default function SettingsPage() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState('user');
   const [newUserSoc, setNewUserSoc] = useState('');
+  const [newUserPasswordConfirm, setNewUserPasswordConfirm] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
 
   // New Instructor
@@ -113,6 +114,10 @@ export default function SettingsPage() {
       toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
     }
+    if (newUserPassword.trim() !== newUserPasswordConfirm.trim()) {
+      toast.error('As senhas não coincidem. Verifique a confirmação.');
+      return;
+    }
     setCreatingUser(true);
 
     try {
@@ -123,7 +128,8 @@ export default function SettingsPage() {
         email_confirm: true,
         user_metadata: {
           full_name: newUserName.trim(),
-          role: newUserRole
+          role: newUserRole,
+          must_change_password: true,   // flag: exige redefinição no primeiro acesso
         }
       });
 
@@ -171,6 +177,7 @@ export default function SettingsPage() {
       setNewUserName('');
       setNewUserEmail('');
       setNewUserPassword('');
+      setNewUserPasswordConfirm('');
       setNewUserRole('user');
       setNewUserSoc('');
       fetchAll();
@@ -419,16 +426,52 @@ export default function SettingsPage() {
               <button onClick={() => setShowNewUser(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
             </div>
             <div className="space-y-4">
-               {[
-                 { label: 'Nome Completo', val: newUserName, setter: setNewUserName, type: 'text' },
-                 { label: 'E-mail Corporativo', val: newUserEmail, setter: setNewUserEmail, type: 'email' },
-                 { label: 'Senha Provisória', val: newUserPassword, setter: setNewUserPassword, type: 'password' },
-               ].map((f, i) => (
-                 <div key={i} className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{f.label}</label>
-                    <input type={f.type} value={f.val} onChange={e => f.setter(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
-                 </div>
-               ))}
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                  <input type="text" value={newUserName} onChange={e => setNewUserName(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+               </div>
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                  <input type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+               </div>
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha Provisória</label>
+                  <input
+                    type="password"
+                    value={newUserPassword}
+                    onChange={e => setNewUserPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border-2 text-gray-800 text-sm font-bold outline-none focus:bg-white transition-all ${
+                      newUserPasswordConfirm && newUserPassword !== newUserPasswordConfirm
+                        ? 'border-red-300 focus:border-red-400'
+                        : newUserPasswordConfirm && newUserPassword === newUserPasswordConfirm
+                        ? 'border-emerald-300 focus:border-emerald-400'
+                        : 'border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10'
+                    }`}
+                  />
+               </div>
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                  <input
+                    type="password"
+                    value={newUserPasswordConfirm}
+                    onChange={e => setNewUserPasswordConfirm(e.target.value)}
+                    placeholder="Repita a senha provisória"
+                    className={`w-full px-4 py-3 rounded-xl bg-gray-50 border-2 text-gray-800 text-sm font-bold outline-none focus:bg-white transition-all ${
+                      newUserPasswordConfirm && newUserPassword !== newUserPasswordConfirm
+                        ? 'border-red-300 focus:border-red-400'
+                        : newUserPasswordConfirm && newUserPassword === newUserPasswordConfirm
+                        ? 'border-emerald-300 focus:border-emerald-400'
+                        : 'border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10'
+                    }`}
+                  />
+                  {newUserPasswordConfirm && newUserPassword !== newUserPasswordConfirm && (
+                    <p className="text-[9px] text-red-500 font-bold ml-1 mt-0.5">❌ Senhas não coincidem</p>
+                  )}
+                  {newUserPasswordConfirm && newUserPassword === newUserPasswordConfirm && (
+                    <p className="text-[9px] text-emerald-500 font-bold ml-1 mt-0.5">✅ Senhas coincidem</p>
+                  )}
+               </div>
                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nível de Acesso</label>
                   <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all">
