@@ -45,7 +45,9 @@ export default function CollaboratorsPage() {
   // Onboarding extra filters
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [onboardingModuleFilter, setOnboardingModuleFilter] = useState<string>('all');
+  const [onboardingModuleFilter, setOnboardingModuleFilter] = useState<Set<string>>(new Set());
+  const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
+  const moduleDropdownRef = useRef<HTMLDivElement>(null);
 
   // Mapping of onboarding training types to badge initials
   const ONBOARDING_MODULES = [
@@ -74,7 +76,7 @@ export default function CollaboratorsPage() {
     } else if (key === 'opsid') {
       val = val.replace(/[^A-Z0-9]/g, '');
     } else if (key === 'soc') {
-      val = val.replace(/[^A-Z0-9]/g, '').slice(0, 3);
+      val = val.replace(/[^A-Z0-9]/g, '').replace(/^([A-Z]+)0([0-9]+)$/, '$1$2').slice(0, 3);
     } else if (key === 'shift') {
       val = val.replace(/[^A-Z0-9]/g, '').slice(0, 3);
       if (val.length > 0 && val[0] !== 'T') {
@@ -148,6 +150,19 @@ export default function CollaboratorsPage() {
   useEffect(() => {
     if (!authLoading) fetchData();
   }, [location.pathname, fetchData, authLoading]);
+
+  // Fecha o dropdown de módulos ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(e.target as Node)) {
+        setModuleDropdownOpen(false);
+      }
+    };
+    if (moduleDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [moduleDropdownOpen]);
 
 
   const handleGSheetSync = async (isAuto = false) => {
@@ -447,14 +462,20 @@ export default function CollaboratorsPage() {
     if (currentTab === 'ativos' && isEmOnboarding) return false;
     if (currentTab === 'onboarding' && !isEmOnboarding) return false;
 
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
-      (c.opsid ?? '').toLowerCase().includes(search.toLowerCase()) || 
-      c.soc.toLowerCase().includes(search.toLowerCase()) || 
-      (c.sector || '').toLowerCase().includes(search.toLowerCase());
+    const norm = (s: string) => s ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
+    const normSoc = (s: string) => s ? s.toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2') : '';
     
-    if (profile?.soc && c.soc !== profile.soc) return false;
+    const searchNormalized = norm(search);
+    const matchSearch = norm(c.name).includes(searchNormalized) || 
+      norm(c.opsid ?? '').includes(searchNormalized) || 
+      normSoc(c.soc).includes(searchNormalized) || 
+      norm(c.sector || '').includes(searchNormalized);
+    
+    const userSoc = normSoc(c.soc);
+    const mySoc = normSoc(profile?.soc ?? '');
+    if (mySoc && userSoc !== mySoc) return false;
 
-    const matchSoc = selectedSoc ? c.soc === selectedSoc : true;
+    const matchSoc = selectedSoc ? userSoc === normSoc(selectedSoc) : true;
     const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
     
     // Status Filter
@@ -465,16 +486,21 @@ export default function CollaboratorsPage() {
     }
 
     // Onboarding-only: date range filter
-    if (currentTab === 'onboarding' && c.admission_date) {
+    if (currentTab === 'onboarding' && (dateFrom || dateTo)) {
+      if (!c.admission_date) return false;
       if (dateFrom && c.admission_date < dateFrom) return false;
       if (dateTo   && c.admission_date > dateTo)   return false;
     }
 
-    // Onboarding-only: module filter
-    if (currentTab === 'onboarding' && onboardingModuleFilter !== 'all') {
+    // Onboarding-only: multi-module filter (mostra quem NÃO assinou nos módulos selecionados)
+    if (currentTab === 'onboarding' && onboardingModuleFilter.size > 0) {
       const modules = getCompletedModules(c.id);
-      const mod = modules.find(m => m.key === onboardingModuleFilter);
-      if (!mod?.done) return false;
+      // Colaborador aparece se tiver pelo menos 1 módulo selecionado pendente
+      const hasPending = Array.from(onboardingModuleFilter).some(key => {
+        const mod = modules.find(m => m.key === key);
+        return mod && !mod.done;
+      });
+      if (!hasPending) return false;
     }
     
     return matchSearch && matchSoc && matchLeader;
@@ -688,7 +714,7 @@ export default function CollaboratorsPage() {
           name: getByHeader(['colaborador', 'nome', 'name', 'colaboradores']),
           gender: getByHeader(['genero', 'gênero', 'gender', 'sexo']),
           role: getByHeader(['cargo', 'role', 'funcao', 'função']),
-          soc: getByHeader(['soc', 'unidade', 'unit']),
+          soc: getByHeader(['soc', 'unidade', 'unit']).toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2'),
           opsid: getByHeader(['opsid', 'ops id', 'matricula', 'id']),
           bpo: getByHeader(['bpo', 'empresa']),
           shift: getByHeader(['turno', 'shift', 'periodo']),
@@ -974,17 +1000,76 @@ export default function CollaboratorsPage() {
                 </button>
               )}
 
-              {/* Module filter */}
-              <select
-                value={onboardingModuleFilter}
-                onChange={e => setOnboardingModuleFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[11px] font-black outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all"
-              >
-                <option value="all">Todos os módulos</option>
-                {ONBOARDING_MODULES.map(m => (
-                  <option key={m.key} value={m.key}>{m.initial} — {m.label}</option>
-                ))}
-              </select>
+              {/* Multi-Module filter dropdown */}
+              <div className="relative" ref={moduleDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setModuleDropdownOpen(o => !o)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-black outline-none transition-all border-2 ${
+                    onboardingModuleFilter.size > 0
+                      ? 'bg-amber-50 border-amber-200 text-amber-700'
+                      : 'bg-gray-50 border-transparent text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {onboardingModuleFilter.size > 0 ? (
+                    <span className="flex items-center gap-1">
+                      <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-black flex items-center justify-center">{onboardingModuleFilter.size}</span>
+                      Módulo{onboardingModuleFilter.size > 1 ? 's' : ''} selecionado{onboardingModuleFilter.size > 1 ? 's' : ''}
+                    </span>
+                  ) : 'Todos os módulos'}
+                  <svg className={`w-3 h-3 transition-transform ${moduleDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+
+                {moduleDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1.5 z-30 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden min-w-[240px] animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-3 py-2 border-b border-gray-50 flex items-center justify-between">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Filtrar por módulo pendente</span>
+                      {onboardingModuleFilter.size > 0 && (
+                        <button
+                          onClick={() => setOnboardingModuleFilter(new Set())}
+                          className="text-[9px] font-black text-[#EE4D2D] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                        >
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                    <div className="py-1">
+                      {ONBOARDING_MODULES.map(m => {
+                        const isSelected = onboardingModuleFilter.has(m.key);
+                        return (
+                          <label
+                            key={m.key}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isSelected ? 'bg-amber-50' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setOnboardingModuleFilter(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(m.key)) next.delete(m.key);
+                                  else next.add(m.key);
+                                  return next;
+                                });
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 accent-amber-500 cursor-pointer"
+                            />
+                            <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-[9px] font-black flex-shrink-0 ${
+                              isSelected ? m.color : 'bg-gray-100 text-gray-400 border-gray-200'
+                            }`}>{m.initial}</span>
+                            <span className="text-[12px] font-bold text-gray-700">{m.label}</span>
+                            {isSelected && (
+                              <span className="ml-auto text-[9px] font-black text-amber-600 uppercase">pendente</span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
