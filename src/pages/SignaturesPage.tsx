@@ -39,7 +39,11 @@ export default function SignaturesPage() {
         const { data, error } = await supabase
           .from('trainings_completed')
           .select(`
-            *,
+            id,
+            collaborator_id,
+            training_type,
+            instructor_name,
+            completed_at,
             collaborator:collaborator_id (name, sector, soc, role)
           `)
           .order('completed_at', { ascending: false })
@@ -94,12 +98,31 @@ export default function SignaturesPage() {
 
   const isBase64 = (url: string) => url?.startsWith('data:image');
 
-  const downloadSignature = (record: SignatureRecord) => {
-    if (!record.signature_pdf_url) return;
+  const downloadSignature = async (record: SignatureRecord) => {
+    const toastId = toast.loading('Baixando assinatura...');
+    const { data } = await supabase.from('trainings_completed').select('signature_pdf_url').eq('id', record.id).single();
+    
+    if (!data?.signature_pdf_url) {
+      toast.error('Assinatura não encontrada para este registro', { id: toastId });
+      return;
+    }
+    
+    toast.dismiss(toastId);
     const a = document.createElement('a');
-    a.href = record.signature_pdf_url;
+    a.href = data.signature_pdf_url;
     a.download = `assinatura_${record.collaborator?.name ?? record.id}.png`;
     a.click();
+  };
+
+  const handleView = async (record: SignatureRecord) => {
+    const toastId = toast.loading('Carregando assinatura...');
+    const { data } = await supabase.from('trainings_completed').select('signature_pdf_url').eq('id', record.id).single();
+    
+    toast.dismiss(toastId);
+    setViewing({ 
+      ...record, 
+      signature_pdf_url: data?.signature_pdf_url || null 
+    });
   };
 
   const deleteRecord = async (id: string) => {
@@ -182,26 +205,20 @@ export default function SignaturesPage() {
                     <td className="p-3 text-gray-400 text-[11px] whitespace-nowrap">{formatDate(r.completed_at)}</td>
                     <td className="p-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        {r.signature_pdf_url ? (
-                          <>
-                            <button
-                              onClick={() => setViewing(r)}
-                              className="p-1.5 rounded-lg bg-[#FEF6F5] text-[#EE4D2D] hover:bg-[#EE4D2D]/20 transition-colors"
-                              title="Ver assinatura"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <button
-                              onClick={() => downloadSignature(r)}
-                              className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:text-gray-700 transition-colors"
-                              title="Baixar assinatura"
-                            >
-                              <Download size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-gray-300 font-bold">Sem imagem</span>
-                        )}
+                        <button
+                          onClick={() => handleView(r)}
+                          className="p-1.5 rounded-lg bg-[#FEF6F5] text-[#EE4D2D] hover:bg-[#EE4D2D]/20 transition-colors"
+                          title="Ver assinatura"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={() => downloadSignature(r)}
+                          className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:text-gray-700 transition-colors"
+                          title="Baixar assinatura"
+                        >
+                          <Download size={14} />
+                        </button>
                         <button
                           onClick={() => deleteRecord(r.id)}
                           className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors"
@@ -257,7 +274,7 @@ export default function SignaturesPage() {
             </div>
 
             {/* Signature Image */}
-            {viewing.signature_pdf_url && (
+            {viewing.signature_pdf_url ? (
               <div>
                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">Assinatura Eletrônica</p>
                 <div className="bg-gray-50 rounded-lg border border-gray-100 overflow-hidden p-2">
@@ -267,6 +284,10 @@ export default function SignaturesPage() {
                     className="w-full object-contain max-h-40"
                   />
                 </div>
+              </div>
+            ) : (
+              <div className="p-4 text-center bg-gray-50 rounded-lg border border-gray-100">
+                <p className="text-gray-400 text-xs font-bold">Sem imagem de assinatura registrada</p>
               </div>
             )}
 
