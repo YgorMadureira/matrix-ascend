@@ -61,6 +61,9 @@ export default function SettingsPage() {
   const [editUserSoc, setEditUserSoc] = useState('');
   const [editLeaderKey, setEditLeaderKey] = useState('');
   const [savingUserEdit, setSavingUserEdit] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
 
   // New User
   const [showNewUser, setShowNewUser] = useState(false);
@@ -99,10 +102,21 @@ export default function SettingsPage() {
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   const deleteUser = async (id: string) => {
-    if (!confirm('Tem certeza que deseja remover este perfil?')) return;
+    if (!confirm('Tem certeza que deseja remover este usuário permanentemente?')) return;
+    
+    // 1. Apaga da base do perfil local
     await supabase.from('users_profiles').delete().eq('id', id);
+    
+    // 2. Apaga da base do Auth (impede login e acessos)
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    
+    if (error) {
+      toast.error('Erro ao excluir do sistema de Auth: ' + error.message);
+    } else {
+      toast.success('Usuário removido permanentemente');
+    }
+    
     fetchAll();
-    toast.success('Perfil de usuário removido');
   };
 
   const createUser = async () => {
@@ -195,6 +209,9 @@ export default function SettingsPage() {
     setEditUserRole(user.role);
     setEditUserSoc(user.soc ?? '');
     setEditLeaderKey(user.leader_key ?? '');
+    setShowPasswordReset(false);
+    setResetPassword('');
+    setResetPasswordConfirm('');
     setShowEditUser(true);
   };
 
@@ -202,6 +219,16 @@ export default function SettingsPage() {
     if (!editUserName.trim()) {
       toast.error('Preencha o nome do usuário');
       return;
+    }
+    if (showPasswordReset) {
+      if (!resetPassword.trim() || resetPassword.length < 6) {
+        toast.error('A nova senha deve ter no mínimo 6 caracteres');
+        return;
+      }
+      if (resetPassword !== resetPasswordConfirm) {
+        toast.error('As senhas não coincidem');
+        return;
+      }
     }
     setSavingUserEdit(true);
     const updatePayload: Record<string, unknown> = {
@@ -215,15 +242,37 @@ export default function SettingsPage() {
     } else {
       updatePayload.leader_key = null;
     }
-    const { error } = await supabase.from('users_profiles').update(updatePayload).eq('id', editingUserId);
+    
+    let { error } = await supabase.from('users_profiles').update(updatePayload).eq('id', editingUserId);
+
+    // Fallback: se a coluna leader_key ainda não existe ou o cache não atualizou
+    if (error && error.message?.includes('leader_key')) {
+      delete updatePayload.leader_key;
+      const retry = await supabase.from('users_profiles').update(updatePayload).eq('id', editingUserId);
+      error = retry.error;
+    }
 
     if (error) {
       toast.error('Erro ao editar usuário: ' + error.message);
-    } else {
-      toast.success('Usuário atualizado com sucesso!');
-      setShowEditUser(false);
-      fetchAll();
+      setSavingUserEdit(false);
+      return;
     }
+
+    // Se tudo deu certo e o admin solicitou trocar senha
+    if (showPasswordReset && editingUserId) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(editingUserId, {
+        password: resetPassword
+      });
+      if (authError) {
+        toast.error('Perfil salvo, mas ocorreu erro ao redefinir a senha: ' + authError.message);
+        setSavingUserEdit(false);
+        return;
+      }
+    }
+
+    toast.success('Usuário atualizado com sucesso!');
+    setShowEditUser(false);
+    fetchAll();
     setSavingUserEdit(false);
   };
 
@@ -540,6 +589,33 @@ export default function SettingsPage() {
                      <p className="text-[9px] text-gray-400 font-medium ml-1 mt-1">Preencha com o nome <strong>exatamente</strong> como aparece na coluna "Líder" da planilha de colaboradores. Deixe em branco para usar o nome do perfil.</p>
                    </div>
                  )}
+
+                 {/* Reset de Senha UI */}
+                 <div className="pt-2">
+                   {!showPasswordReset ? (
+                     <button type="button" onClick={() => setShowPasswordReset(true)} className="text-xs font-bold text-[#EE4D2D] hover:underline flex items-center gap-1">
+                        🔒 Definir Nova Senha
+                     </button>
+                   ) : (
+                     <div className="space-y-4 p-4 bg-[#FBFBFB] rounded-2xl border border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                           <p className="text-xs font-black text-gray-900 uppercase tracking-widest">Nova Senha de Acesso</p>
+                           <button type="button" onClick={() => { setShowPasswordReset(false); setResetPassword(''); setResetPasswordConfirm(''); }} className="text-[10px] font-bold text-gray-400 hover:text-[#EE4D2D] uppercase transition-colors">Cancelar</button>
+                        </div>
+                        <div className="space-y-1">
+                           <input type="password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Digite a nova senha (min. 6 caracteres)" className="w-full px-4 py-3 rounded-xl bg-white text-sm font-bold outline-none border border-transparent focus:border-[#EE4D2D]/30 focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all shadow-sm" />
+                        </div>
+                        <div className="space-y-1">
+                           <input type="password" value={resetPasswordConfirm} onChange={e => setResetPasswordConfirm(e.target.value)} placeholder="Confirme a senha" className={`w-full px-4 py-3 rounded-xl bg-white text-sm font-bold outline-none border shadow-sm focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all ${
+                              resetPasswordConfirm && resetPassword !== resetPasswordConfirm ? 'border-red-300 focus:border-red-400' :
+                              resetPasswordConfirm && resetPassword === resetPasswordConfirm ? 'border-emerald-300 focus:border-emerald-400' : 'border-transparent focus:border-[#EE4D2D]/30'
+                           }`} />
+                           {resetPasswordConfirm && resetPassword !== resetPasswordConfirm && <p className="text-[9px] text-red-500 font-bold ml-1 mt-1">❌ As senhas não coincidem</p>}
+                           {resetPasswordConfirm && resetPassword === resetPasswordConfirm && <p className="text-[9px] text-emerald-500 font-bold ml-1 mt-1">✅ Senhas coincidem perfeitamente</p>}
+                        </div>
+                     </div>
+                   )}
+                 </div>
               </div>
               <div className="flex gap-3 pt-2">
                  <button onClick={() => setShowEditUser(false)} className="flex-1 py-4 rounded-xl bg-gray-50 text-gray-400 font-black text-[10px] uppercase tracking-widest">Descartar</button>
