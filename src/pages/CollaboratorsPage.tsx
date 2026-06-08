@@ -165,7 +165,7 @@ export default function CollaboratorsPage() {
   }, [moduleDropdownOpen]);
 
 
-  const handleGSheetSync = async (forceFull = false) => {
+  const handleGSheetSync = async (isAuto = false) => {
     if (!isAdmin) return;
     if (isSyncing.current) {
       console.warn('[Sync] Já existe uma sincronização em andamento. Ignorando.');
