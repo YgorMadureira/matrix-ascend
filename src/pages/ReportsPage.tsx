@@ -8,6 +8,7 @@ import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Resp
 
 const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS'] as const;
 const ONBOARDING_TYPES = ['Onboarding Meio Ambiente', 'Onboarding People', 'Onboarding HSE', 'Onboarding PTS', 'Onboarding Qualidade'] as const;
+const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
 
 interface Collaborator {
   id: string;
@@ -93,8 +94,7 @@ export default function ReportsPage() {
   }, [filteredTrainings, collaborators]);
 
   const isGenerallyTrained = useCallback((collabId: string) => {
-    const coreSectors = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
-    return coreSectors.some(type => hasTraining(collabId, type));
+    return CORE_SECTORS.some(type => hasTraining(collabId, type));
   }, [hasTraining]);
 
   const loadData = useCallback(async () => {
@@ -234,7 +234,7 @@ export default function ReportsPage() {
     // Filtrar apenas setores operacionais (mesma lógica dos cards do topo)
     const coreCollabs = socCollabs.filter(c => {
       const s = c.sector?.toUpperCase() || '';
-      return coreSectors.includes(s) || s === 'EXPEDICAO';
+      return CORE_SECTORS.includes(s) || s === 'EXPEDICAO';
     });
 
     let total = coreCollabs.length;
