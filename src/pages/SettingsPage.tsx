@@ -41,7 +41,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 export default function SettingsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [socs, setSocs] = useState<Soc[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -82,8 +82,9 @@ export default function SettingsPage() {
   const [savingInstructor, setSavingInstructor] = useState(false);
 
   const fetchAll = async () => {
+    if (!profile?.soc) return;
     const [{ data: u }, { data: s }, { data: inst }, { data: tr }] = await Promise.all([
-      supabase.from('users_profiles').select('*').order('full_name'),
+      supabase.from('users_profiles').select('*').eq('soc', profile.soc).order('full_name'),
       supabase.from('socs').select('id, name').order('name'),
       supabase.from('instructors').select('*').order('name'),
       supabase.from('trainings').select('id, name').order('name'),
@@ -95,9 +96,9 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !profile?.soc) return;
     fetchAll();
-  }, [isAdmin]);
+  }, [isAdmin, profile?.soc]);
 
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -170,7 +171,7 @@ export default function SettingsPage() {
         email: newUserEmail.trim().toLowerCase(),
         full_name: newUserName.trim(),
         role: newUserRole,
-        soc: newUserSoc || null
+        soc: profile?.soc || null
       }, { onConflict: 'id' });
 
       if (profileError) {
@@ -234,7 +235,7 @@ export default function SettingsPage() {
     const updatePayload: Record<string, unknown> = {
       full_name: editUserName.trim(),
       role: editUserRole,
-      soc: editUserSoc || null,
+      soc: profile?.soc || null,
     };
     // Salva leader_key apenas para líderes; limpa para outros perfis
     if (editUserRole === 'lider') {
@@ -533,10 +534,7 @@ export default function SettingsPage() {
                </div>
                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                  <select value={newUserSoc} onChange={e => setNewUserSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all">
-                    <option value="">Selecione...</option>
-                    {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                  </select>
+                  <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                </div>
             </div>
             <button disabled={creatingUser} onClick={createUser} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-95 transition-all">
@@ -570,11 +568,8 @@ export default function SettingsPage() {
                     </select>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                    <select value={editUserSoc} onChange={e => setEditUserSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
-                      <option value="">Selecione...</option>
-                      {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
+                  <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                  </div>
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}
                  {editUserRole === 'lider' && (

@@ -38,6 +38,7 @@ export default function CollaboratorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedSoc, setSelectedSoc] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
+  const [selectedShift, setSelectedShift] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
   const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding' | 'lideres'>(isBpo ? 'onboarding' : 'ativos');
   const isSyncing = useRef(false); // Guard against concurrent syncs
@@ -88,6 +89,7 @@ export default function CollaboratorsPage() {
 
   const uniqueSocs = Array.from(new Set(collaborators.map(c => c.soc).filter(Boolean))).sort();
   const uniqueLeaders = Array.from(new Set(collaborators.map(c => c.leader).filter(Boolean))).sort();
+  const uniqueShifts = Array.from(new Set(collaborators.map(c => c.shift).filter(Boolean))).sort();
 
   const fetchData = useCallback(async () => {
     // Supabase has a default limit of 1000 rows. We need to fetch all of them.
@@ -483,6 +485,7 @@ export default function CollaboratorsPage() {
 
     const matchSoc = selectedSoc ? userSoc === normSoc(selectedSoc) : true;
     const matchLeader = selectedLeader ? c.leader === selectedLeader : true;
+    const matchShift = selectedShift ? c.shift === selectedShift : true;
     
     // Status Filter
     if (statusFilter !== 'all') {
@@ -509,7 +512,7 @@ export default function CollaboratorsPage() {
       if (!hasPending) return false;
     }
     
-    return matchSearch && matchSoc && matchLeader;
+    return matchSearch && matchSoc && matchLeader && matchShift;
   });
 
   const displayTotal = filtered.length;
@@ -1017,6 +1020,14 @@ export default function CollaboratorsPage() {
             >
               <option value="">Todos Líderes</option>
               {uniqueLeaders.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <select 
+              value={selectedShift} 
+              onChange={(e) => setSelectedShift(e.target.value)} 
+              className="flex-1 md:flex-none px-3 py-2.5 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all min-w-[110px]"
+            >
+              <option value="">Todos Turnos</option>
+              {uniqueShifts.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <select 
               value={statusFilter} 
