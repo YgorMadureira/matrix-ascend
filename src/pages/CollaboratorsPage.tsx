@@ -247,7 +247,7 @@ export default function CollaboratorsPage() {
         const name = get(['colaborador', 'nome', 'name', 'colaboradores']).trim();
         if (!name || name.length < 2) return null;
 
-        const admRaw = get(['data admissao', 'data de admissão', 'admissao', 'admission']);
+        const admRaw = get(['data admissao', 'data de admissão', 'admissao', 'admission', 'data_admissao']);
         let admissionDate: string | null = null;
         if (admRaw && admRaw.includes('/')) {
           const parts = admRaw.split('/');
@@ -271,7 +271,7 @@ export default function CollaboratorsPage() {
           bpo: clean(get(['bpo', 'empresa'])),
           role: clean(get(['cargo', 'role', 'função', 'funcao'])),
           activity: clean(get(['atividade', 'activity', 'funcao real'])),
-          soc: 'SP6',
+          soc: clean(get(['soc', 'unidade', 'unit'])) || 'SP6',
           is_onboarding: false
         };
       }).filter((r): r is NonNullable<typeof r> => r !== null);

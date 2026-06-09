@@ -32,7 +32,7 @@ async function sync() {
       return {
         name: get(p, ['colaborador', 'nome']),
         gender: get(p, ['gênero', 'genero']),
-        admission_date: get(p, ['data admissão', 'data admissao']),
+        admission_date: get(p, ['data admissão', 'data admissao', 'data_admissao']),
         shift: get(p, ['turno']),
         sector: get(p, ['setor']),
         activity: get(p, ['atividade']),
@@ -40,7 +40,7 @@ async function sync() {
         opsid: get(p, ['ops id', 'opsid']),
         bpo: get(p, ['bpo']),
         role: get(p, ['cargo']),
-        soc: 'SP6',
+        soc: get(p, ['soc', 'unidade', 'unit']) || 'SP6',
         is_onboarding: false
       };
     }).filter(r => r.name);
