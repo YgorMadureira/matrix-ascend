@@ -24,7 +24,7 @@ interface Collaborator {
 
 const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '' };
 
-const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQrxiIuv3ZXh_a2NLNGm5Oya5BB7Xum3jkQN-ESIvB5UXqZAbvJ03z6p4XmedCG1u4BL4zdnymMtbFY/pub?gid=0&single=true&output=csv';
+const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LwfzukkjRDLD-NqioPJoWmFv5FfeDfUdInkavetnDr7p-OhoB-sKvvXWqy6jilxBc4g8olgkOjsJ/pub?gid=0&single=true&output=csv';
 
 export default function CollaboratorsPage() {
   const { isAdmin, isBpo, loading: authLoading, profile } = useAuth();
