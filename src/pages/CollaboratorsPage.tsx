@@ -938,7 +938,7 @@ export default function CollaboratorsPage() {
               <Upload size={14} /> Importar
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            {isAdmin && (
+            {isAdmin && profile?.full_name?.toUpperCase() === 'YGOR MADUREIRA' && (
               <div className="flex flex-col items-end gap-1">
                 <div className="flex gap-2">
                   <button 

@@ -769,32 +769,34 @@ export default function SettingsPage() {
         </div>
       )}
       {/* Sync Configurations */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-8 border-b border-gray-50 flex items-center justify-between">
-           <div>
-              <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Sincronização Automática</h2>
-              <p className="text-xs text-gray-400 font-medium mt-1">Configure o horário para atualização diária da base de colaboradores</p>
-           </div>
+      {profile?.full_name?.toUpperCase() === 'YGOR MADUREIRA' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+             <div>
+                <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Sincronização Automática</h2>
+                <p className="text-xs text-gray-400 font-medium mt-1">Configure o horário para atualização diária da base de colaboradores</p>
+             </div>
+          </div>
+          <div className="p-8 space-y-6">
+             <div className="max-w-xs space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Horário de Pico (Update)</label>
+                <div className="flex gap-3">
+                   <input 
+                     type="time" 
+                     value={localStorage.getItem('auto_sync_hour') || '05:00'} 
+                     onChange={(e) => {
+                        localStorage.setItem('auto_sync_hour', e.target.value);
+                        toast.success(`Horário de sincronização definido para ${e.target.value}`);
+                        // Forçar re-renderização simples (opcional, aqui usamos state local se preferir)
+                     }}
+                     className="flex-1 px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" 
+                   />
+                </div>
+                <p className="text-[10px] text-gray-400 font-medium italic mt-1">* A sincronização ocorrerá no primeiro acesso administrativo após este horário.</p>
+             </div>
+          </div>
         </div>
-        <div className="p-8 space-y-6">
-           <div className="max-w-xs space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Horário de Pico (Update)</label>
-              <div className="flex gap-3">
-                 <input 
-                   type="time" 
-                   value={localStorage.getItem('auto_sync_hour') || '05:00'} 
-                   onChange={(e) => {
-                      localStorage.setItem('auto_sync_hour', e.target.value);
-                      toast.success(`Horário de sincronização definido para ${e.target.value}`);
-                      // Forçar re-renderização simples (opcional, aqui usamos state local se preferir)
-                   }}
-                   className="flex-1 px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" 
-                 />
-              </div>
-              <p className="text-[10px] text-gray-400 font-medium italic mt-1">* A sincronização ocorrerá no primeiro acesso administrativo após este horário.</p>
-           </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
