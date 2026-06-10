@@ -86,7 +86,7 @@ export default function SettingsPage() {
     const [{ data: u }, { data: s }, { data: inst }, { data: tr }] = await Promise.all([
       supabase.from('users_profiles').select('*').eq('soc', profile.soc).order('full_name'),
       supabase.from('socs').select('id, name').order('name'),
-      supabase.from('instructors').select('*').order('name'),
+      supabase.from('instructors').select('*').eq('soc_name', profile.soc).order('name'),
       supabase.from('trainings').select('id, name').order('name'),
     ]);
     setUsers(u ?? []);

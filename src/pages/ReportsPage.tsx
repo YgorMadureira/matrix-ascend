@@ -1,14 +1,19 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, XCircle, Upload, BarChart2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
 
 const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS'] as const;
-const ONBOARDING_TYPES = ['Onboarding Meio Ambiente', 'Onboarding People', 'Onboarding HSE', 'Onboarding PTS', 'Onboarding Qualidade'] as const;
 const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
+const MICRO_TRAININGS = [
+  'Recebimento FM', 'Recebimento LH', 'Sacas Laranjas', 'Transbordo', 'Fullfilment', 'Staged IN', 'Rompimento Lacre', 'YMS',
+  'Esteira automática', 'Esteira Java', 'Esteira Termoplástica', 'Puxada IN', 'Tetris', 'Goleiro', 'Setup',
+  'Carregamento LH', 'Carrregamento 3PL', 'Puxada OUT', 'Montagem Carga',
+  'Reembalagem', 'Reetiquetagem', 'Avarias', 'Liquidation', 'Faded', 'Receita Federal', 'Recebimento de returns 3PL'
+] as const;
 
 interface Collaborator {
   id: string;
@@ -44,6 +49,7 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState('');
   const [selectedTrainingType, setSelectedTrainingType] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
+  const [search, setSearch] = useState('');
 
   const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
@@ -173,6 +179,12 @@ export default function ReportsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [loadData, authLoading]);
 
+  useEffect(() => {
+    if (profile?.soc && !selectedUnit) {
+      setSelectedUnit(profile.soc);
+    }
+  }, [profile?.soc]);
+
   const filtered = collaborators.filter(c => {
     const matchUnit = !selectedUnit || c.soc === selectedUnit;
     const matchSector = !selectedSector || c.sector === selectedSector;
@@ -202,6 +214,11 @@ export default function ReportsPage() {
     }
 
     return true;
+  });
+
+  const microFiltered = filtered.filter(c => {
+    if (!search) return true;
+    return c.name.toLowerCase().includes(search.toLowerCase());
   });
 
   const currentTrainingTypes = useMemo(() => {
@@ -303,7 +320,7 @@ export default function ReportsPage() {
         <div className="flex gap-2 flex-wrap bg-white p-2 rounded-xl shadow-sm border border-gray-100">
           <select value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)}
             className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/20 transition-all">
-            <option value="">Todas as Unidades</option>
+            {isAdmin && <option value="">Todas as Unidades</option>}
             {units.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
         <div className="flex gap-2 flex-wrap items-center">
@@ -408,51 +425,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-50 flex items-center justify-between bg-[#FEF6F5]/30">
-           <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
-             <CheckCircle2 className="text-[#EE4D2D]" size={18} />
-             Matriz de Onboarding
-           </h2>
-           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{filtered.length} Colaboradores</span>
-        </div>
-        <div className="overflow-x-auto overflow-y-auto max-h-[50vh] custom-scrollbar">
-          <table className="w-full text-[13px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100">
-                <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase sticky left-0 bg-gray-50 z-20">Colaborador</th>
-                {ONBOARDING_TYPES.map(t => (
-                  <th key={t} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase whitespace-nowrap">{t}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="p-3 font-bold text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50/50 z-10 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span>{c.name}</span>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase">{c.role} • {c.soc}</span>
-                    </div>
-                  </td>
-                  {ONBOARDING_TYPES.map(type => {
-                    const done = hasTraining(c.id, type);
-                    return (
-                      <td key={type} className="p-3 text-center">
-                        {done ? (
-                          <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mx-auto"><CheckCircle2 size={12} /></div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center text-gray-200 mx-auto"><XCircle size={12} /></div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-gray-50 flex items-center justify-between">
@@ -460,39 +433,110 @@ export default function ReportsPage() {
            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{filtered.length} Colaboradores</span>
         </div>
         <div className="overflow-x-auto overflow-y-auto max-h-[50vh] custom-scrollbar">
-          <table className="w-full text-[13px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100">
-                <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase sticky left-0 bg-gray-50 z-20">Colaborador</th>
-                <th className="text-left p-3 text-[9px] text-gray-400 font-black uppercase whitespace-nowrap">Unidade/SOC</th>
-                {displayTrainingTypes.map(t => (
-                  <th key={t} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase whitespace-nowrap">{t}</th>
-                ))}
+          <table className="w-full text-[13px] border-collapse">
+            <thead className="sticky top-0 z-30 shadow-sm">
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="sticky left-0 bg-gray-50 z-40 p-0 min-w-[220px]">
+                  <div className="flex items-center gap-2 p-3">
+                    <div className="relative flex-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input
+                        type="text"
+                        placeholder="Buscar colaborador..."
+                        className="w-full pl-8 pr-3 py-2 text-[11px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE4D2D]/30 focus:border-[#EE4D2D]/50"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                      />
+                    </div>
+                    <button className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    </button>
+                  </div>
+                </th>
+                {displayTrainingTypes.map(t => {
+                  let bgColor = 'bg-gray-100';
+                  let textColor = 'text-gray-600';
+                  let icon = null;
+                  
+                  if (t === 'RECEBIMENTO') {
+                    bgColor = 'bg-[#ECF2FD]';
+                    textColor = 'text-[#1A50BE]';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
+                  } else if (t === 'PROCESSAMENTO') {
+                    bgColor = 'bg-[#F1FBF1]';
+                    textColor = 'text-[#1B8A23]';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/></svg>;
+                  } else if (t === 'EXPEDIÇÃO') {
+                    bgColor = 'bg-[#FEF6E4]';
+                    textColor = 'text-[#C2832B]';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 12 2 2 4-4"/></svg>;
+                  } else if (t === 'TRATATIVAS') {
+                    bgColor = 'bg-[#F8F3FD]';
+                    textColor = 'text-[#8C70BA]';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>;
+                  } else {
+                    bgColor = 'bg-gray-100';
+                    textColor = 'text-gray-600';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
+                  }
+
+                  return (
+                    <th key={t} className="p-0 border-r border-gray-200 last:border-0 min-w-[160px]">
+                      <div className={`flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg ${bgColor} ${textColor}`}>
+                        {icon}
+                        <span className="text-[10px] font-black uppercase tracking-wide">{t}</span>
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="p-3 font-bold text-gray-800 sticky left-0 bg-white group-hover:bg-gray-50/50 z-10 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span>{c.name}</span>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase">{c.role} • {c.sector}</span>
+            <tbody>
+              {microFiltered.map((c, rowIdx) => (
+                <tr key={c.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className={`sticky left-0 z-10 p-3 border-r border-gray-100 whitespace-nowrap ${rowIdx % 2 === 0 ? 'bg-white group-hover:bg-blue-50' : 'bg-gray-50 group-hover:bg-blue-50'}`}>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <span className="text-[11px] font-black text-gray-800 uppercase block">{c.name}</span>
+                        <span className="text-[9px] text-gray-400 font-medium uppercase">{c.role} • {c.sector}</span>
+                      </div>
                     </div>
                   </td>
-                  <td className="p-3 text-gray-500 font-bold whitespace-nowrap">{c.soc}</td>
                   {displayTrainingTypes.map(type => {
                     const done = hasTraining(c.id, type);
                     const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
+                    
+                    const macroArea = type.toUpperCase();
+                    const isRecommended = c.sector && c.sector.toUpperCase().includes(macroArea);
+
+                    let iconColor = 'text-gray-300';
+                    let ringColor = 'border-gray-200';
+                    let bgColor = 'bg-transparent';
+                    let icon = <XCircle size={16} />;
+                    let title = 'Não iniciado';
+
+                    if (done) {
+                      iconColor = 'text-emerald-500';
+                      ringColor = 'border-emerald-200';
+                      bgColor = 'bg-emerald-50';
+                      icon = <CheckCircle2 size={16} />;
+                      title = 'Concluído';
+                    } else if (isRecommended) {
+                      iconColor = 'text-amber-500';
+                      ringColor = 'border-amber-200';
+                      bgColor = 'bg-amber-50';
+                      icon = <AlertCircle size={16} />;
+                      title = 'Pendente';
+                    }
+
                     return (
-                      <td key={type} className="p-3 text-center">
+                      <td key={type} className="text-center px-2 py-3 border-r border-gray-100 last:border-0">
                         <div className="flex flex-col items-center gap-1">
-                          {done ? (
-                            <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><CheckCircle2 size={12} /></div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-gray-50 flex items-center justify-center text-gray-200"><XCircle size={12} /></div>
-                          )}
+                          <div title={title} className={`flex items-center justify-center w-[28px] h-[28px] rounded-full border-[1.5px] ${ringColor} ${bgColor} ${iconColor} transition-colors`}>
+                            {icon}
+                          </div>
                           {training?.signature_pdf_url && (
-                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] uppercase">Assinatura</a>
+                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] uppercase mt-1">Assinatura</a>
                           )}
                         </div>
                       </td>
@@ -505,7 +549,163 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-6">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <h2 className="text-xl font-black text-gray-900">Matriz de Treinamentos</h2>
+              <p className="text-[11px] text-gray-400 mt-1">Acompanhe o status dos treinamentos por colaborador e área.</p>
+            </div>
+            <div className="flex items-center gap-2 text-gray-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <div className="text-right">
+                <span className="text-2xl font-black text-gray-800 block leading-none">{microFiltered.length}</span>
+                <span className="text-[9px] text-gray-400 font-bold uppercase">colaboradores</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter bar + category headers */}
+        <div className="overflow-x-auto overflow-y-auto max-h-[60vh] custom-scrollbar">
+          <table className="w-full text-[13px] border-collapse">
+            <thead className="sticky top-0 z-30 shadow-sm">
+              {/* Category row */}
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="sticky left-0 bg-gray-50 z-40 p-0 min-w-[220px]" rowSpan={2}>
+                  <div className="flex items-center gap-2 p-3">
+                    <div className="relative flex-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input
+                        type="text"
+                        placeholder="Buscar colaborador..."
+                        className="w-full pl-8 pr-3 py-2 text-[11px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE4D2D]/30 focus:border-[#EE4D2D]/50"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                      />
+                    </div>
+                    <button className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    </button>
+                  </div>
+                </th>
+                <th colSpan={8} className="p-0 border-r border-gray-200">
+                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#ECF2FD] text-[#1A50BE]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    <span className="text-[10px] font-black uppercase tracking-wide">Recebimento</span>
+                  </div>
+                </th>
+                <th colSpan={7} className="p-0 border-r border-gray-200">
+                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#F1FBF1] text-[#1B8A23]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+                    <span className="text-[10px] font-black uppercase tracking-wide">Processamento</span>
+                  </div>
+                </th>
+                <th colSpan={4} className="p-0 border-r border-gray-200">
+                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#FEF6E4] text-[#C2832B]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span className="text-[10px] font-black uppercase tracking-wide">Expedição</span>
+                  </div>
+                </th>
+                <th colSpan={7} className="p-0">
+                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#F8F3FD] text-[#8C70BA]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    <span className="text-[10px] font-black uppercase tracking-wide">Tratativas / Returns</span>
+                  </div>
+                </th>
+              </tr>
+              {/* Sub-headers row */}
+              <tr className="bg-white border-b border-gray-200">
+                {MICRO_TRAININGS.map((t, i) => (
+                  <th key={t} className={`text-center px-2 py-3 text-[11px] text-gray-600 font-bold whitespace-nowrap ${
+                    i === 7 || i === 14 || i === 18 ? 'border-r border-gray-200' : ''
+                  }`}>
+                    {t}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {microFiltered.map((c, rowIdx) => (
+                <tr key={c.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className={`sticky left-0 z-10 p-3 border-r border-gray-100 whitespace-nowrap ${rowIdx % 2 === 0 ? 'bg-white group-hover:bg-blue-50' : 'bg-gray-50 group-hover:bg-blue-50'}`}>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <span className="text-[11px] font-black text-gray-800 uppercase block">{c.name}</span>
+                        <span className="text-[9px] text-gray-400 font-medium uppercase">{c.role} • {c.sector}</span>
+                      </div>
+                    </div>
+                  </td>
+                  {MICRO_TRAININGS.map((type, i) => {
+                    const done = hasTraining(c.id, type);
+                    const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
+
+                    const macroArea = i <= 7 ? 'RECEBIMENTO' : i <= 14 ? 'PROCESSAMENTO' : i <= 18 ? 'EXPEDIÇÃO' : 'TRATATIVAS';
+                    const isRecommended = c.sector && c.sector.toUpperCase().includes(macroArea);
+
+                    let iconColor = 'text-gray-300';
+                    let ringColor = 'border-gray-200';
+                    let bgColor = 'bg-transparent';
+                    let icon = <XCircle size={16} />;
+                    let title = 'Não iniciado';
+
+                    if (done) {
+                      iconColor = 'text-emerald-500';
+                      ringColor = 'border-emerald-200';
+                      bgColor = 'bg-emerald-50';
+                      icon = <CheckCircle2 size={16} />;
+                      title = 'Concluído';
+                    } else if (isRecommended) {
+                      iconColor = 'text-amber-500';
+                      ringColor = 'border-amber-200';
+                      bgColor = 'bg-amber-50';
+                      icon = <AlertCircle size={16} />;
+                      title = 'Pendente';
+                    }
+
+                    return (
+                      <td key={type} className={`text-center px-2 py-3 ${
+                        i === 7 || i === 14 || i === 18 ? 'border-r border-gray-100' : ''
+                      }`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className={`w-7 h-7 rounded-full ${bgColor} border ${ringColor} flex items-center justify-center ${iconColor} transition-transform hover:scale-110`} title={title}>
+                            {icon}
+                          </div>
+                          {training?.signature_pdf_url && (
+                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] uppercase">Assinatura</a>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Legend + Footer */}
+        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-500"><CheckCircle2 size={11} /></div>
+              <span className="text-[10px] text-gray-500 font-medium">Concluído</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500"><AlertCircle size={11} /></div>
+              <span className="text-[10px] text-gray-500 font-medium">Pendente</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center text-gray-300"><XCircle size={11} /></div>
+              <span className="text-[10px] text-gray-500 font-medium">Não iniciado</span>
+            </div>
+          </div>
+          <span className="text-[9px] text-gray-400 font-medium">⏱ Atualizado em tempo real</span>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
         <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
           <BarChart2 className="text-[#EE4D2D]" size={18} />
           Volume de Pessoas por Instrutor

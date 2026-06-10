@@ -185,10 +185,18 @@ export default function SchedulePage() {
       setCollaborators(fetchedCollabs);
       const socs = [...new Set(fetchedSchedules.map((s: Schedule) => s.soc).filter(Boolean))];
       setSocList(socs as string[]);
-      // Audit log (tabela pode não existir ainda)
+      // Audit log
       try {
         const { data: logs } = await supabase.from('schedule_audit_log').select('*').order('created_at', { ascending: false }).limit(200);
-        setAuditLogs(logs ?? []);
+        let filteredLogs = logs ?? [];
+        if (profile?.soc) {
+          const { data: allSch } = await supabase.from('training_schedules').select('id, soc');
+          if (allSch) {
+            const validScheduleIds = new Set(allSch.filter(s => s.soc === profile.soc).map(s => s.id));
+            filteredLogs = filteredLogs.filter(log => validScheduleIds.has(log.schedule_id));
+          }
+        }
+        setAuditLogs(filteredLogs);
       } catch { setAuditLogs([]); }
       // Treinamentos concluídos (para status Certificado/Pendente e validação de 6 meses)
       try {
@@ -787,7 +795,7 @@ export default function SchedulePage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-black text-gray-900 text-sm">Slots Cadastrados</h2>
-            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location:'SPX BR', color:'#EE4D2D', soc: 'SPX BR', is_recurring: true, specific_date: '' }); }}
+            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location: profile?.soc || 'SPX BR', color:'#EE4D2D', soc: profile?.soc || 'SPX BR', is_recurring: true, specific_date: '' }); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EE4D2D] text-white text-[11px] font-black rounded-lg hover:bg-[#D04426] transition-colors">
               <Plus size={13}/> Novo Slot
             </button>
