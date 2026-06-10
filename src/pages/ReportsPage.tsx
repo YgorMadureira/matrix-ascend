@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -49,10 +49,19 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState('');
   const [selectedTrainingType, setSelectedTrainingType] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
   const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
+
+  const lastLoadRef = useRef(0);
+
+  // Debounce do campo de busca (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const toggleSectorFilter = (type: string) => {
     setSelectedTrainingType(prev => prev === type ? '' : type);
@@ -72,39 +81,70 @@ export default function ReportsPage() {
     });
   }, [trainings, startDate, endDate]);
 
+  // === LOOKUP MAPS para performance O(1) ===
+  const collaboratorMap = useMemo(() => {
+    const map = new Map<string, Collaborator>();
+    collaborators.forEach(c => map.set(c.id, c));
+    return map;
+  }, [collaborators]);
+
+  const trainingsByCollabId = useMemo(() => {
+    const map = new Map<string, Training[]>();
+    filteredTrainings.forEach(t => {
+      let arr = map.get(t.collaborator_id);
+      if (!arr) { arr = []; map.set(t.collaborator_id, arr); }
+      arr.push(t);
+    });
+    return map;
+  }, [filteredTrainings]);
+
+  const allTrainingsByCollabId = useMemo(() => {
+    const map = new Map<string, Training[]>();
+    trainings.forEach(t => {
+      let arr = map.get(t.collaborator_id);
+      if (!arr) { arr = []; map.set(t.collaborator_id, arr); }
+      arr.push(t);
+    });
+    return map;
+  }, [trainings]);
+
   const hasTraining = useCallback((collabId: string, type: string) => {
-    return filteredTrainings.some((t) => {
-      if (t.collaborator_id !== collabId) return false;
-      
-      const collab = collaborators.find(x => x.id === collabId);
+    const collabTrainings = trainingsByCollabId.get(collabId);
+    if (!collabTrainings || collabTrainings.length === 0) return false;
+
+    const collab = collaboratorMap.get(collabId);
+    const reqType = type.toUpperCase();
+    const cRole = collab?.role?.toUpperCase() ?? '';
+
+    return collabTrainings.some((t) => {
       const tType = t.training_type?.toUpperCase() ?? '';
-      const reqType = type.toUpperCase();
-      const cRole = collab?.role?.toUpperCase() ?? '';
-      
+
       // Onboarding específico: exige que o treinamento contenha ONBOARDING + a área específica
       if (reqType.startsWith('ONBOARDING ')) {
         const area = reqType.replace('ONBOARDING ', '');
         return tType.includes('ONBOARDING') && tType.includes(area);
       }
-      
+
       // Setores operacionais: treinamento de ONBOARDING valida apenas estes 3 setores
       const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO';
       if (tType.includes('ONBOARDING') && isOp) return true;
-      
+
       // Match direto por nome do setor
       const matchSector = tType === reqType || tType.includes(reqType) || reqType.includes(tType);
       const matchRole = cRole && (tType.includes(cRole) || cRole.includes(tType));
-      
+
       return matchSector || matchRole;
     });
-  }, [filteredTrainings, collaborators]);
+  }, [trainingsByCollabId, collaboratorMap]);
 
   const isGenerallyTrained = useCallback((collabId: string) => {
     return CORE_SECTORS.some(type => hasTraining(collabId, type));
   }, [hasTraining]);
 
   const loadData = useCallback(async () => {
-    let allCollabs: any[] = [];
+    lastLoadRef.current = Date.now();
+
+    const allCollabs: any[] = [];
     let hasMore = true;
     let page = 0;
     const limit = 1000;
@@ -112,13 +152,13 @@ export default function ReportsPage() {
     while (hasMore) {
       const { data, error } = await supabase
         .from('collaborators')
-        .select('*')
+        .select('id, name, soc, sector, shift, role, leader')
         .order('name')
         .range(page * limit, (page + 1) * limit - 1);
       
       if (error) break;
       if (data) {
-        allCollabs = [...allCollabs, ...data];
+        allCollabs.push(...data);
         if (data.length < limit) hasMore = false;
         else page++;
       } else {
@@ -126,18 +166,18 @@ export default function ReportsPage() {
       }
     }
 
-    let allTrainings: any[] = [];
+    const allTrainings: any[] = [];
     let tPage = 0;
     let tHasMore = true;
     while (tHasMore) {
       const { data, error } = await supabase
         .from('trainings_completed')
-        .select('*')
+        .select('id, collaborator_id, training_type, completed_at, created_at, signature_pdf_url, instructor_name')
         .range(tPage * limit, (tPage + 1) * limit - 1);
       
       if (error) break;
       if (data) {
-        allTrainings = [...allTrainings, ...data];
+        allTrainings.push(...data);
         if (data.length < limit) tHasMore = false;
         else tPage++;
       } else {
@@ -174,7 +214,12 @@ export default function ReportsPage() {
   useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
   useEffect(() => {
-    const onFocus = () => { if (!authLoading) loadData(); };
+    const onFocus = () => {
+      // Só recarrega se passou mais de 5 minutos desde o último load
+      if (!authLoading && Date.now() - lastLoadRef.current > 5 * 60 * 1000) {
+        loadData();
+      }
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [loadData, authLoading]);
@@ -185,7 +230,7 @@ export default function ReportsPage() {
     }
   }, [profile?.soc]);
 
-  const filtered = collaborators.filter(c => {
+  const filtered = useMemo(() => collaborators.filter(c => {
     const matchUnit = !selectedUnit || c.soc === selectedUnit;
     const matchSector = !selectedSector || c.sector === selectedSector;
     
@@ -214,12 +259,13 @@ export default function ReportsPage() {
     }
 
     return true;
-  });
+  }), [collaborators, selectedUnit, selectedSector, selectedArea, statusFilter, selectedTrainingType, hasTraining, isGenerallyTrained]);
 
-  const microFiltered = filtered.filter(c => {
-    if (!search) return true;
-    return c.name.toLowerCase().includes(search.toLowerCase());
-  });
+  const microFiltered = useMemo(() => {
+    if (!search) return filtered;
+    const searchLower = search.toLowerCase();
+    return filtered.filter(c => c.name.toLowerCase().includes(searchLower));
+  }, [filtered, search]);
 
   const currentTrainingTypes = useMemo(() => {
     if (selectedArea === 'Operacional') return TRAINING_TYPES as unknown as string[];
@@ -227,7 +273,7 @@ export default function ReportsPage() {
     return [selectedArea.toUpperCase()];
   }, [selectedArea]);
 
-  const sectorStats = currentTrainingTypes.map(type => {
+  const sectorStats = useMemo(() => currentTrainingTypes.map(type => {
     const sectorCollabs = filtered.filter(c => {
       const s = c.sector?.toUpperCase() || '';
       if (type === 'INVENTÁRIO') return s === 'INVENTARIO' || s === 'INVENTÁRIO';
@@ -238,45 +284,50 @@ export default function ReportsPage() {
     const completed = sectorCollabs.filter(c => hasTraining(c.id, type)).length;
     const pct = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
     return { type, total, completed, pct };
-  });
+  }), [currentTrainingTypes, filtered, hasTraining, selectedArea]);
 
-  const generalTotal = sectorStats.reduce((sum, s) => sum + s.total, 0);
-  const generalCompleted = sectorStats.reduce((sum, s) => sum + s.completed, 0);
-  const generalPct = generalTotal > 0 ? Number(((generalCompleted / generalTotal) * 100).toFixed(1)) : 0;
+  const { generalTotal, generalCompleted, generalPct } = useMemo(() => {
+    const total = sectorStats.reduce((sum, s) => sum + s.total, 0);
+    const completed = sectorStats.reduce((sum, s) => sum + s.completed, 0);
+    const pct = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+    return { generalTotal: total, generalCompleted: completed, generalPct: pct };
+  }, [sectorStats]);
 
-  const socList = [...new Set(collaborators.map(c => c.soc))].sort();
-  const chartData = socList.map(soc => {
-    const socCollabs = collaborators.filter(c => c.soc === soc);
-    
-    // Filtrar apenas setores operacionais (mesma lógica dos cards do topo)
-    const coreCollabs = socCollabs.filter(c => {
-      const s = c.sector?.toUpperCase() || '';
-      return CORE_SECTORS.includes(s) || s === 'EXPEDICAO';
-    });
-
-    let total = coreCollabs.length;
-    let trainedCount = 0;
-
-    if (selectedTrainingType) {
-      // Se um setor específico está selecionado, focar apenas nele
-      const specificCollabs = socCollabs.filter(c => {
+  const chartData = useMemo(() => {
+    const socList = [...new Set(collaborators.map(c => c.soc))].sort();
+    return socList.map(soc => {
+      const socCollabs = collaborators.filter(c => c.soc === soc);
+      
+      // Filtrar apenas setores operacionais (mesma lógica dos cards do topo)
+      const coreCollabs = socCollabs.filter(c => {
         const s = c.sector?.toUpperCase() || '';
-        const target = selectedTrainingType.toUpperCase();
-        return s === target || (target === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
+        return CORE_SECTORS.includes(s) || s === 'EXPEDICAO';
       });
-      total = specificCollabs.length;
-      trainedCount = specificCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
-    } else {
-      // Lógica Geral: Certificados no seu setor / Total do operacional
-      trainedCount = coreCollabs.filter(c => {
-        if (!c.sector) return false;
-        return hasTraining(c.id, c.sector);
-      }).length;
-    }
 
-    const pct = total > 0 ? Number(((trainedCount / total) * 100).toFixed(1)) : 0;
-    return { soc, 'Treinados': pct, 'Nº HCs': total };
-  });
+      let total = coreCollabs.length;
+      let trainedCount = 0;
+
+      if (selectedTrainingType) {
+        // Se um setor específico está selecionado, focar apenas nele
+        const specificCollabs = socCollabs.filter(c => {
+          const s = c.sector?.toUpperCase() || '';
+          const target = selectedTrainingType.toUpperCase();
+          return s === target || (target === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
+        });
+        total = specificCollabs.length;
+        trainedCount = specificCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
+      } else {
+        // Lógica Geral: Certificados no seu setor / Total do operacional
+        trainedCount = coreCollabs.filter(c => {
+          if (!c.sector) return false;
+          return hasTraining(c.id, c.sector);
+        }).length;
+      }
+
+      const pct = total > 0 ? Number(((trainedCount / total) * 100).toFixed(1)) : 0;
+      return { soc, 'Treinados': pct, 'Nº HCs': total };
+    });
+  }, [collaborators, selectedTrainingType, hasTraining]);
 
   const instructorStats = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -305,9 +356,9 @@ export default function ReportsPage() {
       .slice(0, 15);
   }, [filteredTrainings, filtered, selectedTrainingType]);
 
-  const displayTrainingTypes = selectedTrainingType 
+  const displayTrainingTypes = useMemo(() => selectedTrainingType 
     ? currentTrainingTypes.filter(t => t === selectedTrainingType) 
-    : currentTrainingTypes;
+    : currentTrainingTypes, [selectedTrainingType, currentTrainingTypes]);
 
   return (
     <div className="space-y-6">
@@ -444,8 +495,8 @@ export default function ReportsPage() {
                         type="text"
                         placeholder="Buscar colaborador..."
                         className="w-full pl-8 pr-3 py-2 text-[11px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE4D2D]/30 focus:border-[#EE4D2D]/50"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
                       />
                     </div>
                     <button className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
@@ -504,7 +555,7 @@ export default function ReportsPage() {
                   </td>
                   {displayTrainingTypes.map(type => {
                     const done = hasTraining(c.id, type);
-                    const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
+                    const training = (allTrainingsByCollabId.get(c.id) || []).find(t => t.training_type === type);
                     
                     const macroArea = type.toUpperCase();
                     const isRecommended = c.sector && c.sector.toUpperCase().includes(macroArea);
@@ -581,8 +632,8 @@ export default function ReportsPage() {
                         type="text"
                         placeholder="Buscar colaborador..."
                         className="w-full pl-8 pr-3 py-2 text-[11px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE4D2D]/30 focus:border-[#EE4D2D]/50"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
                       />
                     </div>
                     <button className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
@@ -639,7 +690,7 @@ export default function ReportsPage() {
                   </td>
                   {MICRO_TRAININGS.map((type, i) => {
                     const done = hasTraining(c.id, type);
-                    const training = trainings.find(t => t.collaborator_id === c.id && t.training_type === type);
+                    const training = (allTrainingsByCollabId.get(c.id) || []).find(t => t.training_type === type);
 
                     const macroArea = i <= 7 ? 'RECEBIMENTO' : i <= 14 ? 'PROCESSAMENTO' : i <= 18 ? 'EXPEDIÇÃO' : 'TRATATIVAS';
                     const isRecommended = c.sector && c.sector.toUpperCase().includes(macroArea);
