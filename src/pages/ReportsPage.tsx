@@ -8,12 +8,14 @@ import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Resp
 
 const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS'] as const;
 const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
-const MICRO_TRAININGS = [
-  'Recebimento FM', 'Recebimento LH', 'Sacas Laranjas', 'Transbordo', 'Fullfilment', 'Staged IN', 'Rompimento Lacre', 'YMS',
-  'Esteira automática', 'Esteira Java', 'Esteira Termoplástica', 'Puxada IN', 'Tetris', 'Goleiro', 'Setup',
-  'Carregamento LH', 'Carrregamento 3PL', 'Puxada OUT', 'Montagem Carga',
-  'Reembalagem', 'Reetiquetagem', 'Avarias', 'Liquidation', 'Faded', 'Receita Federal', 'Recebimento de returns 3PL'
-] as const;
+interface SocMicroTraining {
+  id: string;
+  soc_name: string;
+  macro_area: string;
+  name: string;
+  is_mandatory: boolean;
+  order_num: number;
+}
 
 interface Collaborator {
   id: string;
@@ -40,9 +42,8 @@ export default function ReportsPage() {
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
-  const [units, setUnits] = useState<string[]>([]);
+  const [microTrainings, setMicroTrainings] = useState<SocMicroTraining[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
-  const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -54,6 +55,14 @@ export default function ReportsPage() {
 
   const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
+  const [visibleCount, setVisibleCount] = useState(100);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 100;
+    if (bottom) {
+      setVisibleCount(prev => prev + 100);
+    }
+  }, []);
 
   const lastLoadRef = useRef(0);
 
@@ -115,6 +124,7 @@ export default function ReportsPage() {
     const collab = collaboratorMap.get(collabId);
     const reqType = type.toUpperCase();
     const cRole = collab?.role?.toUpperCase() ?? '';
+    const cSector = collab?.sector?.toUpperCase() ?? '';
 
     return collabTrainings.some((t) => {
       const tType = t.training_type?.toUpperCase() ?? '';
@@ -128,6 +138,22 @@ export default function ReportsPage() {
       // Setores operacionais: treinamento de ONBOARDING valida apenas estes 3 setores
       const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO';
       if (tType.includes('ONBOARDING') && isOp) return true;
+
+      // Se o usuário fez Onboarding PTS V3 ou Treinamento Padrão SOC da área, valida os treinamentos específicos
+      const isPTS = tType.includes('ONBOARDING PTS');
+      const isPadraoRecebimento = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && tType.includes('RECEBIMENTO');
+      const isPadraoProcessamento = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && tType.includes('PROCESSAMENTO');
+      const isPadraoExpedicao = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO'));
+
+      if (isPTS || isPadraoRecebimento) {
+        if (cSector === 'RECEBIMENTO' && (reqType === 'RECEBIMENTO FM' || reqType === 'RECEBIMENTO LH')) return true;
+      }
+      if (isPTS || isPadraoProcessamento) {
+        if (cSector === 'PROCESSAMENTO' && (reqType === 'ESTEIRA AUTOMÁTICA' || reqType === 'ESTEIRA JAVA' || reqType === 'ESTEIRA TERMOPLÁSTICA')) return true;
+      }
+      if (isPTS || isPadraoExpedicao) {
+        if ((cSector === 'EXPEDIÇÃO' || cSector === 'EXPEDICAO') && (reqType === 'CARREGAMENTO LH' || reqType === 'CARRREGAMENTO 3PL' || reqType === 'CARREGAMENTO 3PL')) return true;
+      }
 
       // Match direto por nome do setor
       const matchSector = tType === reqType || tType.includes(reqType) || reqType.includes(tType);
@@ -153,6 +179,7 @@ export default function ReportsPage() {
       const { data, error } = await supabase
         .from('collaborators')
         .select('id, name, soc, sector, shift, role, leader')
+        .eq('soc', profile?.soc || '')
         .order('name')
         .range(page * limit, (page + 1) * limit - 1);
       
@@ -185,8 +212,8 @@ export default function ReportsPage() {
       }
     }
 
-    const [{ data: socData }] = await Promise.all([
-      supabase.from('socs').select('name').order('name'),
+    const [{ data: microData }] = await Promise.all([
+      supabase.from('soc_micro_trainings').select('*').eq('soc_name', profile?.soc || '').order('order_num'),
     ]);
 
     const matchLeader = (collaboratorLeader: string): boolean => {
@@ -207,9 +234,9 @@ export default function ReportsPage() {
     const collabData = (isLider && !isAdmin) ? allCollabs.filter(x => matchLeader(x.leader)) : allCollabs;
     setCollaborators(collabData);
     setTrainings(allTrainings);
-    setUnits(socData ? socData.map(s => s.name) : []);
+    setMicroTrainings(microData || []);
     setSectors([...new Set(allCollabs.map(x => (x.sector as string) || 'Sem Setor'))]);
-  }, [isLider, isAdmin, profile?.full_name, profile?.leader_key]);
+  }, [isLider, isAdmin, profile?.full_name, profile?.leader_key, profile?.soc]);
 
   useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
@@ -224,17 +251,10 @@ export default function ReportsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [loadData, authLoading]);
 
-  useEffect(() => {
-    if (profile?.soc && !selectedUnit) {
-      setSelectedUnit(profile.soc);
-    }
-  }, [profile?.soc]);
-
   const filtered = useMemo(() => collaborators.filter(c => {
-    const matchUnit = !selectedUnit || c.soc === selectedUnit;
     const matchSector = !selectedSector || c.sector === selectedSector;
     
-    if (!matchUnit || !matchSector) return false;
+    if (!matchSector) return false;
 
     // Filter by Area Tab
     const s = (c.sector || '').toUpperCase();
@@ -259,13 +279,17 @@ export default function ReportsPage() {
     }
 
     return true;
-  }), [collaborators, selectedUnit, selectedSector, selectedArea, statusFilter, selectedTrainingType, hasTraining, isGenerallyTrained]);
+  }), [collaborators, selectedSector, selectedArea, statusFilter, selectedTrainingType, hasTraining, isGenerallyTrained]);
 
   const microFiltered = useMemo(() => {
     if (!search) return filtered;
     const searchLower = search.toLowerCase();
     return filtered.filter(c => c.name.toLowerCase().includes(searchLower));
   }, [filtered, search]);
+
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [microFiltered]);
 
   const currentTrainingTypes = useMemo(() => {
     if (selectedArea === 'Operacional') return TRAINING_TYPES as unknown as string[];
@@ -294,40 +318,33 @@ export default function ReportsPage() {
   }, [sectorStats]);
 
   const chartData = useMemo(() => {
-    const socList = [...new Set(collaborators.map(c => c.soc))].sort();
+    const socList = [...new Set(filtered.map(c => c.soc))].sort();
     return socList.map(soc => {
-      const socCollabs = collaborators.filter(c => c.soc === soc);
-      
-      // Filtrar apenas setores operacionais (mesma lógica dos cards do topo)
-      const coreCollabs = socCollabs.filter(c => {
-        const s = c.sector?.toUpperCase() || '';
-        return CORE_SECTORS.includes(s) || s === 'EXPEDICAO';
-      });
+      const socCollabs = filtered.filter(c => c.soc === soc);
 
-      let total = coreCollabs.length;
+      let total = 0;
       let trainedCount = 0;
 
       if (selectedTrainingType) {
-        // Se um setor específico está selecionado, focar apenas nele
-        const specificCollabs = socCollabs.filter(c => {
-          const s = c.sector?.toUpperCase() || '';
-          const target = selectedTrainingType.toUpperCase();
-          return s === target || (target === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
-        });
-        total = specificCollabs.length;
-        trainedCount = specificCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
+        total = socCollabs.length;
+        trainedCount = socCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
       } else {
-        // Lógica Geral: Certificados no seu setor / Total do operacional
-        trainedCount = coreCollabs.filter(c => {
-          if (!c.sector) return false;
-          return hasTraining(c.id, c.sector);
-        }).length;
+        currentTrainingTypes.forEach(type => {
+          const typeCollabs = socCollabs.filter(c => {
+            const s = c.sector?.toUpperCase() || '';
+            if (type === 'INVENTÁRIO') return s === 'INVENTARIO' || s === 'INVENTÁRIO';
+            if (selectedArea !== 'Operacional') return true;
+            return s === type || (type === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
+          });
+          total += typeCollabs.length;
+          trainedCount += typeCollabs.filter(c => hasTraining(c.id, type)).length;
+        });
       }
 
       const pct = total > 0 ? Number(((trainedCount / total) * 100).toFixed(1)) : 0;
       return { soc, 'Treinados': pct, 'Nº HCs': total };
     });
-  }, [collaborators, selectedTrainingType, hasTraining]);
+  }, [filtered, selectedTrainingType, hasTraining, currentTrainingTypes, selectedArea]);
 
   const instructorStats = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -368,12 +385,13 @@ export default function ReportsPage() {
           <p className="text-xs text-gray-500 font-medium mt-0.5">Gestão de certificações por unidade e setor operacional</p>
         </div>
 
-        <div className="flex gap-2 flex-wrap bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-          <select value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-gray-50 border-transparent text-gray-700 text-[12px] font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/20 transition-all">
-            {isAdmin && <option value="">Todas as Unidades</option>}
-            {units.map(u => <option key={u} value={u}>{u}</option>)}
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <select className="px-3 py-1.5 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
+            <option value="">Todos os Setores</option>
+            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+        </div>
+
         <div className="flex gap-2 flex-wrap items-center">
           <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
             <span className="text-[9px] font-black text-gray-400 uppercase">Período:</span>
@@ -407,7 +425,6 @@ export default function ReportsPage() {
           </select>
         </div>
       </div>
-    </div>
 
       <div className="flex overflow-x-auto gap-2 border-b border-gray-200 custom-scrollbar mt-2 mb-2">
         {AREAS.map(area => (
@@ -483,7 +500,7 @@ export default function ReportsPage() {
            <h2 className="text-base font-black text-gray-900">Matriz de Certificação Operacional</h2>
            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{filtered.length} Colaboradores</span>
         </div>
-        <div className="overflow-x-auto overflow-y-auto max-h-[50vh] custom-scrollbar">
+        <div className="overflow-x-auto overflow-y-auto max-h-[50vh] custom-scrollbar" onScroll={handleScroll}>
           <table className="w-full text-[13px] border-collapse">
             <thead className="sticky top-0 z-30 shadow-sm">
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -543,7 +560,7 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {microFiltered.map((c, rowIdx) => (
+              {microFiltered.slice(0, visibleCount).map((c, rowIdx) => (
                 <tr key={c.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className={`sticky left-0 z-10 p-3 border-r border-gray-100 whitespace-nowrap ${rowIdx % 2 === 0 ? 'bg-white group-hover:bg-blue-50' : 'bg-gray-50 group-hover:bg-blue-50'}`}>
                     <div className="flex items-center gap-2">
@@ -573,11 +590,11 @@ export default function ReportsPage() {
                       icon = <CheckCircle2 size={16} />;
                       title = 'Concluído';
                     } else if (isRecommended) {
-                      iconColor = 'text-amber-500';
-                      ringColor = 'border-amber-200';
-                      bgColor = 'bg-amber-50';
+                      iconColor = 'text-red-500';
+                      ringColor = 'border-red-200';
+                      bgColor = 'bg-red-50';
                       icon = <AlertCircle size={16} />;
-                      title = 'Pendente';
+                      title = 'Obrigatório';
                     }
 
                     return (
@@ -619,7 +636,30 @@ export default function ReportsPage() {
         </div>
 
         {/* Filter bar + category headers */}
-        <div className="overflow-x-auto overflow-y-auto max-h-[60vh] custom-scrollbar">
+        {microTrainings.length === 0 ? (
+          <div className="p-10 text-center text-gray-500 font-medium">
+             Nenhum processo micro cadastrado para {profile?.soc || 'sua unidade'}. Peça ao administrador para configurar na tela de Configurações.
+          </div>
+        ) : (() => {
+          const macroAreasOrder: string[] = [];
+          const macroAreasCount: Record<string, number> = {};
+          microTrainings.forEach(t => {
+            if (!macroAreasCount[t.macro_area]) {
+              macroAreasCount[t.macro_area] = 0;
+              macroAreasOrder.push(t.macro_area);
+            }
+            macroAreasCount[t.macro_area]++;
+          });
+
+          const getMacroConfig = (macro: string) => {
+            if (macro === 'RECEBIMENTO') return { bg: 'bg-[#ECF2FD]', text: 'text-[#1A50BE]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> };
+            if (macro === 'PROCESSAMENTO') return { bg: 'bg-[#F1FBF1]', text: 'text-[#1B8A23]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/></svg> };
+            if (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO') return { bg: 'bg-[#FEF6E4]', text: 'text-[#C2832B]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 12 2 2 4-4"/></svg> };
+            return { bg: 'bg-[#F8F3FD]', text: 'text-[#8C70BA]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg> };
+          };
+          
+          return (
+        <div className="overflow-x-auto overflow-y-auto max-h-[60vh] custom-scrollbar" onScroll={handleScroll}>
           <table className="w-full text-[13px] border-collapse">
             <thead className="sticky top-0 z-30 shadow-sm">
               {/* Category row */}
@@ -641,44 +681,29 @@ export default function ReportsPage() {
                     </button>
                   </div>
                 </th>
-                <th colSpan={8} className="p-0 border-r border-gray-200">
-                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#ECF2FD] text-[#1A50BE]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-wide">Recebimento</span>
-                  </div>
-                </th>
-                <th colSpan={7} className="p-0 border-r border-gray-200">
-                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#F1FBF1] text-[#1B8A23]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-wide">Processamento</span>
-                  </div>
-                </th>
-                <th colSpan={4} className="p-0 border-r border-gray-200">
-                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#FEF6E4] text-[#C2832B]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-wide">Expedição</span>
-                  </div>
-                </th>
-                <th colSpan={7} className="p-0">
-                  <div className="flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg bg-[#F8F3FD] text-[#8C70BA]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-                    <span className="text-[10px] font-black uppercase tracking-wide">Tratativas / Returns</span>
-                  </div>
-                </th>
+                {macroAreasOrder.map((area, idx) => {
+                  const conf = getMacroConfig(area);
+                  return (
+                    <th key={area} colSpan={macroAreasCount[area]} className={`p-0 ${idx < macroAreasOrder.length - 1 ? 'border-r border-gray-200' : ''}`}>
+                      <div className={`flex items-center justify-center gap-1.5 py-2 px-3 mx-1 my-1 rounded-lg ${conf.bg} ${conf.text}`}>
+                        {conf.icon}
+                        <span className="text-[10px] font-black uppercase tracking-wide">{area}</span>
+                      </div>
+                    </th>
+                  )
+                })}
               </tr>
               {/* Sub-headers row */}
               <tr className="bg-white border-b border-gray-200">
-                {MICRO_TRAININGS.map((t, i) => (
-                  <th key={t} className={`text-center px-2 py-3 text-[11px] text-gray-600 font-bold whitespace-nowrap ${
-                    i === 7 || i === 14 || i === 18 ? 'border-r border-gray-200' : ''
-                  }`}>
-                    {t}
+                {microTrainings.map((t, i) => (
+                  <th key={t.id} className="text-center px-2 py-3 text-[11px] text-gray-600 font-bold whitespace-nowrap">
+                    {t.name}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {microFiltered.map((c, rowIdx) => (
+              {microFiltered.slice(0, visibleCount).map((c, rowIdx) => (
                 <tr key={c.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors group ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className={`sticky left-0 z-10 p-3 border-r border-gray-100 whitespace-nowrap ${rowIdx % 2 === 0 ? 'bg-white group-hover:bg-blue-50' : 'bg-gray-50 group-hover:bg-blue-50'}`}>
                     <div className="flex items-center gap-2">
@@ -688,12 +713,23 @@ export default function ReportsPage() {
                       </div>
                     </div>
                   </td>
-                  {MICRO_TRAININGS.map((type, i) => {
-                    const done = hasTraining(c.id, type);
-                    const training = (allTrainingsByCollabId.get(c.id) || []).find(t => t.training_type === type);
+                  {microTrainings.map((t) => {
+                    const done = hasTraining(c.id, t.name);
+                    const training = (allTrainingsByCollabId.get(c.id) || []).find(tr => tr.training_type === t.name);
 
-                    const macroArea = i <= 7 ? 'RECEBIMENTO' : i <= 14 ? 'PROCESSAMENTO' : i <= 18 ? 'EXPEDIÇÃO' : 'TRATATIVAS';
-                    const isRecommended = c.sector && c.sector.toUpperCase().includes(macroArea);
+                    const macroArea = t.macro_area;
+                    const isSectorMatch = c.sector && (c.sector.toUpperCase() === macroArea.toUpperCase() || (macroArea.toUpperCase() === 'EXPEDIÇÃO' && c.sector.toUpperCase() === 'EXPEDICAO'));
+
+                    let isMandatory = false;
+                    let isSuggested = false;
+
+                    if (isSectorMatch) {
+                      if (t.is_mandatory) {
+                        isMandatory = true;
+                      } else {
+                        isSuggested = true;
+                      }
+                    }
 
                     let iconColor = 'text-gray-300';
                     let ringColor = 'border-gray-200';
@@ -707,18 +743,22 @@ export default function ReportsPage() {
                       bgColor = 'bg-emerald-50';
                       icon = <CheckCircle2 size={16} />;
                       title = 'Concluído';
-                    } else if (isRecommended) {
+                    } else if (isMandatory) {
+                      iconColor = 'text-red-500';
+                      ringColor = 'border-red-200';
+                      bgColor = 'bg-red-50';
+                      icon = <AlertCircle size={16} />;
+                      title = 'Obrigatório';
+                    } else if (isSuggested) {
                       iconColor = 'text-amber-500';
                       ringColor = 'border-amber-200';
                       bgColor = 'bg-amber-50';
                       icon = <AlertCircle size={16} />;
-                      title = 'Pendente';
+                      title = 'Sugestão';
                     }
 
                     return (
-                      <td key={type} className={`text-center px-2 py-3 ${
-                        i === 7 || i === 14 || i === 18 ? 'border-r border-gray-100' : ''
-                      }`}>
+                      <td key={t.id} className="text-center px-2 py-3">
                         <div className="flex flex-col items-center gap-1">
                           <div className={`w-7 h-7 rounded-full ${bgColor} border ${ringColor} flex items-center justify-center ${iconColor} transition-transform hover:scale-110`} title={title}>
                             {icon}
@@ -735,6 +775,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
         </div>
+        )})()}
 
         {/* Legend + Footer */}
         <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
@@ -744,8 +785,12 @@ export default function ReportsPage() {
               <span className="text-[10px] text-gray-500 font-medium">Concluído</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-500"><AlertCircle size={11} /></div>
+              <span className="text-[10px] text-gray-500 font-medium">Obrigatório</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <div className="w-5 h-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500"><AlertCircle size={11} /></div>
-              <span className="text-[10px] text-gray-500 font-medium">Pendente</span>
+              <span className="text-[10px] text-gray-500 font-medium">Sugestão</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center text-gray-300"><XCircle size={11} /></div>

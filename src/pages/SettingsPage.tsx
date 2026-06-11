@@ -32,6 +32,15 @@ interface TrainingItem {
   name: string;
 }
 
+interface SocMicroTraining {
+  id: string;
+  soc_name: string;
+  macro_area: string;
+  name: string;
+  is_mandatory: boolean;
+  order_num: number;
+}
+
 const supabaseUrl = 'https://fezfsekzxtvozyemlncn.supabase.co';
 const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlemZzZWt6eHR2b3p5ZW1sbmNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTgyNTA2NSwiZXhwIjoyMDkxNDAxMDY1fQ.9PqJd3Z7RSRrCnDkIu-vPzoihGKIfv2oNINi1E3IuXs';
 
@@ -46,6 +55,7 @@ export default function SettingsPage() {
   const [socs, setSocs] = useState<Soc[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [trainings, setTrainings] = useState<TrainingItem[]>([]);
+  const [microTrainings, setMicroTrainings] = useState<SocMicroTraining[]>([]);
 
   // Manage Questions
   const [managingTraining, setManagingTraining] = useState<TrainingItem | null>(null);
@@ -81,18 +91,29 @@ export default function SettingsPage() {
   const [newInstructorSoc, setNewInstructorSoc] = useState('');
   const [savingInstructor, setSavingInstructor] = useState(false);
 
+  // New / Edit Micro Training
+  const [showNewMicro, setShowNewMicro] = useState(false);
+  const [editingMicroId, setEditingMicroId] = useState<string | null>(null);
+  const [editingMicroNameOriginal, setEditingMicroNameOriginal] = useState('');
+  const [newMicroName, setNewMicroName] = useState('');
+  const [newMicroArea, setNewMicroArea] = useState('RECEBIMENTO');
+  const [newMicroMandatory, setNewMicroMandatory] = useState(false);
+  const [savingMicro, setSavingMicro] = useState(false);
+
   const fetchAll = async () => {
     if (!profile?.soc) return;
-    const [{ data: u }, { data: s }, { data: inst }, { data: tr }] = await Promise.all([
+    const [{ data: u }, { data: s }, { data: inst }, { data: tr }, { data: micro }] = await Promise.all([
       supabase.from('users_profiles').select('*').eq('soc', profile.soc).order('full_name'),
       supabase.from('socs').select('id, name').order('name'),
       supabase.from('instructors').select('*').eq('soc_name', profile.soc).order('name'),
       supabase.from('trainings').select('id, name').order('name'),
+      supabase.from('soc_micro_trainings').select('*').eq('soc_name', profile.soc).order('order_num')
     ]);
     setUsers(u ?? []);
     setSocs(s ?? []);
     setInstructors(inst ?? []);
     setTrainings(tr ?? []);
+    setMicroTrainings(micro ?? []);
   };
 
   useEffect(() => {
@@ -299,6 +320,78 @@ export default function SettingsPage() {
     setSavingInstructor(false);
   };
 
+  const saveMicroTraining = async () => {
+    if (!newMicroName.trim() || !profile?.soc) {
+      toast.error('Preencha o nome do processo e certifique-se de estar em uma unidade');
+      return;
+    }
+    setSavingMicro(true);
+
+    if (editingMicroId) {
+      const { error } = await supabase.from('soc_micro_trainings').update({
+        name: newMicroName.trim(),
+        macro_area: newMicroArea,
+        is_mandatory: newMicroMandatory
+      }).eq('id', editingMicroId);
+
+      if (error) {
+        toast.error('Erro ao atualizar processo: ' + error.message);
+      } else {
+        // Atualiza as certificações já concluídas se o nome mudou
+        if (editingMicroNameOriginal !== newMicroName.trim()) {
+           await supabase.from('trainings_completed').update({
+             training_type: newMicroName.trim()
+           }).eq('training_type', editingMicroNameOriginal);
+        }
+        toast.success('Processo atualizado com sucesso!');
+        closeMicroModal();
+        fetchAll();
+      }
+    } else {
+      const { error } = await supabase.from('soc_micro_trainings').insert({
+        name: newMicroName.trim(),
+        macro_area: newMicroArea,
+        soc_name: profile.soc,
+        is_mandatory: newMicroMandatory,
+        order_num: microTrainings.length + 1
+      });
+      if (error) {
+        toast.error('Erro ao salvar processo: ' + error.message);
+      } else {
+        toast.success('Processo cadastrado com sucesso!');
+        closeMicroModal();
+        fetchAll();
+      }
+    }
+    setSavingMicro(false);
+  };
+
+  const closeMicroModal = () => {
+    setShowNewMicro(false);
+    setEditingMicroId(null);
+    setEditingMicroNameOriginal('');
+    setNewMicroName('');
+    setNewMicroArea('RECEBIMENTO');
+    setNewMicroMandatory(false);
+  };
+
+  const openEditMicro = (micro: SocMicroTraining) => {
+    setEditingMicroId(micro.id);
+    setEditingMicroNameOriginal(micro.name);
+    setNewMicroName(micro.name);
+    setNewMicroArea(micro.macro_area);
+    setNewMicroMandatory(micro.is_mandatory);
+    setShowNewMicro(true);
+  };
+
+  const deleteMicroTraining = async (id: string) => {
+    if (!confirm('Excluir este processo micro?')) return;
+    await supabase.from('soc_micro_trainings').delete().eq('id', id);
+    fetchAll();
+    toast.success('Processo removido');
+  };
+
+
   const deleteInstructor = async (id: string) => {
     if (!confirm('Excluir este instrutor?')) return;
     await supabase.from('instructors').delete().eq('id', id);
@@ -440,6 +533,48 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Micro Trainings Management */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                 Processos Micros (Matriz)
+              </h2>
+              <p className="text-xs text-gray-400 font-medium mt-1">Gerencie os processos da matriz de certificação para {profile?.soc}</p>
+            </div>
+            <button 
+               onClick={() => { closeMicroModal(); setShowNewMicro(true); }} 
+               className="p-2.5 rounded-xl bg-gray-50 text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all border border-transparent hover:border-[#EE4D2D]/20"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+
+          <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+             {microTrainings.map(micro => (
+               <div key={micro.id} className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group">
+                 <div>
+                   <p className="text-sm font-black text-gray-800 leading-none mb-1">{micro.name}</p>
+                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{micro.macro_area} • {micro.is_mandatory ? 'Obrigatório' : 'Sugestão'}</p>
+                 </div>
+                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button onClick={() => openEditMicro(micro)} className="p-2 rounded-lg text-gray-400 hover:text-[#EE4D2D] hover:bg-[#FEF6F5] transition-all">
+                     <Edit2 size={16} />
+                   </button>
+                   <button onClick={() => deleteMicroTraining(micro.id)} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                     <Trash2 size={16} />
+                   </button>
+                 </div>
+               </div>
+             ))}
+             {microTrainings.length === 0 && (
+               <div className="col-span-full text-center py-10">
+                 <p className="text-xs text-gray-400 font-medium">Nenhum processo micro cadastrado para sua unidade.</p>
+               </div>
+             )}
+          </div>
       </div>
 
       {/* Trainings and Quiz Configurations */}
@@ -645,6 +780,43 @@ export default function SettingsPage() {
               </div>
               <button disabled={savingInstructor} onClick={saveInstructor} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">
                 {savingInstructor ? 'FINALIZANDO...' : 'CONFIRMAR INSTRUCTOR'}
+              </button>
+           </div>
+        </div>
+      )}
+
+      {/* New Micro Training Overlay */}
+      {showNewMicro && (
+        <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 space-y-6 animate-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-2xl font-black text-gray-900">{editingMicroId ? 'Editar Processo' : 'Novo Processo'}</h3>
+                 <button onClick={closeMicroModal} className="p-2 rounded-full hover:bg-gray-100 transition-colors"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome do Processo</label>
+                    <input value={newMicroName} onChange={e => setNewMicroName(e.target.value)} placeholder="Ex: Recebimento FM" className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all" />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Área Macro</label>
+                    <select value={newMicroArea} onChange={e => setNewMicroArea(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
+                        <option value="RECEBIMENTO">Recebimento</option>
+                        <option value="PROCESSAMENTO">Processamento</option>
+                        <option value="EXPEDIÇÃO">Expedição</option>
+                        <option value="TRATATIVAS">Tratativas</option>
+                    </select>
+                 </div>
+                 <div className="space-y-1 pt-2">
+                    <label className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input type="checkbox" checked={newMicroMandatory} onChange={e => setNewMicroMandatory(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-[#EE4D2D] focus:ring-[#EE4D2D]" />
+                      <span className="text-sm font-black text-gray-800">Treinamento Obrigatório</span>
+                    </label>
+                    <p className="text-[9px] text-gray-400 font-medium ml-1 mt-1">Marque se o tick deve ser Vermelho (Obrigatório) para os colaboradores deste setor, ou desmarque para Laranja (Sugestão).</p>
+                 </div>
+              </div>
+              <button disabled={savingMicro} onClick={saveMicroTraining} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">
+                {savingMicro ? 'FINALIZANDO...' : (editingMicroId ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PROCESSO')}
               </button>
            </div>
         </div>
