@@ -99,6 +99,30 @@ export default function SettingsPage() {
   const [newMicroMandatory, setNewMicroMandatory] = useState(false);
   const [savingMicro, setSavingMicro] = useState(false);
 
+  // Drag and Drop refs para Micro Processos
+  const dragItemMicro = useRef<number | null>(null);
+  const dragOverItemMicro = useRef<number | null>(null);
+
+  const handleDragSortMicro = async () => {
+    if (dragItemMicro.current === null || dragOverItemMicro.current === null) return;
+    if (dragItemMicro.current === dragOverItemMicro.current) return;
+    
+    const _microTrainings = [...microTrainings];
+    const draggedItem = _microTrainings.splice(dragItemMicro.current, 1)[0];
+    _microTrainings.splice(dragOverItemMicro.current, 0, draggedItem);
+    
+    setMicroTrainings(_microTrainings);
+    
+    dragItemMicro.current = null;
+    dragOverItemMicro.current = null;
+
+    const updates = _microTrainings.map((m, index) => 
+       supabase.from('soc_micro_trainings').update({ order_num: index + 1 }).eq('id', m.id)
+    );
+    await Promise.all(updates);
+    toast.success('Ordem dos processos atualizada!');
+  };
+
   const fetchAll = async () => {
     if (!profile?.soc) return;
     const [{ data: u }, { data: s }, { data: inst }, { data: tr }, { data: micro }] = await Promise.all([
@@ -556,8 +580,16 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-             {microTrainings.map(micro => (
-               <div key={micro.id} className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group">
+             {microTrainings.map((micro, index) => (
+               <div 
+                 key={micro.id} 
+                 draggable
+                 onDragStart={() => { dragItemMicro.current = index; }}
+                 onDragEnter={() => { dragOverItemMicro.current = index; }}
+                 onDragEnd={handleDragSortMicro}
+                 onDragOver={(e) => e.preventDefault()}
+                 className="cursor-move flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group"
+               >
                  <div>
                    <p className="text-sm font-black text-gray-800 leading-none mb-1">{micro.name}</p>
                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{micro.macro_area} • {micro.is_mandatory ? 'Obrigatório' : 'Sugestão'}</p>
