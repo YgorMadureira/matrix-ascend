@@ -417,7 +417,7 @@ export default function CollaboratorsPage() {
       
       // 2. Regra de Onboarding:
       // Se for um treinamento de Onboarding, aceita para setores operacionais ou se o usuário estiver em onboarding
-      const isOperational = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO';
+      const isOperational = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO' || cSec === 'TRATATIVAS' || cSec === 'ASM';
       if (tName.includes('ONBOARDING') && (isOperational || c.is_onboarding)) return true;
 
       return false;

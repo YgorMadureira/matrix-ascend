@@ -88,7 +88,6 @@ export default function SettingsPage() {
   // New Instructor
   const [showNewInstructor, setShowNewInstructor] = useState(false);
   const [newInstructorName, setNewInstructorName] = useState('');
-  const [newInstructorSoc, setNewInstructorSoc] = useState('');
   const [savingInstructor, setSavingInstructor] = useState(false);
 
   // New / Edit Micro Training
@@ -299,14 +298,14 @@ export default function SettingsPage() {
   };
 
   const saveInstructor = async () => {
-    if (!newInstructorName.trim() || !newInstructorSoc) {
-      toast.error('Preencha o nome e a unidade do instrutor');
+    if (!newInstructorName.trim() || !profile?.soc) {
+      toast.error('Preencha o nome do instrutor e garanta que sua unidade está configurada');
       return;
     }
     setSavingInstructor(true);
     const { error } = await supabase.from('instructors').insert({
       name: newInstructorName.trim(),
-      soc_name: newInstructorSoc,
+      soc_name: profile.soc,
     });
     if (error) {
       toast.error('Erro ao salvar instrutor: ' + error.message);
@@ -314,7 +313,6 @@ export default function SettingsPage() {
       toast.success('Instrutor cadastrado com sucesso!');
       setShowNewInstructor(false);
       setNewInstructorName('');
-      setNewInstructorSoc('');
       fetchAll();
     }
     setSavingInstructor(false);
@@ -337,11 +335,15 @@ export default function SettingsPage() {
       if (error) {
         toast.error('Erro ao atualizar processo: ' + error.message);
       } else {
-        // Atualiza as certificações já concluídas se o nome mudou
-        if (editingMicroNameOriginal !== newMicroName.trim()) {
-           await supabase.from('trainings_completed').update({
-             training_type: newMicroName.trim()
-           }).eq('training_type', editingMicroNameOriginal);
+        // Atualiza as certificações já concluídas se o nome mudou, LIMITADO aos colaboradores do SOC atual
+        if (editingMicroNameOriginal !== newMicroName.trim() && profile?.soc) {
+           const { data: socCollabs } = await supabase.from('collaborators').select('id').eq('soc', profile.soc);
+           if (socCollabs && socCollabs.length > 0) {
+              const collabIds = socCollabs.map(c => c.id);
+              await supabase.from('trainings_completed').update({
+                training_type: newMicroName.trim()
+              }).eq('training_type', editingMicroNameOriginal).in('collaborator_id', collabIds);
+           }
         }
         toast.success('Processo atualizado com sucesso!');
         closeMicroModal();
@@ -401,7 +403,7 @@ export default function SettingsPage() {
 
   const openQuestionManager = async (t: TrainingItem) => {
     setManagingTraining(t);
-    const { data } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).order('order_num');
+    const { data } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).eq('soc_name', profile?.soc).order('order_num');
     setMgmtQuestions(data ?? []);
   };
 
@@ -412,6 +414,7 @@ export default function SettingsPage() {
     }
     const payload = {
       training_id: managingTraining!.id,
+      soc_name: profile?.soc,
       question: qForm.question,
       option_a: qForm.option_a,
       option_b: qForm.option_b,
@@ -772,10 +775,7 @@ export default function SettingsPage() {
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                    <select value={newInstructorSoc} onChange={e => setNewInstructorSoc(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-gray-50 text-sm font-bold outline-none border-transparent focus:ring-2 focus:ring-[#EE4D2D]/10 focus:bg-white transition-all">
-                        <option value="">Selecione...</option>
-                        {socs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
+                    <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                  </div>
               </div>
               <button disabled={savingInstructor} onClick={saveInstructor} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">
@@ -805,6 +805,7 @@ export default function SettingsPage() {
                         <option value="PROCESSAMENTO">Processamento</option>
                         <option value="EXPEDIÇÃO">Expedição</option>
                         <option value="TRATATIVAS">Tratativas</option>
+                        <option value="ASM">ASM</option>
                     </select>
                  </div>
                  <div className="space-y-1 pt-2">

@@ -165,6 +165,7 @@ export default function TrainingsPage() {
     const { data: q } = await supabase.from('quiz_questions')
       .select('*')
       .eq('training_id', t.id)
+      .eq('soc_name', profile?.soc)
       .order('order_num');
     setQuestions(q ?? []);
   };

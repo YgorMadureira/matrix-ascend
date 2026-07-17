@@ -274,7 +274,7 @@ export default function SchedulePage() {
       const cRole = c.role?.toUpperCase() || '';
       if (cSec && (tName.includes(cSec) || cSec.includes(tName))) return true;
       if (cRole && (tName.includes(cRole) || cRole.includes(tName))) return true;
-      const isOp = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO';
+      const isOp = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO' || cSec === 'TRATATIVAS' || cSec === 'ASM';
       if (tName.includes('ONBOARDING') && isOp) return true;
       return false;
     });
@@ -406,7 +406,7 @@ export default function SchedulePage() {
       const reqType = trainingType.toUpperCase();
       
       // Validação de onboarding ou match direto
-      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || reqType === 'RETURNS';
+      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || reqType === 'RETURNS' || reqType === 'ASM';
       const isMatch = tType === reqType || tType.includes(reqType) || reqType.includes(tType) || (tType.includes('ONBOARDING') && isOp);
       
       if (!isMatch) return false;
@@ -722,8 +722,8 @@ export default function SchedulePage() {
 
   // Time-grid calendar helpers
   const HOUR_HEIGHT = 60;
-  const START_HOUR = 6;
-  const END_HOUR = 22;
+  const START_HOUR = 0;
+  const END_HOUR = 24;
   const calendarHours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const timeToMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const getSchedulesForDate = (date: Date) => {
@@ -812,7 +812,7 @@ export default function SchedulePage() {
                 <label className="text-[10px] font-black text-gray-500 uppercase">Tipo</label>
                 <select value={form.training_type} onChange={e => setForm(f => ({...f, training_type: e.target.value}))}
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none">
-                  {['RECEBIMENTO','PROCESSAMENTO','EXPEDIÇÃO','TRATATIVAS','HSE','PEOPLE','ONBOARDING'].map(t => <option key={t}>{t}</option>)}
+                  {['RECEBIMENTO','PROCESSAMENTO','EXPEDIÇÃO','TRATATIVAS','ASM','HSE','PEOPLE','ONBOARDING'].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
@@ -1310,7 +1310,7 @@ export default function SchedulePage() {
                 <label className="text-[10px] font-black text-gray-500 uppercase">Tipo de Treinamento *</label>
                 <select value={requestForm.training_type} onChange={e => setRequestForm(f => ({...f, training_type: e.target.value}))}
                   className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20">
-                  {['RECEBIMENTO','PROCESSAMENTO','EXPEDIÇÃO','TRATATIVAS','HSE','PEOPLE','ONBOARDING'].map(t => <option key={t}>{t}</option>)}
+                  {['RECEBIMENTO','PROCESSAMENTO','EXPEDIÇÃO','TRATATIVAS','ASM','HSE','PEOPLE','ONBOARDING'].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               {/* Date & Times */}

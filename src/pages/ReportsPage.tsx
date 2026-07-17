@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
 
-const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS'] as const;
-const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
+const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
+const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
 interface SocMicroTraining {
   id: string;
   soc_name: string;
@@ -136,7 +136,7 @@ export default function ReportsPage() {
       }
 
       // Setores operacionais: treinamento de ONBOARDING valida apenas estes 3 setores
-      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO';
+      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || reqType === 'ASM';
       if (tType.includes('ONBOARDING') && isOp) return true;
 
       // Se o usuário fez Onboarding PTS V3 ou Treinamento Padrão SOC da área, valida os treinamentos específicos
@@ -259,7 +259,7 @@ export default function ReportsPage() {
     // Filter by Area Tab
     const s = (c.sector || '').toUpperCase();
     if (selectedArea === 'Operacional') {
-      const isOp = s === 'RECEBIMENTO' || s === 'PROCESSAMENTO' || s === 'EXPEDIÇÃO' || s === 'EXPEDICAO' || s === 'TRATATIVAS';
+      const isOp = s === 'RECEBIMENTO' || s === 'PROCESSAMENTO' || s === 'EXPEDIÇÃO' || s === 'EXPEDICAO' || s === 'TRATATIVAS' || s === 'ASM';
       if (!isOp) return false;
     } else if (selectedArea === 'Inventario') {
       if (s !== 'INVENTARIO' && s !== 'INVENTÁRIO') return false;
@@ -542,6 +542,10 @@ export default function ReportsPage() {
                     bgColor = 'bg-[#F8F3FD]';
                     textColor = 'text-[#8C70BA]';
                     icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>;
+                  } else if (t === 'ASM') {
+                    bgColor = 'bg-slate-100';
+                    textColor = 'text-slate-600';
+                    icon = <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
                   } else {
                     bgColor = 'bg-gray-100';
                     textColor = 'text-gray-600';
@@ -655,7 +659,9 @@ export default function ReportsPage() {
             if (macro === 'RECEBIMENTO') return { bg: 'bg-[#ECF2FD]', text: 'text-[#1A50BE]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> };
             if (macro === 'PROCESSAMENTO') return { bg: 'bg-[#F1FBF1]', text: 'text-[#1B8A23]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20"/></svg> };
             if (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO') return { bg: 'bg-[#FEF6E4]', text: 'text-[#C2832B]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><path d="m9 12 2 2 4-4"/></svg> };
-            return { bg: 'bg-[#F8F3FD]', text: 'text-[#8C70BA]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg> };
+            if (macro === 'TRATATIVAS') return { bg: 'bg-[#F8F3FD]', text: 'text-[#8C70BA]', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg> };
+            if (macro === 'ASM') return { bg: 'bg-slate-100', text: 'text-slate-600', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> };
+            return { bg: 'bg-gray-100', text: 'text-gray-600', icon: <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> };
           };
           
           return (
