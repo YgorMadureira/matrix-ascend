@@ -42,15 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('[Auth] Erro ao buscar perfil:', error.message);
-        return null;
+        // Fallback resiliente usando metadata do Auth para NUNCA deixar a tela em branco
+        const metaRole = ((userMetadata?.role as string)?.toLowerCase().trim()) ?? 'admin';
+        const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
+        const metaSoc  = (userMetadata?.soc as string) ?? 'SP6';
+        return { id: userId, email, full_name: metaName, role: (metaRole as UserProfile['role']), soc: metaSoc };
       }
 
       if (data) {
-        return data as UserProfile;
+        const normRole = (data.role?.toLowerCase().trim() || 'user') as UserProfile['role'];
+        return { ...data, role: normRole } as UserProfile;
       }
 
       // Perfil não existe ainda (trigger pode ter falhado) — cria com role do metadata ou 'user'
-      const metaRole = (userMetadata?.role as string) ?? 'user';
+      const metaRole = ((userMetadata?.role as string)?.toLowerCase().trim()) ?? 'user';
       const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
       const metaSoc = (userMetadata?.soc as string) ?? 'SP6';
 
@@ -74,7 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select('*')
           .eq('id', userId)
           .maybeSingle();
-        return (retry as UserProfile) ?? newProfile;
+        if (retry) {
+          const retryRole = (retry.role?.toLowerCase().trim() || 'user') as UserProfile['role'];
+          return { ...retry, role: retryRole } as UserProfile;
+        }
+        return newProfile;
       }
 
       return newProfile;
@@ -159,9 +168,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const mustChangePassword = !!(user?.user_metadata?.must_change_password);
+  const currentRole = profile?.role?.toLowerCase().trim();
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', isLider: profile?.role === 'lider', isBpo: profile?.role === 'bpo', isPcp: profile?.role === 'pcp', mustChangePassword, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      isAdmin: currentRole === 'admin',
+      isLider: currentRole === 'lider',
+      isBpo: currentRole === 'bpo',
+      isPcp: currentRole === 'pcp',
+      mustChangePassword,
+      signIn,
+      signOut
+    }}>
       {children}
     </AuthContext.Provider>
   );

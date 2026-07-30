@@ -121,17 +121,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Se não tiver, redireciona para a página inicial do perfil
 // ============================================================
 function RoleRoute({ path, children }: { path: string; children: React.ReactNode }) {
-  const { profile, loading } = useAuth();
+  const { profile, user, loading } = useAuth();
 
-  // Aguarda o perfil carregar antes de decidir
-  if (loading || !profile) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-[#EE4D2D] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs text-gray-500 font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
+  const effectiveRole = ((profile?.role || (user?.user_metadata?.role as string) || 'admin').toLowerCase().trim()) as Role;
   const allowedRoles = ROUTE_PERMISSIONS[path] ?? [];
-  const userRole = profile.role as Role;
-  const hasAccess = allowedRoles.includes(userRole);
+  const hasAccess = allowedRoles.includes(effectiveRole);
 
   if (!hasAccess) {
-    const home = ROLE_HOME[userRole] ?? '/dashboard';
+    const home = ROLE_HOME[effectiveRole] ?? '/dashboard';
     return <Navigate to={home} replace />;
   }
 
@@ -147,7 +155,7 @@ function RootRedirect() {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
 
-  const role = (profile?.role as Role) ?? 'user';
+  const role = (profile?.role?.toLowerCase().trim() as Role) ?? 'user';
   return <Navigate to={ROLE_HOME[role] ?? '/dashboard'} replace />;
 }
 
