@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle, Download, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -56,6 +56,7 @@ export default function ReportsPage() {
   const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
   const [visibleCount, setVisibleCount] = useState(100);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 100;
@@ -162,6 +163,58 @@ export default function ReportsPage() {
       return matchSector || matchRole;
     });
   }, [trainingsByCollabId, collaboratorMap]);
+
+  // ============================================================
+  // hasMicroTraining: verifica se um micro-treinamento específico
+  // está concluído, considerando que:
+  //   - "Treinamento Padrão SOC - Recebimento"  → valida TODA macro-área RECEBIMENTO
+  //   - "Treinamento Padrão SOC - Processamento" → valida TODA macro-área PROCESSAMENTO
+  //   - "Treinamento Padrão SOC - Expedição"    → valida TODA macro-área EXPEDIÇÃO
+  //   - "Onboarding PTS" (qualquer variação)    → valida RECEBIMENTO + PROCESSAMENTO + EXPEDIÇÃO
+  //   - Qualquer outro ONBOARDING               → valida as 3 áreas core acima
+  // ============================================================
+  const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) => {
+    const collabTrainings = trainingsByCollabId.get(collabId);
+    if (!collabTrainings || collabTrainings.length === 0) return false;
+
+    const macro = macroArea.toUpperCase();
+    const reqType = microName.toUpperCase();
+    const isCoreMacro = macro === 'RECEBIMENTO' || macro === 'PROCESSAMENTO' || macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO';
+
+    return collabTrainings.some((t) => {
+      const tType = t.training_type?.toUpperCase() ?? '';
+
+      // Onboarding PTS (V3 ou qualquer variação) → valida RECEBIMENTO, PROCESSAMENTO e EXPEDIÇÃO inteiros
+      if (tType.includes('ONBOARDING PTS') && isCoreMacro) return true;
+
+      // Qualquer outro Onboarding → também valida as áreas core
+      if (tType.includes('ONBOARDING') && isCoreMacro) return true;
+
+      // 01. Treinamento Padrão SOC - Recebimento → valida TODOS os micro de RECEBIMENTO
+      if (
+        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
+        tType.includes('RECEBIMENTO') &&
+        macro === 'RECEBIMENTO'
+      ) return true;
+
+      // 02. Treinamento Padrão SOC - Processamento → valida TODOS os micro de PROCESSAMENTO
+      if (
+        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
+        tType.includes('PROCESSAMENTO') &&
+        macro === 'PROCESSAMENTO'
+      ) return true;
+
+      // 03. Treinamento Padrão SOC - Expedição → valida TODOS os micro de EXPEDIÇÃO
+      if (
+        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
+        (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO')) &&
+        (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO')
+      ) return true;
+
+      // Match direto pelo nome exato do micro-treinamento
+      return tType === reqType || tType.includes(reqType) || reqType.includes(tType);
+    });
+  }, [trainingsByCollabId]);
 
   const isGenerallyTrained = useCallback((collabId: string) => {
     return CORE_SECTORS.some(type => hasTraining(collabId, type));
@@ -377,23 +430,140 @@ export default function ReportsPage() {
     ? currentTrainingTypes.filter(t => t === selectedTrainingType) 
     : currentTrainingTypes, [selectedTrainingType, currentTrainingTypes]);
 
+  // ============================================================
+  // EXPORTAÇÃO: Colaboradores NÃO treinados do SOC do usuário
+  // Para alterar o SOC filtrado, basta mudar o valor de USER_SOC
+  // abaixo, ou (recomendado) deixar automático via profile?.soc
+  // ============================================================
+  const exportPendingCollaborators = async () => {
+    setIsExporting(true);
+    try {
+      // SOC do usuário logado — alterável aqui se necessário:
+      const USER_SOC = profile?.soc || 'SP6';
+
+      // Busca todos os colaboradores do SOC
+      const allCollabsForExport: any[] = [];
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('collaborators')
+          .select('id, name, sector, shift, role, leader, soc, bpo')
+          .eq('soc', USER_SOC)
+          .order('sector')
+          .order('shift')
+          .order('name')
+          .range(page * 1000, (page + 1) * 1000 - 1);
+        if (error || !data) break;
+        allCollabsForExport.push(...data);
+        if (data.length < 1000) hasMore = false;
+        else page++;
+      }
+
+      // Busca todos os treinamentos
+      const allTrainingsForExport: any[] = [];
+      let tPage = 0;
+      let tHasMore = true;
+      while (tHasMore) {
+        const { data, error } = await supabase
+          .from('trainings_completed')
+          .select('collaborator_id, training_type')
+          .range(tPage * 1000, (tPage + 1) * 1000 - 1);
+        if (error || !data) break;
+        allTrainingsForExport.push(...data);
+        if (data.length < 1000) tHasMore = false;
+        else tPage++;
+      }
+
+      // Cria mapa de treinamentos por colaborador
+      const trainingsMapExport = new Map<string, string[]>();
+      allTrainingsForExport.forEach(t => {
+        const arr = trainingsMapExport.get(t.collaborator_id) || [];
+        arr.push((t.training_type || '').toUpperCase());
+        trainingsMapExport.set(t.collaborator_id, arr);
+      });
+
+      // Mesma lógica de verificação usada no relatório
+      const CORE_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+      const isTrained = (collabId: string) => {
+        const types = trainingsMapExport.get(collabId) || [];
+        return types.some(t =>
+          t.includes('ONBOARDING') ||
+          CORE_TYPES.some(core => t.includes(core))
+        );
+      };
+
+      // Filtra apenas os NÃO treinados
+      const pending = allCollabsForExport.filter(c => !isTrained(c.id));
+
+      if (pending.length === 0) {
+        toast.success('Todos os colaboradores do SOC ' + USER_SOC + ' já estão treinados!');
+        setIsExporting(false);
+        return;
+      }
+
+      // Gera CSV
+      const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO'];
+      const rows = pending.map(c => [
+        c.name || '',
+        c.sector || '',
+        c.shift || '',
+        c.role || '',
+        c.leader || '',
+        c.soc || '',
+        c.bpo || '',
+      ]);
+
+      const csvContent = [
+        headers.join(';'),
+        ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      ].join('\n');
+
+      // BOM para Excel reconhecer UTF-8
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      link.href = url;
+      link.download = `pendentes_treinamento_${USER_SOC}_${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`${pending.length} colaboradores exportados com sucesso!`);
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      toast.error('Erro ao gerar o arquivo. Tente novamente.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex-shrink-0">
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Relatórios & Matriz</h1>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">Gestão de certificações por unidade e setor operacional</p>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
+            Gestão de certificações por unidade e setor operacional
+            {profile?.soc && (
+              <span className="ml-2 inline-flex items-center gap-1 bg-[#EE4D2D]/10 text-[#EE4D2D] text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#EE4D2D]/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EE4D2D] animate-pulse inline-block" />
+                SOC: {profile.soc}
+              </span>
+            )}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          <select className="px-3 py-1.5 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
+        <div className="flex items-center gap-2 flex-wrap ml-auto">
+          <select className="h-8 px-3 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
             <option value="">Todos os Setores</option>
             {sectors.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-        </div>
 
-        <div className="flex gap-2 flex-wrap items-center">
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
+          <div className="h-8 flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 shadow-sm">
             <span className="text-[9px] font-black text-gray-400 uppercase">Período:</span>
             <input 
               type="date" 
@@ -413,7 +583,7 @@ export default function ReportsPage() {
           <select 
             value={statusFilter} 
             onChange={(e) => setStatusFilter(e.target.value as any)} 
-            className={`px-3 py-2 rounded-lg text-[12px] font-black outline-none transition-all border-2 ${
+            className={`h-8 px-3 rounded-lg text-[11px] font-black outline-none transition-all border-2 ${
               statusFilter === 'trained' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 
               statusFilter === 'pending' ? 'bg-red-50 border-red-200 text-red-500' : 
               'bg-gray-50 border-transparent text-gray-700'
@@ -423,6 +593,29 @@ export default function ReportsPage() {
             <option value="trained">Certificados</option>
             <option value="pending">Pendentes</option>
           </select>
+
+          <button
+            id="btn-export-pending"
+            onClick={exportPendingCollaborators}
+            disabled={isExporting}
+            title={`Exportar pendentes do SOC ${profile?.soc || 'SP6'}`}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#EE4D2D] hover:bg-[#d63b1f] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Download size={13} />
+                Exportar Pendentes
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -467,6 +660,7 @@ export default function ReportsPage() {
           </div>
         ))}
       </div>
+
 
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -720,7 +914,7 @@ export default function ReportsPage() {
                     </div>
                   </td>
                   {microTrainings.map((t) => {
-                    const done = hasTraining(c.id, t.name);
+                    const done = hasMicroTraining(c.id, t.name, t.macro_area);
                     const training = (allTrainingsByCollabId.get(c.id) || []).find(tr => tr.training_type === t.name);
 
                     const macroArea = t.macro_area;
