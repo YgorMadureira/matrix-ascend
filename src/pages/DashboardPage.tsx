@@ -162,19 +162,13 @@ export default function DashboardPage() {
         else tHasMore = false;
       }
 
-      // ── 4. Micro-treinamentos das 3 áreas core (Recebimento, Processamento, Expedição) ──
+      // ── 4. Micro-treinamentos das 3 áreas core (somente os cadastrados em Processos Micros / Matriz) ──
       const userSoc = profile?.soc || '';
       const { data: microData } = userSoc
         ? await supabase.from('soc_micro_trainings').select('macro_area, name').eq('soc_name', userSoc)
         : { data: [] };
 
-      // Fallback padrão para as 3 áreas específicas
-      const defaultMicro: Record<string, string[]> = {
-        'RECEBIMENTO':   ['Recebimento FM', 'Recebimento LH', 'Sacas Laranjas', 'Transbordo', 'Fullfilment', 'Staged IN', 'Rompimento Lacre', 'YMS'],
-        'PROCESSAMENTO': ['Esteira automática', 'Esteira Java', 'Esteira Termoplástica', 'Puxada IN', 'Tetris', 'Goleiro', 'Setup'],
-        'EXPEDIÇÃO':     ['Carregamento LH', 'Carrregamento 3PL', 'Puxada OUT', 'Montagem Carga'],
-      };
-
+      // Usa SOMENTE os micro-treinamentos cadastrados para este SOC (sem fallback hardcoded)
       const microByMacro = new Map<string, string[]>();
       if (microData && microData.length > 0) {
         microData.forEach((m: any) => {
@@ -186,13 +180,8 @@ export default function DashboardPage() {
           }
         });
       }
-      ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].forEach(coreArea => {
-        if (!microByMacro.has(coreArea) || microByMacro.get(coreArea)!.length === 0) {
-          microByMacro.set(coreArea, defaultMicro[coreArea]);
-        }
-      });
 
-      // Lista consolidada de TODOS os treinamentos específicos das 3 áreas core (Recebimento + Processamento + Expedição)
+      // Lista consolidada de TODOS os treinamentos específicos cadastrados para este SOC
       const allCoreMicroTrainings: { name: string; macro: string }[] = [];
       ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].forEach(macroKey => {
         const items = microByMacro.get(macroKey) || [];
@@ -365,9 +354,11 @@ export default function DashboardPage() {
               </p>
               <p className={`text-3xl font-black ${level.titleText}`}>{level.name}</p>
               <p className={`text-[10px] font-medium mt-1 ${level.subText}`}>
-                {health.total > 0
+                {health.completed > 0 && health.total > 0
                   ? `Média individual sobre os ${health.completed} treinamentos específicos (Recebimento, Processamento e Expedição)`
-                  : `${stats.trainedCount} de ${stats.collaborators} colaboradores treinados`}
+                  : health.completed === 0
+                    ? `Nenhum processo micro cadastrado para ${profile?.soc || 'esta unidade'}. Cadastre em Configurações > Processos Micros (Matriz).`
+                    : `${stats.trainedCount} de ${stats.collaborators} colaboradores treinados`}
               </p>
             </div>
           </div>
