@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react'; // hmr update
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Folder, FolderOpen, Plus, Trash2, ArrowLeft, Edit2, Play, ClipboardList, X, CheckCircle2, Clock, Lock } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Trash2, ArrowLeft, Edit2, Play, ClipboardList, X, CheckCircle2, Clock, Lock, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FolderItem { id: string; name: string; parent_id: string | null; }
@@ -17,6 +17,9 @@ export default function TrainingsPage() {
   const [showNewTraining, setShowNewTraining] = useState(false);
   const [trainingName, setTrainingName] = useState('');
   const [trainingUrl, setTrainingUrl] = useState('');
+
+  // Fullscreen player toggle
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Exam states
   const [activeTraining, setActiveTraining] = useState<TrainingItem | null>(null);
@@ -45,7 +48,6 @@ export default function TrainingsPage() {
       supabase.from('training_folders').select('*').eq('parent_id', folderId ?? '').order('name'),
       supabase.from('trainings').select('*').eq('folder_id', folderId ?? '').order('name'),
     ]);
-    // Fix: if parent_id is null, use is filter
     if (folderId === null) {
       const [{ data: f2 }, { data: t2 }] = await Promise.all([
         supabase.from('training_folders').select('*').is('parent_id', null).order('name'),
@@ -86,43 +88,76 @@ export default function TrainingsPage() {
   };
 
   const createFolder = async () => {
-    if (!newFolderName.trim()) return;
-    await supabase.from('training_folders').insert({ name: newFolderName.trim(), parent_id: currentFolder });
-    setNewFolderName('');
-    setShowNewFolder(false);
-    fetchData(currentFolder);
-    toast.success('Pasta criada');
+    if (!newFolderName.trim()) { toast.error('Informe o nome da pasta'); return; }
+    try {
+      const { error } = await supabase.from('training_folders').insert({ name: newFolderName.trim(), parent_id: currentFolder });
+      if (error) {
+        toast.error('Erro ao criar pasta: ' + error.message);
+        return;
+      }
+      setNewFolderName('');
+      setShowNewFolder(false);
+      fetchData(currentFolder);
+      toast.success('Pasta criada com sucesso');
+    } catch (err: any) {
+      toast.error('Erro inesperado: ' + err.message);
+    }
   };
 
   const deleteFolder = async (id: string) => {
     if (!confirm('Excluir esta pasta?')) return;
-    await supabase.from('training_folders').delete().eq('id', id);
-    fetchData(currentFolder);
-    toast.success('Pasta removida');
+    try {
+      const { error } = await supabase.from('training_folders').delete().eq('id', id);
+      if (error) {
+        toast.error('Erro ao remover pasta: ' + error.message);
+        return;
+      }
+      fetchData(currentFolder);
+      toast.success('Pasta removida');
+    } catch (err: any) {
+      toast.error('Erro ao remover pasta');
+    }
   };
 
   const addTraining = async () => {
-    if (!trainingName.trim() || !trainingUrl.trim()) { toast.error('Preencha nome e link'); return; }
+    if (!trainingName.trim() || !trainingUrl.trim()) { toast.error('Preencha nome e link do treinamento'); return; }
     let url = trainingUrl.trim();
     if (!url.startsWith('http')) url = 'https://' + url;
-    await supabase.from('trainings').insert({ name: trainingName.trim(), video_url: url, folder_id: currentFolder });
-    setTrainingName('');
-    setTrainingUrl('');
-    setShowNewTraining(false);
-    fetchData(currentFolder);
-    toast.success('Treinamento adicionado');
+    try {
+      const { error } = await supabase.from('trainings').insert({ name: trainingName.trim(), video_url: url, folder_id: currentFolder });
+      if (error) {
+        toast.error('Erro ao adicionar treinamento: ' + error.message);
+        return;
+      }
+      setTrainingName('');
+      setTrainingUrl('');
+      setShowNewTraining(false);
+      fetchData(currentFolder);
+      toast.success('Treinamento adicionado com sucesso');
+    } catch (err: any) {
+      toast.error('Erro inesperado ao adicionar treinamento');
+    }
   };
 
   const deleteTraining = async (id: string) => {
     if (!confirm('Excluir este treinamento?')) return;
-    await supabase.from('trainings').delete().eq('id', id);
-    fetchData(currentFolder);
-    toast.success('Treinamento removido');
+    try {
+      const { error } = await supabase.from('trainings').delete().eq('id', id);
+      if (error) {
+        toast.error('Erro ao remover treinamento: ' + error.message);
+        return;
+      }
+      fetchData(currentFolder);
+      toast.success('Treinamento removido');
+    } catch (err: any) {
+      toast.error('Erro ao remover treinamento');
+    }
   };
 
   // ── Leader flow: open training ──
   const openTraining = async (t: TrainingItem) => {
     setActiveTraining(t);
+    setIsFullscreen(false);
     setExamStep('video');
     setAnswers({});
     setQuizScore(0);
@@ -141,12 +176,7 @@ export default function TrainingsPage() {
       
       const failedCount = att?.length ?? 0;
       setAttempts(failedCount);
-
-      if (failedCount >= 5) {
-        setMustRewatch(true);
-      } else {
-        setMustRewatch(false);
-      }
+      setMustRewatch(failedCount >= 5);
 
       // Check if already passed
       const { data: passed } = await supabase.from('quiz_attempts')
@@ -201,6 +231,7 @@ export default function TrainingsPage() {
 
     if (passed) {
       setExamStep('sign');
+      setIsFullscreen(false);
       toast.success(`Aprovado! ${correct}/${total} acertos (${score}%)`);
     } else {
       const newAttempts = attempts + 1;
@@ -322,123 +353,274 @@ export default function TrainingsPage() {
   // ── Active training view (leader flow) ──
   if (activeTraining) {
     return (
-      <div className="space-y-6 max-w-3xl mx-auto">
-        <button onClick={() => setActiveTraining(null)} className="text-sm text-primary hover:underline">← Voltar aos Treinamentos</button>
-        <h1 className="text-2xl font-display font-bold text-foreground">{activeTraining.name}</h1>
+      <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300">
+        
+        {/* Cabeçalho do Treinamento */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div>
+            <button onClick={() => { setActiveTraining(null); setIsFullscreen(false); }} className="flex items-center gap-2 text-xs font-black text-[#EE4D2D] uppercase tracking-wider hover:underline mb-1">
+              <ArrowLeft size={14} /> Voltar aos Treinamentos
+            </button>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">{activeTraining.name}</h1>
+          </div>
 
-        {examStep === 'video' && (
-          <div className="space-y-4">
-            <div className="glass-card overflow-hidden rounded-xl">
+          {examStep === 'video' && activeTraining.video_url && (
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white hover:bg-black text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {isFullscreen ? 'Sair da Tela Cheia' : 'Expandir (Tela Cheia)'}
+            </button>
+          )}
+        </div>
+
+        {/* ── MODO TELA CHEIA (OVERLAY INTERNO NA APLICAÇÃO) ── */}
+        {isFullscreen && examStep === 'video' && (
+          <div className="fixed inset-0 z-[200] bg-gray-950/95 backdrop-blur-md flex flex-col p-4 sm:p-6 animate-in zoom-in-95 duration-200">
+            {/* Header Tela Cheia */}
+            <div className="flex items-center justify-between bg-white/10 px-5 py-3 rounded-2xl backdrop-blur-md border border-white/10 mb-3 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-[#EE4D2D] animate-ping" />
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-wide">{activeTraining.name}</h2>
+                  <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">Modo Tela Cheia • Portal de Treinamentos</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {!hasWatchedVideo && (
+                  <span className="text-xs font-bold text-amber-300 bg-amber-500/20 px-3 py-1 rounded-full border border-amber-400/30 flex items-center gap-1.5">
+                    <Clock size={14} /> {Math.min(watchTimer, REQUIRED_WATCH_TIME)}s / {REQUIRED_WATCH_TIME}s
+                  </span>
+                )}
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-900 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-gray-100 transition-all shadow-lg"
+                >
+                  <Minimize2 size={15} /> Sair da Tela Cheia
+                </button>
+              </div>
+            </div>
+
+            {/* Container do Vídeo em Tela Cheia */}
+            <div className="flex-1 w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl relative">
               {activeTraining.video_url ? (
                 <iframe
                   src={getGDriveEmbedUrl(activeTraining.video_url)}
-                  className="w-full aspect-video"
+                  className="w-full h-full border-0"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
                   title={activeTraining.name}
                 />
               ) : (
-                <div className="p-12 text-center text-muted-foreground">Nenhum vídeo configurado</div>
+                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold uppercase tracking-widest">
+                  Nenhum vídeo configurado
+                </div>
               )}
             </div>
+
+            {/* Rodapé da Tela Cheia */}
+            <div className="mt-3">
+              {mustRewatch && (
+                <div className="bg-red-500/20 border border-red-500/40 p-3 rounded-xl text-center text-red-200 text-xs font-bold mb-2">
+                  Você errou 5 vezes. Assista ao conteúdo completo antes de tentar novamente.
+                </div>
+              )}
+              {hasWatchedVideo ? (
+                <button
+                  onClick={() => { setIsFullscreen(false); setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
+                  disabled={questions.length === 0}
+                  className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black uppercase text-sm tracking-[0.2em] shadow-xl hover:brightness-110 transition-all"
+                >
+                  {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
+                </button>
+              ) : (
+                <div className="w-full py-3.5 rounded-xl bg-white/10 text-gray-300 font-black uppercase text-xs tracking-widest text-center flex items-center justify-center gap-2 border border-white/10">
+                  <Lock size={16} /> Assista mais {Math.max(0, REQUIRED_WATCH_TIME - watchTimer)}s para liberar a prova
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── MODO NORMAL (CONTAINER AMPLO E RESPONSIVO) ── */}
+        {examStep === 'video' && (
+          <div className="space-y-5">
+            {/* Player Container Grande */}
+            <div className="bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white aspect-video w-full min-h-[400px] md:min-h-[520px] lg:min-h-[620px] relative">
+              {activeTraining.video_url ? (
+                <iframe
+                  src={getGDriveEmbedUrl(activeTraining.video_url)}
+                  className="w-full h-full border-0"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  title={activeTraining.name}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest">
+                  Nenhum vídeo disponível
+                </div>
+              )}
+            </div>
+
             {mustRewatch && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 text-center">
-                <p className="text-destructive font-semibold">Você errou 5 vezes. Assista o vídeo completo antes de tentar novamente.</p>
+              <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center gap-4 animate-bounce">
+                <div className="w-9 h-9 bg-red-500 text-white rounded-full flex items-center justify-center font-black">!</div>
+                <p className="text-red-700 font-bold text-sm">Você errou 5 vezes. Assista ao conteúdo completo com atenção antes de reiniciar a prova.</p>
               </div>
             )}
-            {!hasWatchedVideo ? (
-              <div className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 font-bold text-center flex items-center justify-center gap-2">
-                <Lock size={16} /> Assista o conteúdo completo ({Math.max(0, REQUIRED_WATCH_TIME - watchTimer)}s restantes)
+
+            {/* Barra de Progresso + Timer */}
+            {!hasWatchedVideo && (
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  <span className="flex items-center gap-2 text-[#EE4D2D]"><Clock size={15} /> Validando tempo de visualização...</span>
+                  <span>{Math.min(watchTimer, REQUIRED_WATCH_TIME)}s / {REQUIRED_WATCH_TIME}s</span>
+                </div>
+                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[#EE4D2D] to-[#FF6B47] rounded-full transition-all duration-1000" style={{ width: `${Math.min((watchTimer / REQUIRED_WATCH_TIME) * 100, 100)}%` }} />
+                </div>
               </div>
-            ) : (
+            )}
+
+            {hasWatchedVideo ? (
               <button
                 onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
                 disabled={questions.length === 0}
-                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:brightness-110 disabled:opacity-50 transition-all animate-in fade-in duration-500"
+                className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-sm tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 animate-in fade-in slide-in-from-bottom-4 duration-500"
               >
-                {questions.length === 0 ? 'Sem questões configuradas' : 'Ir para a Prova'}
+                {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
               </button>
+            ) : (
+              <div className="w-full py-5 rounded-2xl bg-gray-100 text-gray-400 font-black uppercase text-xs tracking-[0.2em] text-center flex items-center justify-center gap-3 border border-gray-200">
+                <Lock size={18} /> CONCLUA O CONTEÚDO PARA LIBERAR A PROVA ({Math.max(0, REQUIRED_WATCH_TIME - watchTimer)}s restantes)
+              </div>
             )}
           </div>
         )}
 
         {examStep === 'quiz' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Prova — {questions.length} questões</h2>
-              <span className="text-sm text-muted-foreground">Tentativa {attempts + 1}/5 • Mínimo 90%</span>
-            </div>
-            {questions.map((q, i) => (
-              <div key={q.id} className="glass-card p-5 space-y-3">
-                <p className="font-medium text-foreground"><span className="text-primary font-bold">{i + 1}.</span> {q.question}</p>
-                {['a', 'b', 'c', 'd'].map(opt => (
-                  <label key={opt} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all border ${answers[q.id] === opt ? 'border-primary bg-primary/10' : 'border-border bg-secondary/30 hover:bg-secondary'}`}>
-                    <input
-                      type="radio"
-                      name={`q_${q.id}`}
-                      value={opt}
-                      checked={answers[q.id] === opt}
-                      onChange={() => setAnswers(prev => ({ ...prev, [q.id]: opt }))}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm text-foreground">
-                      <strong className="text-primary mr-1">{opt.toUpperCase()})</strong> {q[`option_${opt}`]}
-                    </span>
-                  </label>
-                ))}
+          <div className="space-y-8 max-w-3xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FEF6F5] text-[#EE4D2D] rounded-full flex items-center justify-center font-black">?</div>
+                <span className="text-xs font-black text-gray-500 uppercase tracking-widest">{questions.length} Questões Totais</span>
               </div>
-            ))}
+              <div className="px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200">
+                Tentativa {attempts + 1} de 5 • Mínimo 90% para aprovação
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {questions.map((q, i) => (
+                <div key={q.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                  <div className="flex items-start gap-4">
+                    <span className="text-2xl font-black text-[#EE4D2D]">0{i+1}</span>
+                    <p className="text-base font-bold text-gray-800 pt-1 leading-relaxed">{q.question}</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 pt-2">
+                    {['a', 'b', 'c', 'd'].map(opt => (
+                      <label 
+                        key={opt} 
+                        className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border-2
+                          ${answers[q.id] === opt 
+                            ? 'border-[#EE4D2D] bg-[#FEF6F5] shadow-xs' 
+                            : 'border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200'}`}
+                      >
+                        <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center font-black uppercase text-xs transition-colors
+                          ${answers[q.id] === opt ? 'bg-[#EE4D2D] border-[#EE4D2D] text-white' : 'border-gray-300 text-gray-400'}`}>
+                          {opt}
+                        </div>
+                        <span className="text-sm font-bold text-gray-700 uppercase tracking-tight">{q[`option_${opt}`]}</span>
+                        <input
+                          type="radio"
+                          name={`q_${q.id}`}
+                          value={opt}
+                          checked={answers[q.id] === opt}
+                          onChange={() => setAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                          className="hidden"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button
               onClick={submitQuiz}
               disabled={Object.keys(answers).length < questions.length}
-              className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg hover:brightness-110 disabled:opacity-50 transition-all"
+              className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-sm tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
             >
-              Finalizar Prova
+              FINALIZAR AVALIAÇÃO
             </button>
           </div>
         )}
 
         {examStep === 'sign' && (
-          <div className="glass-card p-6 space-y-4">
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-center">
-              <p className="text-emerald-500 font-bold text-lg">Aprovado! {quizScore}% de acerto</p>
-            </div>
-            <p className="text-sm text-muted-foreground text-center">Agora assine para confirmar o treinamento.</p>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-foreground">Assinatura eletrônica:</span>
-                <button onClick={clearCanvas} className="text-xs text-destructive hover:underline">Limpar</button>
+           <div className="max-w-md mx-auto space-y-6 py-4">
+              <div className="text-center space-y-3">
+                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm border-4 border-white">
+                    <CheckCircle2 size={36} />
+                 </div>
+                 <div>
+                    <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Você foi aprovado!</h3>
+                    <p className="text-sm text-gray-500 font-medium">Nota final: <strong>{quizScore}%</strong>. Registre sua assinatura oficial abaixo.</p>
+                 </div>
               </div>
-              <div className="bg-white rounded-xl border-2 border-border overflow-hidden touch-none h-[200px] w-full shadow-inner">
-                <canvas
-                  ref={initCanvas}
-                  onMouseDown={startDraw} onMouseMove={drawMove} onMouseUp={stopDraw} onMouseLeave={stopDraw}
-                  onTouchStart={startDraw} onTouchMove={drawMove} onTouchEnd={stopDraw}
-                  className="w-full h-full cursor-crosshair"
-                />
+
+              <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-100 space-y-5">
+                 <div className="flex justify-between items-center px-1">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assinatura eletrônica:</span>
+                    <button onClick={clearCanvas} className="text-[10px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase hover:bg-red-100 transition-colors">Limpar</button>
+                 </div>
+                 <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 overflow-hidden touch-none h-48 w-full relative group">
+                    <canvas
+                      ref={initCanvas}
+                      onMouseDown={startDraw} onMouseMove={drawMove} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+                      onTouchStart={startDraw} onTouchMove={drawMove} onTouchEnd={stopDraw}
+                      className="w-full h-full cursor-crosshair relative z-10"
+                    />
+                    {!hasDrawn && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 select-none pointer-events-none">
+                        <Edit2 size={28} strokeWidth={1} />
+                        <p className="text-[8px] mt-2 font-black uppercase tracking-[0.2em]">Deslize aqui para assinar</p>
+                      </div>
+                    )}
+                 </div>
+                 <button
+                   onClick={submitSignature}
+                   disabled={isSubmitting || !hasDrawn}
+                   className="w-full py-4 rounded-2xl shopee-gradient-bg text-white font-black uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30 text-xs"
+                 >
+                   {isSubmitting ? 'CERTIFICANDO...' : 'CONFIRMAR CERTIFICAÇÃO'}
+                 </button>
               </div>
-            </div>
-            <button
-              onClick={submitSignature}
-              disabled={isSubmitting || !hasDrawn}
-              className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold hover:brightness-110 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Salvando...' : 'Confirmar Treinamento'}
-            </button>
-          </div>
+           </div>
         )}
 
         {examStep === 'done' && (
-          <div className="text-center space-y-6 py-12">
-            <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/30">
-              <ClipboardList size={48} className="text-emerald-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground">Treinamento Concluído!</h2>
-            <p className="text-muted-foreground">Sua assinatura foi registrada no sistema.</p>
-            <button onClick={() => setActiveTraining(null)} className="px-8 py-3 rounded-xl bg-secondary text-foreground hover:bg-secondary/80">
-              Voltar
-            </button>
-          </div>
+           <div className="text-center space-y-6 py-12 max-w-sm mx-auto">
+              <div className="relative">
+                 <div className="w-28 h-28 bg-[#FEF6F5] rounded-full flex items-center justify-center mx-auto border-8 border-white shadow-xl animate-in zoom-in duration-700">
+                     <ClipboardList size={48} className="text-[#EE4D2D]" />
+                 </div>
+                 <div className="absolute top-0 right-1/4 w-7 h-7 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center text-white animate-bounce">
+                    <CheckCircle2 size={14} />
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Sucesso Total!</h2>
+                 <p className="text-xs text-gray-500 font-medium leading-relaxed">Sua certificação em <strong>{activeTraining.name}</strong> foi registrada e consta nos relatórios oficiais.</p>
+              </div>
+              <button 
+                onClick={() => { setActiveTraining(null); setIsFullscreen(false); }} 
+                className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-black shadow-lg transition-all"
+              >
+                 VOLTAR AO PAINEL
+              </button>
+           </div>
         )}
       </div>
     );
@@ -605,201 +787,7 @@ export default function TrainingsPage() {
         </div>
       )}
 
-      {/* Overlay modal para visualização e prova (mantendo lógica anterior com novo estilo) */}
-      {activeTraining && (
-        <div className="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto pt-20 pb-20 animate-in fade-in duration-300">
-           <div className="w-full max-w-4xl bg-[#F5F5F5] rounded-3xl shadow-2xl overflow-hidden border border-white/20 animate-in slide-in-from-bottom-8 duration-500">
-              {/* Header Modal */}
-              <div className="bg-white p-6 border-b border-gray-100 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl"><Play size={20} /></div>
-                    <div>
-                       <h2 className="text-xl font-black text-gray-900">{activeTraining.name}</h2>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{examStep === 'video' ? 'Fase 1: Aprendizado' : examStep === 'quiz' ? 'Fase 2: Avaliação' : 'Fase 3: Conclusão'}</p>
-                    </div>
-                 </div>
-                 <button onClick={() => setActiveTraining(null)} className="p-3 rounded-xl bg-gray-50 text-gray-500 hover:bg-gray-100 font-black uppercase text-[10px] tracking-widest flex items-center gap-2">
-                    <X size={16} /> Fechar
-                 </button>
-              </div>
 
-              <div className="p-6 lg:p-10">
-                {examStep === 'video' && (
-                  <div className="space-y-8 max-w-3xl mx-auto">
-                    <div className="relative group overflow-hidden rounded-3xl shadow-2xl border-4 border-white bg-black aspect-video">
-                      {activeTraining.video_url ? (
-                        <iframe
-                          src={getGDriveEmbedUrl(activeTraining.video_url)}
-                          className="w-full h-full"
-                          allow="autoplay; encrypted-media"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest">Nenhum vídeo disponível</div>
-                      )}
-                    </div>
-                    {mustRewatch && (
-                      <div className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-center gap-4 animate-bounce">
-                        <div className="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-black">!</div>
-                        <p className="text-red-700 font-bold text-sm">Você errou 5 vezes. Assista ao conteúdo completo com atenção antes de reiniciar a prova.</p>
-                      </div>
-                    )}
-
-                    {/* Progress bar + timer */}
-                    {!hasWatchedVideo && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest">
-                          <span className="flex items-center gap-2"><Clock size={14} /> Assistindo o conteúdo...</span>
-                          <span>{Math.min(watchTimer, REQUIRED_WATCH_TIME)}s / {REQUIRED_WATCH_TIME}s</span>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-[#EE4D2D] to-[#FF6B47] rounded-full transition-all duration-1000" style={{ width: `${Math.min((watchTimer / REQUIRED_WATCH_TIME) * 100, 100)}%` }} />
-                        </div>
-                      </div>
-                    )}
-
-                    {hasWatchedVideo ? (
-                      <button
-                        onClick={() => { setMustRewatch(false); setExamStep('quiz'); setAnswers({}); }}
-                        disabled={questions.length === 0}
-                        className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-base tracking-[0.3em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 animate-in fade-in slide-in-from-bottom-4 duration-500"
-                      >
-                        {questions.length === 0 ? 'CONTEÚDO SEM AVALIAÇÃO' : 'INICIAR PROVA CERTIFICADORA'}
-                      </button>
-                    ) : (
-                      <div className="w-full py-5 rounded-2xl bg-gray-100 text-gray-400 font-black uppercase text-base tracking-[0.3em] text-center flex items-center justify-center gap-3">
-                        <Lock size={18} /> CONCLUA O CONTEÚDO PARA LIBERAR A PROVA
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {examStep === 'quiz' && (
-                  <div className="space-y-8 max-w-2xl mx-auto">
-                    <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 gap-4">
-                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#FEF6F5] text-[#EE4D2D] rounded-full flex items-center justify-center font-black">?</div>
-                          <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{questions.length} Questões Totais</span>
-                       </div>
-                       <div className="px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
-                          Tentativa {attempts + 1} de 5
-                       </div>
-                    </div>
-
-                    <div className="space-y-8">
-                       {questions.map((q, i) => (
-                         <div key={q.id} className="space-y-4">
-                            <div className="flex items-start gap-4">
-                               <span className="text-3xl font-black text-[#EE4D2D] opacity-20">0{i+1}</span>
-                               <p className="text-lg font-bold text-gray-800 pt-2 leading-relaxed">{q.question}</p>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3 ml-0 md:ml-12">
-                               {['a', 'b', 'c', 'd'].map(opt => (
-                                 <label 
-                                  key={opt} 
-                                  className={`flex items-center gap-4 p-5 rounded-2xl cursor-pointer transition-all border-2
-                                    ${answers[q.id] === opt 
-                                      ? 'border-[#EE4D2D] bg-white shadow-md' 
-                                      : 'border-transparent bg-white/50 hover:bg-white'}`}
-                                 >
-                                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-black uppercase text-xs transition-colors
-                                      ${answers[q.id] === opt ? 'bg-[#EE4D2D] border-[#EE4D2D] text-white' : 'border-gray-200 text-gray-400'}`}>
-                                       {opt}
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-700 transition-colors uppercase tracking-tight line-clamp-2">{q[`option_${opt}`]}</span>
-                                    <input
-                                      type="radio"
-                                      name={`q_${q.id}`}
-                                      value={opt}
-                                      checked={answers[q.id] === opt}
-                                      onChange={() => setAnswers(prev => ({ ...prev, [q.id]: opt }))}
-                                      className="hidden"
-                                    />
-                                 </label>
-                               ))}
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-
-                    <button
-                      onClick={submitQuiz}
-                      disabled={Object.keys(answers).length < questions.length}
-                      className="w-full py-6 rounded-2xl shopee-gradient-bg text-white font-black uppercase text-lg tracking-[0.4em] shadow-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
-                    >
-                      FINALIZAR AVALIAÇÃO
-                    </button>
-                  </div>
-                )}
-
-                {examStep === 'sign' && (
-                   <div className="max-w-md mx-auto space-y-8 py-4">
-                      <div className="text-center space-y-4">
-                         <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm border-4 border-white">
-                            <CheckCircle2 size={40} />
-                         </div>
-                         <div>
-                            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Você foi aprovado!</h3>
-                            <p className="text-sm text-gray-500 font-medium">Nota final: <strong>{quizScore}%</strong>. Agora precisamos da sua assinatura oficial.</p>
-                         </div>
-                      </div>
-
-                      <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 space-y-6">
-                         <div className="flex justify-between items-center px-1">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assine no quadro abaixo:</span>
-                            <button onClick={clearCanvas} className="text-[10px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-full uppercase">Limpar</button>
-                         </div>
-                         <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 overflow-hidden touch-none h-48 w-full relative group">
-                            <canvas
-                              ref={initCanvas}
-                              onMouseDown={startDraw} onMouseMove={drawMove} onMouseUp={stopDraw} onMouseLeave={stopDraw}
-                              onTouchStart={startDraw} onTouchMove={drawMove} onTouchEnd={stopDraw}
-                              className="w-full h-full cursor-crosshair relative z-10"
-                            />
-                            {!hasDrawn && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 select-none pointer-events-none">
-                                <Edit2 size={32} strokeWidth={1} />
-                                <p className="text-[8px] mt-2 font-black uppercase tracking-[0.2em]">Deslize aqui para assinar</p>
-                              </div>
-                            )}
-                         </div>
-                         <button
-                           onClick={submitSignature}
-                           disabled={isSubmitting || !hasDrawn}
-                           className="w-full py-5 rounded-2xl shopee-gradient-bg text-white font-black uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-30"
-                         >
-                           {isSubmitting ? 'CERTIFICANDO...' : 'CONFIRMAR CERTIFICAÇÃO'}
-                         </button>
-                      </div>
-                   </div>
-                )}
-
-                {examStep === 'done' && (
-                   <div className="text-center space-y-8 py-12 max-w-sm mx-auto">
-                      <div className="relative">
-                         <div className="w-32 h-32 bg-[#FEF6F5] rounded-full flex items-center justify-center mx-auto border-8 border-white shadow-xl animate-in zoom-in duration-700">
-                             <ClipboardList size={56} className="text-[#EE4D2D]" />
-                         </div>
-                         <div className="absolute top-0 right-1/4 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center text-white animate-bounce">
-                            <CheckCircle2 size={16} />
-                         </div>
-                      </div>
-                      <div className="space-y-2">
-                         <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight">Sucesso Total!</h2>
-                         <p className="text-sm border-gray-400 text-gray-500 font-medium leading-relaxed">Parabéns. Sua certificação em <strong>{activeTraining.name}</strong> foi devidamente registrada e já consta nos relatórios oficiais.</p>
-                      </div>
-                      <button 
-                        onClick={() => setActiveTraining(null)} 
-                        className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black uppercase tracking-[0.2em] hover:bg-black shadow-lg transition-all"
-                      >
-                         VOLTAR AO PAINEL
-                      </button>
-                   </div>
-                )}
-              </div>
-           </div>
-        </div>
-      )}
     </div>
   );
 }
