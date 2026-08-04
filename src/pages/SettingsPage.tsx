@@ -427,7 +427,11 @@ export default function SettingsPage() {
 
   const openQuestionManager = async (t: TrainingItem) => {
     setManagingTraining(t);
-    const { data } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).eq('soc_name', profile?.soc).order('order_num');
+    const { data, error } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).eq('soc_name', profile?.soc).order('order_num');
+    if (error) {
+      console.error('[QuizQuestions] Erro ao buscar questões:', error.message);
+      toast.error('Erro ao buscar questões do treinamento: ' + error.message);
+    }
     setMgmtQuestions(data ?? []);
   };
 
@@ -448,10 +452,19 @@ export default function SettingsPage() {
       order_num: qForm.order_num
     };
 
+    let dbErr;
     if (qForm.id) {
-      await supabase.from('quiz_questions').update(payload).eq('id', qForm.id);
+      const { error } = await supabase.from('quiz_questions').update(payload).eq('id', qForm.id);
+      dbErr = error;
     } else {
-      await supabase.from('quiz_questions').insert(payload);
+      const { error } = await supabase.from('quiz_questions').insert(payload);
+      dbErr = error;
+    }
+
+    if (dbErr) {
+      console.error('[QuizQuestions] Erro ao salvar questão:', dbErr.message);
+      toast.error('Erro ao salvar questão: ' + dbErr.message);
+      return;
     }
 
     toast.success('Questão salva com sucesso');
@@ -461,7 +474,11 @@ export default function SettingsPage() {
 
   const deleteQuestion = async (id: string) => {
     if (!confirm('Excluir esta questão?')) return;
-    await supabase.from('quiz_questions').delete().eq('id', id);
+    const { error } = await supabase.from('quiz_questions').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao remover questão: ' + error.message);
+      return;
+    }
     toast.success('Questão removida');
     openQuestionManager(managingTraining!);
   };

@@ -70,6 +70,7 @@ interface SchedulingRequest {
   requested_by_name: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   rejection_reason: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
   collaborators?: RequestCollaborator[];
@@ -148,6 +149,7 @@ export default function SchedulePage() {
     location: 'SPX BR',
     instructor_name: '',
     instructor_email: '',
+    notes: '',
   });
   const [requestCollabs, setRequestCollabs] = useState<Collaborator[]>([]);
   const [requestCollabSearch, setRequestCollabSearch] = useState('');
@@ -471,7 +473,8 @@ export default function SchedulePage() {
           soc: userSoc,
           requested_by: profile?.id || null,
           requested_by_name: profile?.full_name || 'Sistema',
-          status: 'PENDING'
+          status: 'PENDING',
+          notes: requestForm.notes.trim() || null,
         })
         .select()
         .single();
@@ -502,6 +505,7 @@ export default function SchedulePage() {
         location: 'SPX BR',
         instructor_name: '',
         instructor_email: '',
+        notes: '',
       });
       await loadData();
     } catch (err: any) {
@@ -1334,6 +1338,17 @@ export default function SchedulePage() {
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none bg-gray-50 text-gray-500 cursor-not-allowed"/>
                 </div>
               </div>
+              {/* Observações / Prioridades */}
+              <div>
+                <label className="text-[10px] font-black text-gray-500 uppercase ml-0.5">Observações / Prioridades do Treinamento</label>
+                <textarea
+                  value={requestForm.notes}
+                  onChange={e => setRequestForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Especifique aqui o que priorizar (ex: focar no processo de bipagem, reforçar regras de segurança...)"
+                  rows={3}
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium outline-none focus:ring-2 focus:ring-[#EE4D2D]/20 resize-none placeholder:text-gray-300"
+                />
+              </div>
               {/* Collaborator Selection */}
               <div>
                 <label className="text-[10px] font-black text-gray-500 uppercase mb-1 block">Colaboradores ({requestCollabs.length} selecionados)</label>
@@ -1437,6 +1452,12 @@ export default function SchedulePage() {
                   <p className="text-sm font-bold text-gray-800 mt-0.5">{selectedRequestForAnalysis.location || 'SPX BR'}</p>
                 </div>
               </div>
+              {selectedRequestForAnalysis.notes && (
+                <div className="bg-[#FEF6F5] border border-[#EE4D2D]/20 rounded-xl p-3.5 space-y-1">
+                  <p className="text-[9px] font-black text-[#EE4D2D] uppercase tracking-widest">📌 Observações / Prioridades do Solicitante</p>
+                  <p className="text-xs font-semibold text-gray-800 leading-relaxed whitespace-pre-wrap">{selectedRequestForAnalysis.notes}</p>
+                </div>
+              )}
               {selectedRequestForAnalysis.rejection_reason && (
                 <div className="bg-red-50 border border-red-100 rounded-xl p-3">
                   <p className="text-[9px] font-black text-red-400 uppercase">Motivo da Recusa</p>

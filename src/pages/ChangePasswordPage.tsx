@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, ShieldCheck, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ChangePasswordPage({ onDone }: { onDone: () => void }) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -169,6 +169,15 @@ export default function ChangePasswordPage({ onDone }: { onDone: () => void }) {
             className="w-full py-4 rounded-xl bg-gradient-to-r from-[#EE4D2D] to-[#FF7337] text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-[#EE4D2D]/25 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-2"
           >
             {saving ? 'SALVANDO...' : 'CONFIRMAR E ENTRAR'}
+          </button>
+
+          {/* Sair / Trocar de conta */}
+          <button
+            type="button"
+            onClick={signOut}
+            className="w-full py-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+          >
+            <LogOut size={15} /> Entrar com Outra Conta / Sair
           </button>
 
           <p className="text-center text-[9px] text-gray-400 font-medium">
