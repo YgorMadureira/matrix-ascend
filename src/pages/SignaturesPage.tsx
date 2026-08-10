@@ -42,6 +42,9 @@ export default function SignaturesPage() {
       const limit = 1000;
       let hasMore = true;
 
+      // Normaliza o SOC do perfil para comparação robusta (trim + uppercase)
+      const userSoc = profile?.soc?.trim().toUpperCase() ?? null;
+
       while (hasMore) {
         const { data, error } = await supabase
           .from('trainings_completed')
@@ -73,8 +76,14 @@ export default function SignaturesPage() {
         }
       }
 
-      if (profile?.soc) {
-        allRecords = allRecords.filter(r => r.collaborator?.soc === profile.soc);
+      if (userSoc) {
+        allRecords = allRecords.filter(r => {
+          const recSoc = (r.collaborator?.soc ?? '').trim().toUpperCase();
+          // Inclui registros cujo SOC bate (case-insensitive) OU
+          // cujo join retornou null mas o collaborator_id existe (não exclui órfãos)
+          if (!r.collaborator) return false;
+          return recSoc === userSoc;
+        });
       }
       setRecords(allRecords);
       setLoading(false);

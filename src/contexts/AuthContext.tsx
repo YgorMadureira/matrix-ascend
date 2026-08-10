@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+
 interface UserProfile {
   id: string;
   email: string;
@@ -20,6 +21,8 @@ interface AuthContextType {
   isBpo: boolean;
   isPcp: boolean;
   mustChangePassword: boolean;
+  /** true = SOC possui sorting (ASM visível); false = ASM oculto; null = ainda carregando */
+  socHasSorting: boolean | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -30,7 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [socHasSorting, setSocHasSorting] = useState<boolean | null>(null);
   const initializedRef = useRef(false);
+
+  // Busca has_sorting da SOC do usuário
+  const fetchSocHasSorting = async (socName: string | null | undefined): Promise<boolean> => {
+    // Sem SOC restrita → admin global → vê ASM sempre
+    if (!socName) return true;
+    try {
+      const { data } = await supabase
+        .from('socs')
+        .select('has_sorting')
+        .ilike('name', socName.trim())
+        .maybeSingle();
+      // Se não encontrar a SOC, exibe por segurança
+      return data?.has_sorting ?? true;
+    } catch {
+      return true;
+    }
+  };
 
   const fetchProfile = async (userId: string, email: string, userMetadata?: Record<string, unknown>): Promise<UserProfile | null> => {
     try {
@@ -106,7 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             session.user.email ?? '',
             session.user.user_metadata
           );
-          if (p) setProfile(p);
+          if (p) {
+            setProfile(p);
+            const hasSorting = await fetchSocHasSorting(p.soc);
+            setSocHasSorting(hasSorting);
+          }
         }
       } catch (err) {
         console.error('[Auth] Erro na inicialização:', err);
@@ -139,7 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               session.user.email ?? '',
               session.user.user_metadata
             );
-            if (p) setProfile(p);
+            if (p) {
+              setProfile(p);
+              const hasSorting = await fetchSocHasSorting(p.soc);
+              setSocHasSorting(hasSorting);
+            }
           }
         }
       }
@@ -165,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setProfile(null);
+    setSocHasSorting(null);
   };
 
   const mustChangePassword = !!(user?.user_metadata?.must_change_password);
@@ -180,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isBpo: currentRole === 'bpo',
       isPcp: currentRole === 'pcp',
       mustChangePassword,
+      socHasSorting,
       signIn,
       signOut
     }}>

@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { BarChart2, Users, CheckCircle2, Percent, Trophy, Medal, Award } from 'lucide-react';
 
 const SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'] as const;
-const CORE_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+const ALL_CORE_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+
 
 interface SectorStat  { sector: string; total: number; trained: number; pct: number }
 interface SocRank     { soc: string;   total: number; trained: number; pct: number }
@@ -114,10 +115,11 @@ const normalizeMacro = (raw?: string): string => {
 };
 
 // ── Verifica se colaborador tem qualquer treinamento core (para ranking) ──
-const hasAnyCore = (collabId: string, trainingsMap: Map<string, string[]>): boolean => {
+const hasAnyCore = (collabId: string, trainingsMap: Map<string, string[]>, coreTypes: string[]): boolean => {
   const types = trainingsMap.get(collabId) || [];
-  return types.some(t => t.includes('ONBOARDING') || CORE_TYPES.some(c => t.includes(c)));
+  return types.some(t => t.includes('ONBOARDING') || coreTypes.some(c => t.includes(c)));
 };
+
 
 // ── Pódio ─────────────────────────────────────────────────────
 const PODIUM_CONFIG = [
@@ -127,8 +129,13 @@ const PODIUM_CONFIG = [
 ];
 
 export default function DashboardPage() {
-  const { profile, isLider } = useAuth();
+  const { profile, isLider, socHasSorting } = useAuth();
   const navigate = useNavigate();
+
+  // Filtra ASM quando a SOC não possui sorting
+  const showAsm = socHasSorting !== false;
+  const CORE_TYPES = showAsm ? ALL_CORE_TYPES : ALL_CORE_TYPES.filter(t => t !== 'ASM');
+
 
   const [stats,      setStats]      = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0, trainedCount: 0 });
   const [health,     setHealth]     = useState<HealthState>({ pct: 0, completed: 0, total: 0 });
@@ -289,7 +296,7 @@ export default function DashboardPage() {
       const ranking: SocRank[] = [];
       socGroups.forEach((ids, soc) => {
         const total   = ids.length;
-        const trained = ids.filter(id => hasAnyCore(id, trainingsMap)).length;
+        const trained = ids.filter(id => hasAnyCore(id, trainingsMap, CORE_TYPES)).length;
         const pct     = total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0;
         ranking.push({ soc, total, trained, pct });
       });

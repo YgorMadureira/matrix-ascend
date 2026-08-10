@@ -6,8 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
 
-const TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
-const CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
+const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+
 interface SocMicroTraining {
   id: string;
   soc_name: string;
@@ -38,7 +39,7 @@ interface Training {
 }
 
 export default function ReportsPage() {
-  const { user, profile, isLider, isAdmin, loading: authLoading } = useAuth();
+  const { user, profile, isLider, isAdmin, loading: authLoading, socHasSorting } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -52,6 +53,16 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+
+  // Filtra ASM quando a SOC do usuário não possui sorting
+  const showAsm = socHasSorting !== false;
+  const TRAINING_TYPES = showAsm
+    ? ALL_TRAINING_TYPES
+    : ALL_TRAINING_TYPES.filter(t => t !== 'ASM') as unknown as typeof ALL_TRAINING_TYPES;
+  const CORE_SECTORS = showAsm
+    ? ALL_CORE_SECTORS
+    : ALL_CORE_SECTORS.filter(s => s !== 'ASM');
+
 
   const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
@@ -137,7 +148,7 @@ export default function ReportsPage() {
       }
 
       // Setores operacionais: treinamento de ONBOARDING valida apenas estes 3 setores
-      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || reqType === 'ASM';
+      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || (showAsm && reqType === 'ASM');
       if (tType.includes('ONBOARDING') && isOp) return true;
 
       // Se o usuário fez Onboarding PTS V3 ou Treinamento Padrão SOC da área, valida os treinamentos específicos
@@ -312,7 +323,7 @@ export default function ReportsPage() {
     // Filter by Area Tab
     const s = (c.sector || '').toUpperCase();
     if (selectedArea === 'Operacional') {
-      const isOp = s === 'RECEBIMENTO' || s === 'PROCESSAMENTO' || s === 'EXPEDIÇÃO' || s === 'EXPEDICAO' || s === 'TRATATIVAS' || s === 'ASM';
+      const isOp = s === 'RECEBIMENTO' || s === 'PROCESSAMENTO' || s === 'EXPEDIÇÃO' || s === 'EXPEDICAO' || s === 'TRATATIVAS' || (showAsm && s === 'ASM');
       if (!isOp) return false;
     } else if (selectedArea === 'Inventario') {
       if (s !== 'INVENTARIO' && s !== 'INVENTÁRIO') return false;
@@ -484,7 +495,9 @@ export default function ReportsPage() {
       });
 
       // Mesma lógica de verificação usada no relatório
-      const CORE_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
+      const CORE_TYPES = showAsm
+        ? ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM']
+        : ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
       const isTrained = (collabId: string) => {
         const types = trainingsMapExport.get(collabId) || [];
         return types.some(t =>
