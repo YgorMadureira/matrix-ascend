@@ -37,56 +37,86 @@ export default function SignaturesPage() {
   useEffect(() => {
     const fetchSignatures = async () => {
       setLoading(true);
-      let allRecords: SignatureRecord[] = [];
-      let page = 0;
-      const limit = 1000;
-      let hasMore = true;
 
-      // Normaliza o SOC do perfil para comparação robusta (trim + uppercase)
-      const userSoc = profile?.soc?.trim().toUpperCase() ?? null;
+      try {
+        // Normaliza o SOC do perfil para comparação robusta (trim + uppercase)
+        const userSoc = profile?.soc?.trim().toUpperCase() ?? null;
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('trainings_completed')
-          .select(`
-            id,
-            collaborator_id,
-            training_type,
-            instructor_name,
-            completed_at,
-            collaborator:collaborator_id (name, sector, soc, role)
-          `)
-          .order('completed_at', { ascending: false })
-          .range(page * limit, (page + 1) * limit - 1);
+        // ── 1. Busca colaboradores do SOC do usuário (ou todos, se admin global) ──
+        const collabMap = new Map<string, { name: string; sector: string; soc: string; role: string }>();
+        {
+          let page = 0;
+          const limit = 1000;
+          let hasMore = true;
+          while (hasMore) {
+            const query = supabase
+              .from('collaborators')
+              .select('id, name, sector, soc, role')
+              .order('name')
+              .range(page * limit, (page + 1) * limit - 1);
 
-        if (error) {
-          console.error(error);
-          break;
-        }
+            // Se há SOC restrita, filtra direto no banco usando ilike (case-insensitive)
+            const { data, error } = userSoc
+              ? await query.ilike('soc', userSoc)
+              : await query;
 
-        if (data && data.length > 0) {
-          allRecords = [...allRecords, ...(data as any)];
-          if (data.length < limit) {
-            hasMore = false;
-          } else {
-            page++;
+            if (error || !data) break;
+            data.forEach((c: any) => collabMap.set(c.id, { name: c.name, sector: c.sector, soc: c.soc, role: c.role }));
+            if (data.length < limit) hasMore = false;
+            else page++;
           }
-        } else {
-          hasMore = false;
         }
-      }
 
-      if (userSoc) {
-        allRecords = allRecords.filter(r => {
-          const recSoc = (r.collaborator?.soc ?? '').trim().toUpperCase();
-          // Inclui registros cujo SOC bate (case-insensitive) OU
-          // cujo join retornou null mas o collaborator_id existe (não exclui órfãos)
-          if (!r.collaborator) return false;
-          return recSoc === userSoc;
-        });
+        // Se tem restrição de SOC e nenhum colaborador foi encontrado, limpa e sai
+        if (userSoc && collabMap.size === 0) {
+          setRecords([]);
+          setLoading(false);
+          return;
+        }
+
+        // ── 2. Busca todos os treinamentos concluídos ──
+        const allTrainings: any[] = [];
+        {
+          let page = 0;
+          const limit = 1000;
+          let hasMore = true;
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from('trainings_completed')
+              .select('id, collaborator_id, training_type, instructor_name, completed_at, signature_pdf_url')
+              .order('completed_at', { ascending: false })
+              .range(page * limit, (page + 1) * limit - 1);
+
+            if (error || !data) break;
+            allTrainings.push(...data);
+            if (data.length < limit) hasMore = false;
+            else page++;
+          }
+        }
+
+        // ── 3. Une treinamentos com dados do colaborador via Map (sem depender de FK do Supabase) ──
+        const allRecords: SignatureRecord[] = [];
+        for (const t of allTrainings) {
+          const collab = collabMap.get(t.collaborator_id);
+          // Se há restrição de SOC, só inclui registros de colaboradores dessa SOC
+          if (userSoc && !collab) continue;
+          allRecords.push({
+            id: t.id,
+            collaborator_id: t.collaborator_id,
+            training_type: t.training_type,
+            instructor_name: t.instructor_name,
+            completed_at: t.completed_at,
+            signature_pdf_url: t.signature_pdf_url ?? null,
+            collaborator: collab ?? undefined,
+          });
+        }
+
+        setRecords(allRecords);
+      } catch (err) {
+        console.error('[Assinaturas] Erro ao carregar:', err);
+      } finally {
+        setLoading(false);
       }
-      setRecords(allRecords);
-      setLoading(false);
     };
     fetchSignatures();
   }, [profile?.soc]);
