@@ -6,6 +6,37 @@ const GSHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0Lwfzu
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * Parser CSV robusto que respeita campos entre aspas duplas.
+ * Resolve o bug onde campos como "NOME, SOBRENOME" (com vírgula interna)
+ * eram quebrados incorretamente pelo split simples, deslocando todas as colunas.
+ */
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      // Aspas duplas escapadas ("") dentro de campo entre aspas
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 async function sync() {
   console.log('--- Iniciando Sincronização de Colaboradores ---');
   
@@ -17,7 +48,8 @@ async function sync() {
     const lines = text.split('\n').filter(l => l.trim());
     if (lines.length < 2) throw new Error('CSV vazio');
 
-    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    // Usa o parser robusto também no header
+    const header = parseCSVLine(lines[0]).map(h => h.toLowerCase());
     
     const get = (row, names) => {
       for (const n of names) {
@@ -28,7 +60,8 @@ async function sync() {
     };
 
     const rows = lines.slice(1).map(line => {
-      const p = line.split(',');
+      // Usa parser CSV robusto em vez de split(',') simples
+      const p = parseCSVLine(line);
       return {
         name: get(p, ['colaborador', 'nome']),
         gender: get(p, ['gênero', 'genero']),
