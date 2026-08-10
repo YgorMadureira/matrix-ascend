@@ -169,17 +169,36 @@ export default function SchedulePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [{ data: sch }, { data: enr }, { data: col }] = await Promise.all([
+      // collaborators e trainings_completed passam de 1.000 linhas em várias
+      // SOCs (SP8 tem 2.278) — sem paginação, o PostgREST corta em 1.000 e
+      // colaboradores do fim do alfabeto somem da Agenda silenciosamente.
+      const fetchAllPages = async (build: (from: number, to: number) => any) => {
+        let all: any[] = [];
+        let from = 0;
+        const limit = 1000;
+        while (true) {
+          const { data, error } = await build(from, from + limit - 1);
+          if (error) break;
+          all = all.concat(data ?? []);
+          if (!data || data.length < limit) break;
+          from += limit;
+        }
+        return all;
+      };
+
+      const [{ data: sch }, { data: enr }, fetchedCollabs] = await Promise.all([
         supabase.from('training_schedules').select('*').eq('is_active', true).order('day_of_week').order('start_time'),
         supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
-        supabase.from('collaborators').select('id, name, role, soc, leader, sector').order('name'),
+        fetchAllPages((from, to) => {
+          let q = supabase.from('collaborators').select('id, name, role, soc, leader, sector').order('name').range(from, to);
+          if (profile?.soc) q = q.eq('soc', profile.soc);
+          return q;
+        }),
       ]);
       let fetchedSchedules = sch ?? [];
-      let fetchedCollabs = col ?? [];
 
       if (profile?.soc) {
         fetchedSchedules = fetchedSchedules.filter((s: Schedule) => s.soc === profile.soc);
-        fetchedCollabs = fetchedCollabs.filter((c: any) => c.soc === profile.soc);
       }
 
       setSchedules(fetchedSchedules);
@@ -202,8 +221,10 @@ export default function SchedulePage() {
       } catch { setAuditLogs([]); }
       // Treinamentos concluídos (para status Certificado/Pendente e validação de 6 meses)
       try {
-        const { data: tc } = await supabase.from('trainings_completed').select('collaborator_id, training_type, created_at, completed_at');
-        setCompletedTrainings(tc ?? []);
+        const tc = await fetchAllPages((from, to) =>
+          supabase.from('trainings_completed').select('collaborator_id, training_type, created_at, completed_at').range(from, to)
+        );
+        setCompletedTrainings(tc);
       } catch { setCompletedTrainings([]); }
       // Carregar solicitações e colaboradores solicitados
       try {
@@ -374,7 +395,7 @@ export default function SchedulePage() {
     if (!confirm('Remover este slot da agenda?')) return;
     // Cancel associated Google Calendar events
     const relatedEnrollments = enrollments.filter(e => e.schedule_id === id);
-    const eventIds = [...new Set(relatedEnrollments.map(e => e.google_event_id).filter(Boolean))];
+    const eventIds = [...new Set(relatedEnrollments.map(e => e.google_event_id).filter((id): id is string => Boolean(id)))];
     for (const eid of eventIds) {
       try { await deleteCalendarEvent(eid); } catch (_) { /* non-blocking */ }
     }
@@ -1160,7 +1181,7 @@ export default function SchedulePage() {
                           location: schedule.location ?? 'SPX BR',
                           startDateTime: buildEventDateTime(date, schedule.start_time),
                           endDateTime: buildEventDateTime(date, schedule.end_time),
-                          attendeeEmail: schedule.instructor_email,
+                          attendeeEmail: schedule.instructor_email ?? undefined,
                         });
                         await supabase.from('training_schedule_enrollments')
                           .update({ google_event_id: eventId })
@@ -1579,7 +1600,7 @@ export default function SchedulePage() {
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
               <button onClick={() => setShowRejectionModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">Cancelar</button>
-              <button onClick={() => { if (selectedRequestForAnalysis) handleRejectRequest(selectedRequestForAnalysis); }}
+              <button onClick={() => { if (selectedRequestForAnalysis) handleRejectRequest(); }}
                 disabled={!rejectionReason.trim() || analysisLoading}
                 className="px-4 py-2 bg-red-500 text-white text-sm font-black rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50">
                 {analysisLoading ? 'Processando...' : 'Confirmar Recusa'}

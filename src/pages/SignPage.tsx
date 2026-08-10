@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Building2, User, CheckCircle2, Search, PenTool, Loader2, GraduationCap, ChevronRight } from 'lucide-react';
+import { Building2, User, CheckCircle2, Search, PenTool, Loader2, GraduationCap, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Soc {
@@ -74,7 +74,7 @@ export default function SignPage() {
   }, [step]);
 
   const loadCollaborators = async (socName: string) => {
-    let allCollabs: Collaborator[] = [];
+    const allCollabs: Collaborator[] = [];
     let page = 0;
     const limit = 1000;
     let hasMore = true;
@@ -93,7 +93,7 @@ export default function SignPage() {
       }
       
       if (data) {
-        allCollabs = [...allCollabs, ...data];
+        allCollabs.push(...data);
         if (data.length < limit) hasMore = false;
         else page++;
       } else {

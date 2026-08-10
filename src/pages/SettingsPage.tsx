@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 
 interface UserProfile {
   id: string;
@@ -41,13 +40,15 @@ interface SocMicroTraining {
   order_num: number;
 }
 
-const supabaseUrl = 'https://fezfsekzxtvozyemlncn.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlemZzZWt6eHR2b3p5ZW1sbmNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTgyNTA2NSwiZXhwIjoyMDkxNDAxMDY1fQ.9PqJd3Z7RSRrCnDkIu-vPzoihGKIfv2oNINi1E3IuXs';
-
-// Cliente Admin com service_role — cria usuários confirmados sem e-mail
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+// Operações de admin (criar/excluir usuário, redefinir senha) rodam na Edge Function
+// `admin-users` — a service_role key nunca fica exposta no navegador. Ver
+// supabase/functions/admin-users/index.ts.
+async function callAdminUsers<T = { id: string }>(body: Record<string, unknown>): Promise<{ data: T | null; error: string | null }> {
+  const { data, error } = await supabase.functions.invoke('admin-users', { body });
+  if (error) return { data: null, error: error.message };
+  if (data?.error) return { data: null, error: data.error as string };
+  return { data: data as T, error: null };
+}
 
 export default function SettingsPage() {
   const { isAdmin, profile } = useAuth();
@@ -148,19 +149,15 @@ export default function SettingsPage() {
 
   const deleteUser = async (id: string) => {
     if (!confirm('Tem certeza que deseja remover este usuário permanentemente?')) return;
-    
-    // 1. Apaga da base do perfil local
-    await supabase.from('users_profiles').delete().eq('id', id);
-    
-    // 2. Apaga da base do Auth (impede login e acessos)
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-    
+
+    const { error } = await callAdminUsers({ action: 'delete_user', id });
+
     if (error) {
-      toast.error('Erro ao excluir do sistema de Auth: ' + error.message);
+      toast.error('Erro ao excluir usuário: ' + error);
     } else {
       toast.success('Usuário removido permanentemente');
     }
-    
+
     fetchAll();
   };
 
@@ -180,48 +177,25 @@ export default function SettingsPage() {
     setCreatingUser(true);
 
     try {
-      // 1. Criar usuário via Admin API — já confirmado, sem e-mail, sem rate limit
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      // Criação roda na Edge Function admin-users — valida que o chamador é admin
+      // e usa a service_role key só no servidor (nunca no navegador).
+      const { error } = await callAdminUsers({
+        action: 'create_user',
         email: newUserEmail.trim().toLowerCase(),
         password: newUserPassword.trim(),
-        email_confirm: true,
-        user_metadata: {
-          full_name: newUserName.trim(),
-          role: newUserRole,
-          must_change_password: true,   // flag: exige redefinição no primeiro acesso
-        }
-      });
-
-      if (authError) {
-        if (authError.message.toLowerCase().includes('already registered') ||
-            authError.message.toLowerCase().includes('already been registered') ||
-            authError.message.toLowerCase().includes('duplicate')) {
-          toast.error('Este e-mail já está cadastrado no sistema.');
-        } else {
-          toast.error('Erro ao criar usuário: ' + authError.message);
-        }
-        return;
-      }
-
-      if (!authData.user) {
-        toast.error('Erro inesperado: usuário não retornado pelo servidor.');
-        return;
-      }
-
-      // 2. Upsert do perfil na tabela users_profiles com o role selecionado
-      // (o trigger handle_new_user já faz isso, mas fazemos upsert para garantir o role correto)
-      const { error: profileError } = await supabase.from('users_profiles').upsert({
-        id: authData.user.id,
-        email: newUserEmail.trim().toLowerCase(),
         full_name: newUserName.trim(),
         role: newUserRole,
-        soc: profile?.soc || null
-      }, { onConflict: 'id' });
+        soc: profile?.soc || null,
+      });
 
-      if (profileError) {
-        toast.error('Usuário criado, mas erro ao salvar perfil: ' + profileError.message);
-        // Ainda assim atualiza a lista pois o auth user foi criado
-        fetchAll();
+      if (error) {
+        if (error.toLowerCase().includes('already registered') ||
+            error.toLowerCase().includes('already been registered') ||
+            error.toLowerCase().includes('duplicate')) {
+          toast.error('Este e-mail já está cadastrado no sistema.');
+        } else {
+          toast.error('Erro ao criar usuário: ' + error);
+        }
         return;
       }
 
@@ -305,11 +279,13 @@ export default function SettingsPage() {
 
     // Se tudo deu certo e o admin solicitou trocar senha
     if (showPasswordReset && editingUserId) {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(editingUserId, {
-        password: resetPassword
+      const { error: authError } = await callAdminUsers({
+        action: 'reset_password',
+        id: editingUserId,
+        password: resetPassword,
       });
       if (authError) {
-        toast.error('Perfil salvo, mas ocorreu erro ao redefinir a senha: ' + authError.message);
+        toast.error('Perfil salvo, mas ocorreu erro ao redefinir a senha: ' + authError);
         setSavingUserEdit(false);
         return;
       }
@@ -359,14 +335,24 @@ export default function SettingsPage() {
       if (error) {
         toast.error('Erro ao atualizar processo: ' + error.message);
       } else {
-        // Atualiza as certificações já concluídas se o nome mudou, LIMITADO aos colaboradores do SOC atual
+        // Atualiza as certificações já concluídas se o nome mudou, LIMITADO aos colaboradores do SOC atual.
+        // Em batches de 150 IDs: um .in() com todos os colaboradores de uma SOC grande
+        // (SP8 tem 2.278) estoura o limite de 16 KB de cabeçalho HTTP e falha silenciosamente.
         if (editingMicroNameOriginal !== newMicroName.trim() && profile?.soc) {
            const { data: socCollabs } = await supabase.from('collaborators').select('id').eq('soc', profile.soc);
            if (socCollabs && socCollabs.length > 0) {
               const collabIds = socCollabs.map(c => c.id);
-              await supabase.from('trainings_completed').update({
-                training_type: newMicroName.trim()
-              }).eq('training_type', editingMicroNameOriginal).in('collaborator_id', collabIds);
+              const BATCH = 150;
+              for (let i = 0; i < collabIds.length; i += BATCH) {
+                const chunk = collabIds.slice(i, i + BATCH);
+                const { error: renameErr } = await supabase.from('trainings_completed').update({
+                  training_type: newMicroName.trim()
+                }).eq('training_type', editingMicroNameOriginal).in('collaborator_id', chunk);
+                if (renameErr) {
+                  toast.error('Processo renomeado, mas algumas certificações não foram atualizadas: ' + renameErr.message);
+                  break;
+                }
+              }
            }
         }
         toast.success('Processo atualizado com sucesso!');
@@ -961,7 +947,7 @@ export default function SettingsPage() {
                        {['a', 'b', 'c', 'd'].map(opt => (
                          <div key={opt} className="space-y-1">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Opção {opt.toUpperCase()}</label>
-                            <input value={qForm[`option_${opt}`]} onChange={e => setQForm({...qForm, [`option_${opt}`]: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
+                            <input value={qForm[`option_${opt}` as keyof typeof qForm]} onChange={e => setQForm({...qForm, [`option_${opt}`]: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-gray-50 border-transparent text-gray-800 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#EE4D2D]/10 transition-all" />
                          </div>
                        ))}
                     </div>

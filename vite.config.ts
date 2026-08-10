@@ -19,4 +19,16 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // xlsx e jspdf só são usados na exportação de Assinaturas — não
+        // devem pesar no chunk de vendor que todo mundo baixa no 1º acesso.
+        manualChunks: {
+          xlsx: ["xlsx"],
+          jspdf: ["jspdf", "jspdf-autotable"],
+        },
+      },
+    },
+  },
 }));

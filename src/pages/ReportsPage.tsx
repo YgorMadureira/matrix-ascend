@@ -240,13 +240,16 @@ export default function ReportsPage() {
     const limit = 1000;
 
     while (hasMore) {
-      const { data, error } = await supabase
+      let collabQuery = supabase
         .from('collaborators')
         .select('id, name, soc, sector, shift, role, leader')
-        .eq('soc', profile?.soc || '')
         .order('name')
         .range(page * limit, (page + 1) * limit - 1);
-      
+      // soc null = admin sem unidade restrita → vê todas. Filtrar por '' não
+      // casaria com nenhum colaborador e mostraria a tela vazia sem aviso.
+      if (profile?.soc) collabQuery = collabQuery.eq('soc', profile.soc);
+      const { data, error } = await collabQuery;
+
       if (error) break;
       if (data) {
         allCollabs.push(...data);
@@ -276,9 +279,9 @@ export default function ReportsPage() {
       }
     }
 
-    const [{ data: microData }] = await Promise.all([
-      supabase.from('soc_micro_trainings').select('*').eq('soc_name', profile?.soc || '').order('order_num'),
-    ]);
+    let microQuery = supabase.from('soc_micro_trainings').select('*').order('order_num');
+    if (profile?.soc) microQuery = microQuery.eq('soc_name', profile.soc);
+    const { data: microData } = await microQuery;
 
     const matchLeader = (collaboratorLeader: string): boolean => {
       const cLeader = (collaboratorLeader ?? '').trim().toUpperCase();
@@ -443,28 +446,27 @@ export default function ReportsPage() {
 
   // ============================================================
   // EXPORTAÇÃO: Colaboradores NÃO treinados do SOC do usuário
-  // Para alterar o SOC filtrado, basta mudar o valor de USER_SOC
-  // abaixo, ou (recomendado) deixar automático via profile?.soc
   // ============================================================
   const exportPendingCollaborators = async () => {
     setIsExporting(true);
     try {
-      // SOC do usuário logado — alterável aqui se necessário:
-      const USER_SOC = profile?.soc || 'SP6';
+      // soc null = admin sem unidade restrita → exporta de todas as unidades.
+      const USER_SOC = profile?.soc || null;
 
       // Busca todos os colaboradores do SOC
       const allCollabsForExport: any[] = [];
       let page = 0;
       let hasMore = true;
       while (hasMore) {
-        const { data, error } = await supabase
+        let q = supabase
           .from('collaborators')
           .select('id, name, sector, shift, role, leader, soc, bpo')
-          .eq('soc', USER_SOC)
           .order('sector')
           .order('shift')
           .order('name')
           .range(page * 1000, (page + 1) * 1000 - 1);
+        if (USER_SOC) q = q.eq('soc', USER_SOC);
+        const { data, error } = await q;
         if (error || !data) break;
         allCollabsForExport.push(...data);
         if (data.length < 1000) hasMore = false;
@@ -510,7 +512,7 @@ export default function ReportsPage() {
       const pending = allCollabsForExport.filter(c => !isTrained(c.id));
 
       if (pending.length === 0) {
-        toast.success('Todos os colaboradores do SOC ' + USER_SOC + ' já estão treinados!');
+        toast.success('Todos os colaboradores' + (USER_SOC ? ` do SOC ${USER_SOC}` : '') + ' já estão treinados!');
         setIsExporting(false);
         return;
       }
@@ -611,7 +613,7 @@ export default function ReportsPage() {
             id="btn-export-pending"
             onClick={exportPendingCollaborators}
             disabled={isExporting}
-            title={`Exportar pendentes do SOC ${profile?.soc || 'SP6'}`}
+            title={profile?.soc ? `Exportar pendentes do SOC ${profile.soc}` : 'Exportar pendentes de todas as SOCs'}
             className="flex items-center gap-1.5 px-3 py-2 bg-[#EE4D2D] hover:bg-[#d63b1f] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
           >
             {isExporting ? (

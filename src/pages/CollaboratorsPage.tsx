@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent } from 'lucide-react';
@@ -87,13 +87,15 @@ export default function CollaboratorsPage() {
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
-  const uniqueSocs = Array.from(new Set(collaborators.map(c => c.soc).filter(Boolean))).sort();
-  const uniqueLeaders = Array.from(new Set(collaborators.map(c => c.leader).filter(Boolean))).sort();
-  const uniqueShifts = Array.from(new Set(collaborators.map(c => c.shift).filter(Boolean))).sort();
+  // collaborators pode ter até ~19 mil linhas — sem memo, essas 3 listas e o
+  // filtro abaixo eram recalculados a cada tecla digitada na busca.
+  const uniqueSocs = useMemo(() => Array.from(new Set(collaborators.map(c => c.soc).filter(Boolean))).sort(), [collaborators]);
+  const uniqueLeaders = useMemo(() => Array.from(new Set(collaborators.map(c => c.leader).filter(Boolean))).sort(), [collaborators]);
+  const uniqueShifts = useMemo(() => Array.from(new Set(collaborators.map(c => c.shift).filter(Boolean))).sort(), [collaborators]);
 
   const fetchData = useCallback(async () => {
     // Supabase has a default limit of 1000 rows. We need to fetch all of them.
-    let allCollabs: any[] = [];
+    const allCollabs: any[] = [];
     let hasMore = true;
     let page = 0;
     const limit = 1000;
@@ -111,7 +113,7 @@ export default function CollaboratorsPage() {
       }
       
       if (data) {
-        allCollabs = [...allCollabs, ...data];
+        allCollabs.push(...data);
         if (data.length < limit) {
           hasMore = false;
         } else {
@@ -122,7 +124,7 @@ export default function CollaboratorsPage() {
       }
     }
 
-    let allTrainings: any[] = [];
+    const allTrainings: any[] = [];
     let tPage = 0;
     let tHasMore = true;
     while (tHasMore) {
@@ -137,7 +139,7 @@ export default function CollaboratorsPage() {
       }
       
       if (data) {
-        allTrainings = [...allTrainings, ...data];
+        allTrainings.push(...data);
         if (data.length < limit) tHasMore = false;
         else tPage++;
       } else {
@@ -458,7 +460,10 @@ export default function CollaboratorsPage() {
     }
   }, [isAdmin, authLoading, collaborators.length]);
 
-  const filtered = collaborators.filter(c => {
+  // collaborators + trainings juntos podem passar de 28 mil linhas — sem
+  // memo, esse filtro (que chama isTrained por colaborador) rodava de novo
+  // a cada tecla digitada na busca, cada clique de filtro e cada re-render.
+  const filtered = useMemo(() => collaborators.filter(c => {
     // Current Tab filtering
     const isEmOnboarding = c.is_onboarding === true;
     const roleName = c.role ? c.role.toUpperCase() : '';
@@ -513,22 +518,20 @@ export default function CollaboratorsPage() {
     }
     
     return matchSearch && matchSoc && matchLeader && matchShift;
-  });
+  }), [collaborators, trainings, currentTab, search, selectedSoc, selectedLeader, selectedShift, statusFilter, dateFrom, dateTo, onboardingModuleFilter, profile?.soc]);
 
   const displayTotal = filtered.length;
-  const totalLeaders = new Set(
+  const totalLeaders = useMemo(() => new Set(
     filtered
       .map(c => c.leader?.trim().toUpperCase())
       .filter(l => l && l !== '-' && l !== 'N/A')
-  ).size;
+  ).size, [filtered]);
 
-
-
-  const uniqueTrained = filtered.filter(c => isTrained(c)).length;
+  const uniqueTrained = useMemo(() => filtered.filter(c => isTrained(c)).length, [filtered, trainings]);
   const trainedPct = displayTotal > 0 ? Math.round((uniqueTrained / displayTotal) * 100) : 0;
 
   const handleSave = async () => {
-    const payload = { ...form };
+    const payload: Partial<typeof form> = { ...form };
     if (!payload.admission_date) {
       delete payload.admission_date;
     }
@@ -868,7 +871,7 @@ export default function CollaboratorsPage() {
     a.click();
   };
 
-  const fields: { key: keyof typeof emptyForm; label: string }[] = currentTab === 'onboarding' 
+  const fields: { key: Exclude<keyof typeof emptyForm, 'is_onboarding'>; label: string }[] = currentTab === 'onboarding'
     ? [
         { key: 'opsid', label: 'OPSID' },
         { key: 'gender', label: 'Gênero' },

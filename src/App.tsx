@@ -5,21 +5,36 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
-import MaterialsPage from "@/pages/MaterialsPage";
-import CollaboratorsPage from "@/pages/CollaboratorsPage";
-import ReportsPage from "@/pages/ReportsPage";
-import SocsPage from "@/pages/SocsPage";
-import SettingsPage from "@/pages/SettingsPage";
 import SignPage from "@/pages/SignPage";
-import TrainingsPage from "@/pages/TrainingsPage";
-import SignaturesPage from "@/pages/SignaturesPage";
-import SchedulePage from "@/pages/SchedulePage";
 import NotFound from "./pages/NotFound";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
-import React from "react";
+import React, { Suspense, lazy } from "react";
+
+// Carregadas sob demanda: só quem loga entra nessas rotas, e SignaturesPage
+// sozinha traz jsPDF + XLSX (centenas de KB) que não precisam pesar no
+// primeiro carregamento de ninguém (inclusive de quem só assina via QR Code).
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const MaterialsPage = lazy(() => import("@/pages/MaterialsPage"));
+const CollaboratorsPage = lazy(() => import("@/pages/CollaboratorsPage"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
+const SocsPage = lazy(() => import("@/pages/SocsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const TrainingsPage = lazy(() => import("@/pages/TrainingsPage"));
+const SignaturesPage = lazy(() => import("@/pages/SignaturesPage"));
+const SchedulePage = lazy(() => import("@/pages/SchedulePage"));
 
 const queryClient = new QueryClient();
+
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-[#EE4D2D] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <p className="text-xs text-gray-500 font-medium">Carregando...</p>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================
 // MAPA DE ACESSO POR PERFIL
@@ -85,7 +100,7 @@ class ErrorBoundary extends React.Component<
 // ProtectedRoute — exige login, mostra loading enquanto carrega
 // ============================================================
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, mustChangePassword } = useAuth();
+  const { user, profile, loading, mustChangePassword } = useAuth();
 
   if (loading) {
     return (
@@ -100,6 +115,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Falha ao carregar o perfil (rede/RLS) — NÃO renderiza a aplicação com um
+  // perfil inventado. Melhor pedir para tentar de novo do que abrir a tela
+  // com privilégio ou SOC incorretos.
+  if (!profile) {
+    return (
+      <div style={{ background: '#0d1117', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ textAlign: 'center', maxWidth: '22rem' }}>
+          <h1 style={{ color: '#e5534b', fontSize: '1.15rem', marginBottom: '0.75rem', fontFamily: 'Inter, sans-serif' }}>Não foi possível carregar seu perfil</h1>
+          <p style={{ color: '#8b949e', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+            Verifique sua conexão e tente novamente.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: '#e5534b', color: '#fff', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Primeiro acesso: redireciona para redefinição de senha obrigatória
   if (mustChangePassword) {
@@ -134,7 +171,9 @@ function RoleRoute({ path, children }: { path: string; children: React.ReactNode
     );
   }
 
-  const effectiveRole = ((profile?.role || (user?.user_metadata?.role as string) || 'admin').toLowerCase().trim()) as Role;
+  // ProtectedRoute já garante que profile existe antes de chegar aqui;
+  // 'user' (não 'admin') é o piso de segurança caso essa invariante mude.
+  const effectiveRole = ((profile?.role || (user?.user_metadata?.role as string) || 'user').toLowerCase().trim()) as Role;
   const allowedRoles = ROUTE_PERMISSIONS[path] ?? [];
   const hasAccess = allowedRoles.includes(effectiveRole);
 
@@ -169,23 +208,25 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/sign" element={<SignPage />} />
-              <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
-              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                <Route path="/dashboard"    element={<RoleRoute path="/dashboard">   <DashboardPage />    </RoleRoute>} />
-                <Route path="/materials"    element={<RoleRoute path="/materials">   <MaterialsPage />    </RoleRoute>} />
-                <Route path="/collaborators"element={<RoleRoute path="/collaborators"><CollaboratorsPage /></RoleRoute>} />
-                <Route path="/reports"      element={<RoleRoute path="/reports">     <ReportsPage />      </RoleRoute>} />
-                <Route path="/socs"         element={<RoleRoute path="/socs">        <SocsPage />         </RoleRoute>} />
-                <Route path="/settings"     element={<RoleRoute path="/settings">    <SettingsPage />     </RoleRoute>} />
-                <Route path="/trainings"    element={<RoleRoute path="/trainings">   <TrainingsPage />    </RoleRoute>} />
-                <Route path="/signatures"   element={<RoleRoute path="/signatures">  <SignaturesPage />   </RoleRoute>} />
-                <Route path="/schedule"     element={<RoleRoute path="/schedule">    <SchedulePage />     </RoleRoute>} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/sign" element={<SignPage />} />
+                <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
+                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                  <Route path="/dashboard"    element={<RoleRoute path="/dashboard">   <DashboardPage />    </RoleRoute>} />
+                  <Route path="/materials"    element={<RoleRoute path="/materials">   <MaterialsPage />    </RoleRoute>} />
+                  <Route path="/collaborators"element={<RoleRoute path="/collaborators"><CollaboratorsPage /></RoleRoute>} />
+                  <Route path="/reports"      element={<RoleRoute path="/reports">     <ReportsPage />      </RoleRoute>} />
+                  <Route path="/socs"         element={<RoleRoute path="/socs">        <SocsPage />         </RoleRoute>} />
+                  <Route path="/settings"     element={<RoleRoute path="/settings">    <SettingsPage />     </RoleRoute>} />
+                  <Route path="/trainings"    element={<RoleRoute path="/trainings">   <TrainingsPage />    </RoleRoute>} />
+                  <Route path="/signatures"   element={<RoleRoute path="/signatures">  <SignaturesPage />   </RoleRoute>} />
+                  <Route path="/schedule"     element={<RoleRoute path="/schedule">    <SchedulePage />     </RoleRoute>} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

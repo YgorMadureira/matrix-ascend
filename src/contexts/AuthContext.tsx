@@ -62,12 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
+        // Falha real de infraestrutura (rede/RLS/timeout) — NÃO fabricamos um
+        // perfil "admin" aqui. Um perfil inventado com privilégio alto é pior
+        // que mostrar a tela de erro: ele silenciosamente concedia acesso de
+        // administrador da SOC SP6 a quem quer que caísse nesse catch.
         console.error('[Auth] Erro ao buscar perfil:', error.message);
-        // Fallback resiliente usando metadata do Auth para NUNCA deixar a tela em branco
-        const metaRole = ((userMetadata?.role as string)?.toLowerCase().trim()) ?? 'admin';
-        const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
-        const metaSoc  = (userMetadata?.soc as string) ?? 'SP6';
-        return { id: userId, email, full_name: metaName, role: (metaRole as UserProfile['role']), soc: metaSoc };
+        return null;
       }
 
       if (data) {
@@ -75,10 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ...data, role: normRole } as UserProfile;
       }
 
-      // Perfil não existe ainda (trigger pode ter falhado) — cria com role do metadata ou 'user'
-      const metaRole = ((userMetadata?.role as string)?.toLowerCase().trim()) ?? 'user';
+      // Perfil não existe ainda (trigger pode ter falhado) — cria com o mínimo
+      // privilégio ('user') e SEM inventar uma SOC: sem soc.metadata, o perfil
+      // fica sem unidade (as telas tratam soc nula como "sem escopo", nunca
+      // como "SP6").
+      const metaRole = ((userMetadata?.role as string)?.toLowerCase().trim()) || 'user';
       const metaName = (userMetadata?.full_name as string) ?? email.split('@')[0];
-      const metaSoc = (userMetadata?.soc as string) ?? 'SP6';
+      const metaSoc = (userMetadata?.soc as string) ?? null;
 
       const newProfile: UserProfile = {
         id: userId,

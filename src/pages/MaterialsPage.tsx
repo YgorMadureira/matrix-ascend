@@ -53,10 +53,12 @@ export default function MaterialsPage() {
   const [showingQrFor, setShowingQrFor] = useState<MaterialItem | null>(null);
 
   // Helper para evitar requisições presas infinitamente (ex: timeout de conexão)
-  const withTimeout = <T,>(promise: Promise<T>, ms: number = 8000): Promise<T> => {
+  // Aceita PromiseLike (não só Promise) porque os builders do supabase-js são
+  // "thenable" mas não implementam toda a interface Promise (catch/finally).
+  const withTimeout = <T,>(promise: PromiseLike<T>, ms: number = 8000): Promise<T> => {
     return Promise.race([
-      promise,
-      new Promise<T>((_, reject) => 
+      Promise.resolve(promise),
+      new Promise<T>((_, reject) =>
         setTimeout(() => reject(new Error('Tempo esgotado. Verifique sua conexão e tente novamente.')), ms)
       )
     ]);

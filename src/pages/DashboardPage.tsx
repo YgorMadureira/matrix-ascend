@@ -145,11 +145,11 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       // ── 1. Colaboradores ────────────────────────────────────
-      let allCollabs: { id: string; sector: string; leader: string; soc: string; role: string }[] = [];
+      const allCollabs: { id: string; sector: string; leader: string; soc: string; role: string }[] = [];
       let page = 0; const limit = 1000; let hasMore = true;
       while (hasMore) {
         const { data } = await supabase.from('collaborators').select('id, sector, leader, role, soc').range(page * limit, (page + 1) * limit - 1);
-        if (data && data.length > 0) { allCollabs = [...allCollabs, ...data]; if (data.length < limit) hasMore = false; else page++; }
+        if (data && data.length > 0) { allCollabs.push(...data); if (data.length < limit) hasMore = false; else page++; }
         else hasMore = false;
       }
 
@@ -160,12 +160,12 @@ export default function DashboardPage() {
       ]);
 
       // ── 3. Treinamentos concluídos ──────────────────────────
-      let allTrainings: any[] = [];
+      const allTrainings: any[] = [];
       let tPage = 0; let tHasMore = true;
       while (tHasMore) {
         const { data, error } = await supabase.from('trainings_completed').select('collaborator_id, training_type').range(tPage * limit, (tPage + 1) * limit - 1);
         if (error) break;
-        if (data) { allTrainings = [...allTrainings, ...data]; if (data.length < limit) tHasMore = false; else tPage++; }
+        if (data) { allTrainings.push(...data); if (data.length < limit) tHasMore = false; else tPage++; }
         else tHasMore = false;
       }
 
@@ -507,6 +507,6 @@ export default function DashboardPage() {
   );
 }
 
-function userSocLabel(soc?: string) {
+function userSocLabel(soc?: string | null) {
   return soc ? `SOC ${soc} • ` : '';
 }

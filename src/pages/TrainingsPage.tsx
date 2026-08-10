@@ -320,15 +320,19 @@ export default function TrainingsPage() {
       if (profile && user) {
         const { data: existCollab } = await supabase.from('collaborators').select('id').eq('id', user.id).maybeSingle();
         if (!existCollab) {
+           // users_profiles não tem colunas opsid/sector — usa valores padrão de líder.
            await supabase.from('collaborators').insert({
              id: user.id,
              name: profile.full_name,
-             opsid: profile.opsid || `LIDER-${user.id.substring(0, 4).toUpperCase()}`,
+             opsid: `LIDER-${user.id.substring(0, 4).toUpperCase()}`,
              role: profile.role === 'lider' ? 'Líder' : (profile.role || 'Líder'),
-             sector: profile.sector || 'Gestão',
+             sector: 'Gestão',
              shift: 'T1',
              leader: 'Gestão SPX',
-             soc: profile.soc || 'SP6',
+             // Sem SOC atribuída ao perfil, não adivinha 'SP6' — ficaria
+             // classificado numa unidade errada. Fica em branco até o
+             // administrador corrigir o perfil do líder.
+             soc: profile.soc || '',
              gender: 'Não Informado'
            });
         }
