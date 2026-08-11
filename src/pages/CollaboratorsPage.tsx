@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent } from 'lucide-react';
+import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLocation } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
+import { parseDelimitedText, mapCollaboratorRow } from '@/lib/csvParser';
 
 interface Collaborator {
   id: string;
@@ -23,14 +24,14 @@ interface Collaborator {
 }
 
 const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '' };
-
-const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0LwfzukkjRDLD-NqioPJoWmFv5FfeDfUdInkavetnDr7p-OhoB-sKvvXWqy6jilxBc4g8olgkOjsJ/pub?gid=0&single=true&output=csv';
+const EMPTY_COLLABS: Collaborator[] = [];
+const EMPTY_TRAININGS: { collaborator_id: string; training_type: string }[] = [];
+// A busca da planilha do Google Sheets roda agora na Edge Function
+// sync-collaborators (server-side) — ver supabase/functions/sync-collaborators.
 
 export default function CollaboratorsPage() {
   const { isAdmin, isBpo, loading: authLoading, profile } = useAuth();
-  const location = useLocation();
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [trainings, setTrainings] = useState<{ collaborator_id: string, training_type: string }[]>([]);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,7 +74,9 @@ export default function CollaboratorsPage() {
   const handleChange = (key: keyof typeof form, value: string) => {
     let val = value.toUpperCase();
     if (key === 'gender' || key === 'name' || key === 'sector' || key === 'leader' || key === 'role') {
-      val = val.replace(/[^A-ZÀ-ÖØ-öø-ÿ\s]/g, '');
+      // Permite apóstrofo e hífen — sem isso "D'ÁVILA" virava "DÁVILA" e
+      // "SANTA-RITA" virava "SANTARITA".
+      val = val.replace(/[^A-ZÀ-ÖØ-öø-ÿ\s'-]/g, '');
     } else if (key === 'opsid') {
       val = val.replace(/[^A-Z0-9]/g, '');
     } else if (key === 'soc') {
@@ -87,73 +90,62 @@ export default function CollaboratorsPage() {
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
-  // collaborators pode ter até ~19 mil linhas — sem memo, essas 3 listas e o
-  // filtro abaixo eram recalculados a cada tecla digitada na busca.
+  // ── Fetch escopado pela SOC do usuário (mesma regra que o filtro client-side
+  // já aplicava) + cache via React Query. Antes baixava as 18.716 linhas de
+  // TODAS as unidades a cada navegação; agora só a própria SOC (até ~2.300
+  // linhas no pior caso) e reaproveita o cache ao sair e voltar da tela.
+  const socScope = profile?.soc?.trim() || null;
+
+  const { data: queryData, isLoading: dataLoading, refetch } = useQuery({
+    queryKey: ['collaborators', socScope],
+    enabled: !authLoading,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const allCollabs: Collaborator[] = [];
+      let page = 0; const limit = 1000; let hasMore = true;
+      while (hasMore) {
+        let q = supabase
+          .from('collaborators')
+          .select('id, name, opsid, gender, soc, sector, shift, leader, role, bpo, is_onboarding, admission_date, activity')
+          .order('name')
+          .range(page * limit, (page + 1) * limit - 1);
+        if (socScope) q = q.eq('soc', socScope);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (data && data.length > 0) { allCollabs.push(...(data as Collaborator[])); if (data.length < limit) hasMore = false; else page++; }
+        else hasMore = false;
+      }
+
+      // Treinamentos só dos colaboradores já escopados, em lotes — um .in()
+      // com os ~2.300 ids de uma SOC grande de uma vez estoura o limite de
+      // 16 KB de cabeçalho HTTP (foi exatamente o bug que zerava as
+      // assinaturas de SP5 antes da correção da tela de Assinaturas).
+      const ids = allCollabs.map(c => c.id);
+      const allTrainings: { collaborator_id: string; training_type: string }[] = [];
+      const BATCH = 150;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        const { data, error } = await supabase.from('trainings_completed').select('collaborator_id, training_type').in('collaborator_id', chunk);
+        if (error) throw error;
+        allTrainings.push(...(data ?? []));
+      }
+
+      return { collaborators: allCollabs, trainings: allTrainings };
+    },
+  });
+
+  // Referências estáveis (não um [] novo a cada render) — evita que os useMemo
+  // abaixo, que dependem de "collaborators"/"trainings", recalculem à toa
+  // enquanto a query ainda está carregando.
+  const collaborators = queryData?.collaborators ?? EMPTY_COLLABS;
+  const trainings = queryData?.trainings ?? EMPTY_TRAININGS;
+  const fetchData = () => refetch();
+
+  // Sem memo, essas 3 listas e o filtro abaixo eram recalculados a cada
+  // tecla digitada na busca.
   const uniqueSocs = useMemo(() => Array.from(new Set(collaborators.map(c => c.soc).filter(Boolean))).sort(), [collaborators]);
   const uniqueLeaders = useMemo(() => Array.from(new Set(collaborators.map(c => c.leader).filter(Boolean))).sort(), [collaborators]);
   const uniqueShifts = useMemo(() => Array.from(new Set(collaborators.map(c => c.shift).filter(Boolean))).sort(), [collaborators]);
-
-  const fetchData = useCallback(async () => {
-    // Supabase has a default limit of 1000 rows. We need to fetch all of them.
-    const allCollabs: any[] = [];
-    let hasMore = true;
-    let page = 0;
-    const limit = 1000;
-
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('collaborators')
-        .select('*')
-        .order('name')
-        .range(page * limit, (page + 1) * limit - 1);
-      
-      if (error) {
-        console.error("Error fetching collaborators:", error);
-        break;
-      }
-      
-      if (data) {
-        allCollabs.push(...data);
-        if (data.length < limit) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    const allTrainings: any[] = [];
-    let tPage = 0;
-    let tHasMore = true;
-    while (tHasMore) {
-      const { data, error } = await supabase
-        .from('trainings_completed')
-        .select('collaborator_id, training_type')
-        .range(tPage * limit, (tPage + 1) * limit - 1);
-      
-      if (error) {
-        console.error("Error fetching trainings:", error);
-        break;
-      }
-      
-      if (data) {
-        allTrainings.push(...data);
-        if (data.length < limit) tHasMore = false;
-        else tPage++;
-      } else {
-        tHasMore = false;
-      }
-    }
-
-    setCollaborators(allCollabs);
-    setTrainings(allTrainings);
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading) fetchData();
-  }, [location.pathname, fetchData, authLoading]);
 
   // Fecha o dropdown de módulos ao clicar fora
   useEffect(() => {
@@ -169,241 +161,37 @@ export default function CollaboratorsPage() {
   }, [moduleDropdownOpen]);
 
 
-  const handleGSheetSync = async (isAuto = false) => {
+  // A sincronização em si roda no servidor (Edge Function sync-collaborators,
+  // agendada às 05h via pg_cron — ver supabase/migrations/20260811_02_*.sql).
+  // Este botão só dispara a MESMA função sob demanda; a trava de concorrência
+  // agora é uma linha na tabela sync_locks, então funciona certo mesmo com
+  // vários admins clicando ao mesmo tempo em navegadores diferentes.
+  const handleGSheetSync = async () => {
     if (!isAdmin) return;
     if (isSyncing.current) {
-      console.warn('[Sync] Já existe uma sincronização em andamento. Ignorando.');
+      toast.info('Já existe uma sincronização em andamento.');
       return;
     }
     isSyncing.current = true;
-    
-    const toastId = toast.loading(isAuto ? 'Sincronização automática em andamento...' : 'Sincronizando com Google Sheets...');
-    
+    const toastId = toast.loading('Sincronizando com Google Sheets...');
     try {
-      // Always fetch fresh data from DB to avoid using stale in-memory state
-      let freshCollaborators: Collaborator[] = [];
-      let page = 0;
-      const limit = 1000;
-      let hasMore = true;
-      while (hasMore) {
-        const { data } = await supabase.from('collaborators').select('id, name, opsid, is_onboarding').range(page * limit, (page + 1) * limit - 1);
-        if (data && data.length > 0) {
-          freshCollaborators = [...freshCollaborators, ...data as Collaborator[]];
-          if (data.length < limit) hasMore = false;
-          else page++;
-        } else {
-          hasMore = false;
-        }
-      }
-      const response = await fetch(GSHEET_URL);
-      if (!response.ok) throw new Error('Falha ao buscar dados do Google Sheets');
-      
-      let text = await response.text();
-      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
-
-      if (lines.length < 2) throw new Error('Planilha vazia ou sem dados');
-
-      const firstLine = lines[0];
-      const sep = firstLine.includes(';') ? ';' : ',';
-
-      const splitLine = (line: string) => {
-        const result: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') inQuotes = !inQuotes;
-          else if (ch === sep && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-          } else {
-            current += ch;
-          }
-        }
-        result.push(current.trim());
-        return result;
-      };
-
-      // Normalization function for robust header matching
-      const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-      const header = splitLine(firstLine).map(normalize);
-      
-      // Helper: converts '-' or whitespace-only values to null (avoids DB constraint issues)
-      const clean = (v: string): string | null => (!v || v.trim() === '-' || v.trim() === '') ? null : v.trim();
-
-      const rows = lines.slice(1).map(line => {
-        const p = splitLine(line);
-        const get = (names: string[]) => {
-          for (const n of names) {
-            const normalizedTarget = normalize(n);
-            const i = header.indexOf(normalizedTarget);
-            if (i >= 0 && p[i]) return p[i].trim();
-          }
-          return '';
-        };
-
-        const isDesligado = get(['desligado']).toLowerCase() === 'sim';
-        if (isDesligado) return null;
-
-        const name = get(['colaborador', 'nome', 'name', 'colaboradores']).trim();
-        if (!name || name.length < 2) return null;
-
-        const admRaw = get(['data admissao', 'data de admissão', 'admissao', 'admission', 'data_admissao']);
-        let admissionDate: string | null = null;
-        if (admRaw && admRaw.includes('/')) {
-          const parts = admRaw.split('/');
-          if (parts.length === 3) {
-            const [day, month, year] = parts;
-            const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-            // Validate the date
-            const d = new Date(iso);
-            if (!isNaN(d.getTime())) admissionDate = iso;
-          }
-        }
-
-        return {
-          name,
-          gender: clean(get(['genero', 'gênero', 'gender', 'sexo'])),
-          admission_date: admissionDate,
-          shift: clean(get(['turno', 'shift', 'periodo'])),
-          sector: clean(get(['setor', 'sector', 'area', 'departamento'])),
-          leader: clean(get(['lider', 'líder', 'leader', 'gestor'])),
-          opsid: clean(get(['ops id', 'opsid', 'matricula', 'id'])),
-          bpo: clean(get(['bpo', 'empresa'])),
-          role: clean(get(['cargo', 'role', 'função', 'funcao'])),
-          activity: clean(get(['atividade', 'activity', 'funcao real'])),
-          soc: clean(get(['soc', 'unidade', 'unit'])) || 'SP6',
-          is_onboarding: false
-        };
-      }).filter((r): r is NonNullable<typeof r> => r !== null);
-
-      if (rows.length === 0) {
-        console.warn('[Sync] Headers encontrados:', header);
-        console.warn('[Sync] Exemplo de linha bruta:', splitLine(lines[1]));
-        toast.error(`Nenhum colaborador encontrado. Veja o console para detalhes.`, { id: toastId });
+      const { data, error } = await supabase.functions.invoke('sync-collaborators', { body: { source: 'manual' } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.skipped) {
+        toast.info(data.reason || 'Sincronização já em andamento.', { id: toastId });
         return;
       }
-
-      console.log(`[Sync] Iniciando processamento de ${rows.length} colaboradores validados (de ${lines.length - 1} linhas totais na planilha).`);
-      
-      let totalUpdated = 0;
-      let totalInserted = 0;
-      let totalPromoted = 0;
-      let totalRemoved = 0;
-      const BATCH = 50;
-      const matchedIds = new Set<string>(); // IDs que existem na planilha
-
-      const failedRows: string[] = [];
-
-      // Helper: remove acentos para comparação robusta de nomes
-      const stripAccents = (s: string) =>
-        s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
-
-      for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH);
-        
-        for (const row of batch) {
-          const normName = stripAccents(row.name);
-          const existing = freshCollaborators.find(c =>
-            // Match por OPSID (mais confiável)
-            (c.opsid && row.opsid && c.opsid.trim().toUpperCase() === row.opsid.trim().toUpperCase()) ||
-            // Match por nome sem acentos (tolerante a variações)
-            (stripAccents(c.name) === normName)
-          );
-
-          if (existing) {
-            if (existing.is_onboarding) totalPromoted++;
-            matchedIds.add(existing.id); // marca como presente na planilha
-            const { error } = await supabase.from('collaborators').update(row).eq('id', existing.id);
-            if (error) {
-              console.error(`[Sync] ERRO ao atualizar "${row.name}":`, error.message, '| Dados:', row);
-              failedRows.push(row.name);
-            } else {
-              totalUpdated++;
-            }
-          } else {
-            const { error: insertError } = await supabase.from('collaborators').insert(row);
-            if (insertError) {
-              console.error(`[Sync] ERRO ao inserir "${row.name}":`, insertError.message, '| Dados:', row);
-              failedRows.push(row.name);
-              // Se falhou ao inserir, tenta encontrar no banco por nome (pode ser duplicata)
-              // e marca como presente para evitar remoção incorreta
-              const { data: existing2 } = await supabase
-                .from('collaborators')
-                .select('id')
-                .ilike('name', row.name.trim())
-                .eq('is_onboarding', false)
-                .maybeSingle();
-              if (existing2?.id) matchedIds.add(existing2.id);
-            } else {
-              totalInserted++;
-              // Busca o ID do recém-inserido para marcar como presente
-              const { data: inserted } = await supabase
-                .from('collaborators')
-                .select('id')
-                .eq('name', row.name)
-                .eq('soc', row.soc)
-                .maybeSingle();
-              if (inserted?.id) matchedIds.add(inserted.id);
-            }
-          }
-        }
-      }
-
-      if (failedRows.length > 0) {
-        console.warn(`[Sync] ${failedRows.length} registros falharam:`, failedRows);
-      }
-
-      // ── REMOÇÃO: colaboradores da Base Ativa que sumiram da planilha ──────────
-      // Apenas remove os que são is_onboarding = false (base ativa), para não
-      // apagar quem ainda está no fluxo de integração.
-      const activosNoBanco = freshCollaborators.filter(c => !c.is_onboarding);
-      const idsParaRemover = activosNoBanco
-        .filter(c => !matchedIds.has(c.id))
-        .map(c => c.id);
-
-      if (idsParaRemover.length > 0) {
-        console.log(`[Sync] ${idsParaRemover.length} colaboradores não encontrados na planilha. Removendo...`);
-        const CHUNK = 100;
-        for (let i = 0; i < idsParaRemover.length; i += CHUNK) {
-          const chunk = idsParaRemover.slice(i, i + CHUNK);
-          const { error: delErr } = await supabase
-            .from('collaborators')
-            .delete()
-            .in('id', chunk);
-          if (delErr) {
-            console.error('[Sync] Erro ao remover desligados:', delErr.message);
-          } else {
-            totalRemoved += chunk.length;
-          }
-        }
-      }
-      // ──────────────────────────────────────────────────────────────────────────
-
-      // Summary of sync
-      const totalProcessed = totalInserted + totalUpdated;
-      const totalInSheet = lines.length - 1;
-      const diff = totalInSheet - totalProcessed;
-
-      console.log(`[Sync] Processamento finalizado. Inseridos: ${totalInserted}, Atualizados: ${totalUpdated}, Removidos: ${totalRemoved}.`);
-      if (diff > 0) {
-        console.warn(`[Sync] ${diff} linhas foram ignoradas ou unificadas (duplicatas).`);
-      }
-
-      const removedMsg = totalRemoved > 0 ? ` | ${totalRemoved} desligados removidos.` : '';
-      toast.success(`Sincronização concluída! ${totalInserted} novos, ${totalUpdated} atualizados${removedMsg} (${rows.length} válidos)`, { id: toastId });
-      
-      // Update last sync time
+      toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
       localStorage.setItem('last_gsheet_sync', new Date().toISOString());
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: ['collaborators'] });
     } catch (err: any) {
-      console.error('[GSheet Sync Error]', err);
-      toast.error('Erro na sincronização: ' + (err.message || 'Erro desconhecido'), { id: toastId });
+      toast.error('Erro na sincronização: ' + (err?.message || 'Erro desconhecido'), { id: toastId });
     } finally {
       isSyncing.current = false;
     }
   };
+
 
   const isTrained = (c: Collaborator) => {
     return trainings.some((t) => {
@@ -426,43 +214,9 @@ export default function CollaboratorsPage() {
     });
   };
 
-  useEffect(() => {
-    const checkAutoSync = () => {
-      if (!isAdmin || authLoading) return;
-
-      const lastSyncStr = localStorage.getItem('last_gsheet_sync');
-      const now = new Date();
-      // Brasilia Today
-      const localNow = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-      const today = localNow.toISOString().split('T')[0];
-      
-      const configTime = localStorage.getItem('auto_sync_hour') || '05:00';
-      const [configH, configM] = configTime.split(':').map(Number);
-      
-      const targetTime = new Date();
-      targetTime.setHours(configH, configM, 0, 0);
-
-      if (now >= targetTime) {
-        const lastSyncDate = lastSyncStr ? new Date(lastSyncStr).toISOString().split('T')[0] : '';
-        const lastSyncFullDate = lastSyncStr ? new Date(lastSyncStr) : null;
-
-        // If never synced OR last sync was NOT today OR last sync was today but BEFORE target time
-        if (!lastSyncStr || lastSyncDate !== today || (lastSyncFullDate && lastSyncFullDate < targetTime)) {
-          handleGSheetSync(true);
-        }
-      }
-    };
-
-    // Delay auto-sync slightly to ensure collaborators are loaded for matching
-    if (collaborators.length > 0) {
-      const timeout = setTimeout(checkAutoSync, 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [isAdmin, authLoading, collaborators.length]);
-
-  // collaborators + trainings juntos podem passar de 28 mil linhas — sem
-  // memo, esse filtro (que chama isTrained por colaborador) rodava de novo
-  // a cada tecla digitada na busca, cada clique de filtro e cada re-render.
+  // Sem memo, esse filtro (que chama isTrained por colaborador) rodava de
+  // novo a cada tecla digitada na busca, cada clique de filtro e cada
+  // re-render.
   const filtered = useMemo(() => collaborators.filter(c => {
     // Current Tab filtering
     const isEmOnboarding = c.is_onboarding === true;
@@ -521,6 +275,17 @@ export default function CollaboratorsPage() {
   }), [collaborators, trainings, currentTab, search, selectedSoc, selectedLeader, selectedShift, statusFilter, dateFrom, dateTo, onboardingModuleFilter, profile?.soc]);
 
   const displayTotal = filtered.length;
+
+  // Paginação da RENDERIZAÇÃO — a busca já filtra "filtered" por inteiro antes
+  // de paginar, então o resultado aparece não importa em qual página estaria.
+  // (O mesmo bug existia na tela de Assinaturas: paginar a QUERY sem também
+  // fazer a busca no servidor faz a busca só olhar a página carregada.)
+  const PAGE_SIZE = 100;
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [search, selectedSoc, selectedLeader, selectedShift, statusFilter, currentTab, dateFrom, dateTo, onboardingModuleFilter]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedList = useMemo(() => filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [filtered, page]);
+
   const totalLeaders = useMemo(() => new Set(
     filtered
       .map(c => c.leader?.trim().toUpperCase())
@@ -648,145 +413,35 @@ export default function CollaboratorsPage() {
     setSelectedIds(next);
   };
 
-  const syncLeaders = async () => {
-    const toastId = toast.loading('Sincronizando líderes...', { duration: 0 });
-    try {
-      const leaderMap = new Map<string, string>();
-      collaborators.forEach(c => {
-        if (c.leader && c.leader.trim() !== '') {
-          const upper = c.leader.trim().toUpperCase();
-          if (!leaderMap.has(upper)) {
-            leaderMap.set(upper, c.soc || 'ALL');
-          }
-        }
-      });
-
-      const existingNames = new Set(collaborators.map(c => c.name?.trim().toUpperCase()));
-      const toInsert: any[] = [];
-
-      for (const [leaderName, soc] of leaderMap.entries()) {
-        if (!existingNames.has(leaderName)) {
-          toInsert.push({
-            name: leaderName,
-            role: 'LÍDER',
-            soc: soc || 'ALL',
-            is_onboarding: false
-          });
-        }
-      }
-
-      if (toInsert.length === 0) {
-        toast.success('Todos os líderes já estão cadastrados na base!', { id: toastId });
-        return;
-      }
-
-      const { error } = await supabase.from('collaborators').insert(toInsert);
-      if (error) throw error;
-      
-      toast.success(`${toInsert.length} líderes cadastrados com sucesso!`, { id: toastId });
-      window.location.reload();
-    } catch (err: any) {
-      toast.error('Erro ao sincronizar líderes: ' + err.message, { id: toastId });
-    }
-  };
-
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      // Read as text with UTF-8, strip BOM if present
-      let text = await file.text();
-      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const text = await file.text();
+      const { header, rows: rawRows } = parseDelimitedText(text);
 
-      // Normalize line endings
-      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
-
-      if (lines.length < 2) {
+      if (rawRows.length === 0) {
         toast.error('CSV vazio ou sem dados além do cabeçalho.');
         e.target.value = '';
         return;
       }
-
-      // Detect separator from first line
-      const firstLine = lines[0];
-      const sep = firstLine.includes(';') ? ';' : ',';
-
-      // Smart split that respects quoted values
-      const splitLine = (line: string) => {
-        const result: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') {
-            inQuotes = !inQuotes;
-          } else if (ch === sep && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-          } else {
-            current += ch;
-          }
-        }
-        result.push(current.trim());
-        return result;
-      };
-
-      // Normalize header for robust matching (remove accents)
-      const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      const header = splitLine(firstLine).map(normalize);
       console.log('[CSV] Cabeçalho detectado:', header);
 
       const isUploadingToOnboarding = currentTab === 'onboarding';
 
-      const rows = lines.slice(1).map((line, idx) => {
-        const p = splitLine(line);
-        // Map ONLY by header name — no positional fallback to avoid misalignment
-        const getByHeader = (names: string[]) => {
-          for (const n of names) {
-            const normalizedN = normalize(n);
-            const i = header.indexOf(normalizedN);
-            if (i >= 0 && p[i]) return p[i].trim();
-          }
-          return '';
-        };
-
-        // Parse admission date from CSV (dd/mm/yyyy → yyyy-mm-dd)
-        const admRaw = getByHeader(['data de admissão', 'data de admissao', 'data admissao', 'admissao', 'admission']);
-        let admissionDate: string | null = null;
-        if (admRaw && admRaw.includes('/')) {
-          const parts = admRaw.split('/');
-          if (parts.length === 3) {
-            const [day, month, year] = parts;
-            const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-            const d = new Date(iso);
-            if (!isNaN(d.getTime())) admissionDate = iso;
+      const rows = rawRows.map(cells => {
+        const mapped = mapCollaboratorRow(cells, header);
+        const row: any = { ...mapped };
+        // Sem data de admissão informada, onboarding assume hoje (horário de Brasília).
+        if (!row.admission_date) {
+          if (isUploadingToOnboarding) {
+            const localDate = new Date(Date.now() - 3 * 60 * 60 * 1000); // UTC-3
+            row.admission_date = localDate.toISOString().split('T')[0];
+          } else {
+            delete row.admission_date;
           }
         }
-
-        const row: any = {
-          name: getByHeader(['colaborador', 'nome', 'name', 'colaboradores']),
-          gender: getByHeader(['genero', 'gênero', 'gender', 'sexo']),
-          role: getByHeader(['cargo', 'role', 'funcao', 'função']),
-          soc: getByHeader(['soc', 'unidade', 'unit']).toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2'),
-          opsid: getByHeader(['opsid', 'ops id', 'matricula', 'id']),
-          bpo: getByHeader(['bpo', 'empresa']),
-          shift: getByHeader(['turno', 'shift', 'periodo']),
-          sector: getByHeader(['setor', 'sector', 'area', 'área']),
-          leader: getByHeader(['lider', 'líder', 'leader', 'gestor']),
-          activity: getByHeader(['atividade', 'activity', 'funcao real']),
-        };
-
-        // Set admission date: from CSV or default to today for onboarding
-        if (admissionDate) {
-          row.admission_date = admissionDate;
-        } else if (isUploadingToOnboarding) {
-          // Use local date (Brasilia) instead of UTC
-          const now = new Date();
-          const localDate = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
-          row.admission_date = localDate.toISOString().split('T')[0];
-        }
-
         return row;
       }).filter(r => r.name && r.name.length > 1);
 
@@ -941,27 +596,21 @@ export default function CollaboratorsPage() {
               <Upload size={14} /> Importar
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            {isAdmin && profile?.full_name?.toUpperCase() === 'YGOR MADUREIRA' && (
+            {isAdmin && (
               <div className="flex flex-col items-end gap-1">
                 <div className="flex gap-2">
-                  <button 
-                    onClick={syncLeaders} 
-                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-wider hover:bg-amber-100 transition-all border border-amber-200"
-                  >
-                    <RefreshCw size={14} /> Sync Líderes
-                  </button>
-                  <button 
-                    onClick={() => handleGSheetSync()} 
+                  <button
+                    onClick={() => handleGSheetSync()}
                     className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
+                    title="A sincronização automática já roda todo dia às 05h — use este botão só se precisar forçar uma atualização agora."
                   >
                     <RefreshCw size={14} /> Sincronizar Sheets
                   </button>
                 </div>
-                {localStorage.getItem('last_gsheet_sync') && (
-                  <span className="text-[7px] font-bold text-gray-400 uppercase mr-2">
-                    Última Sinc: {new Date(localStorage.getItem('last_gsheet_sync')!).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                  </span>
-                )}
+                <span className="text-[7px] font-bold text-gray-400 uppercase mr-2">
+                  Sincronização automática diária às 05h
+                  {localStorage.getItem('last_gsheet_sync') && ` • Última manual: ${new Date(localStorage.getItem('last_gsheet_sync')!).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`}
+                </span>
               </div>
             )}
             <button 
@@ -1255,7 +904,7 @@ export default function CollaboratorsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtered.map((c) => (
+              {pagedList.map((c) => (
                 <tr key={c.id} className={`group transition-colors ${selectedIds.has(c.id) ? 'bg-[#FEF6F5]' : 'hover:bg-gray-50/50'}`}>
                   {isAdmin && (
                     <td className="p-2.5">
@@ -1348,7 +997,9 @@ export default function CollaboratorsPage() {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && (
+          {dataLoading ? (
+            <div className="py-20 text-center text-gray-400 text-sm">Carregando colaboradores...</div>
+          ) : filtered.length === 0 && (
              <div className="py-20 flex flex-col items-center justify-center text-center px-4">
                 <Search size={40} className="text-gray-100 mb-3" />
                 <h3 className="text-gray-900 font-bold text-sm">Nenhum resultado</h3>
@@ -1356,6 +1007,30 @@ export default function CollaboratorsPage() {
              </div>
           )}
         </div>
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              {page * PAGE_SIZE + 1}–{Math.min(filtered.length, (page + 1) * PAGE_SIZE)} de {filtered.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="p-1.5 rounded-lg bg-white border border-gray-100 text-gray-500 disabled:opacity-30 hover:text-[#EE4D2D] transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-black text-gray-600">{page + 1} / {totalPages}</span>
+              <button
+                onClick={() => setPage(p => (p + 1 < totalPages ? p + 1 : p))}
+                disabled={page + 1 >= totalPages}
+                className="p-1.5 rounded-lg bg-white border border-gray-100 text-gray-500 disabled:opacity-30 hover:text-[#EE4D2D] transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
