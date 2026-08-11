@@ -182,7 +182,22 @@ export default function CollaboratorsPage() {
         toast.info(data.reason || 'Sincronização já em andamento.', { id: toastId });
         return;
       }
-      toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
+      // Erros de gravação NÃO podem passar despercebidos: no incidente de
+      // 11/08 a tela mostrou "concluída, 0 removidos" enquanto a maior parte
+      // dos lotes falhava e a base era esvaziada por baixo.
+      if (data?.errors?.length) {
+        console.error('[Sync] Erros de gravação:', data.errors);
+        toast.error(
+          `Sincronização com falhas: ${data.errors.length} lote(s) não gravaram. ` +
+          (data.deletionSkipped ? 'Nenhum colaborador foi removido. ' : '') +
+          'Veja o console para o detalhe.',
+          { id: toastId, duration: 15000 }
+        );
+      } else if (data?.deletionSkipped) {
+        toast.warning(`${data.upserted} atualizados/inseridos. ${data.deletionSkipped}`, { id: toastId, duration: 12000 });
+      } else {
+        toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
+      }
       localStorage.setItem('last_gsheet_sync', new Date().toISOString());
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
     } catch (err: any) {

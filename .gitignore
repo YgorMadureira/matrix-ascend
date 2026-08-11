@@ -25,3 +25,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Pacote de resgate do incidente 11/08 — contem imagens de assinatura (dado pessoal)
+resgate_pos_backup_*.json

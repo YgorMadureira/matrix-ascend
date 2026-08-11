@@ -36,16 +36,53 @@ export function splitDelimitedLine(line: string, sep: string): string[] {
   return result;
 }
 
+/**
+ * Varre o CSV caractere a caractere, devolvendo todas as linhas.
+ *
+ * Precisa ser assim (e não "quebra por \n, depois interpreta cada linha"):
+ * um campo entre aspas pode conter QUEBRA DE LINHA dentro. A planilha real
+ * tinha 24 casos disso em 11/08/2026, e a versão que quebrava por \n primeiro
+ * transformava essas linhas em lixo — foi uma das causas do incidente que
+ * apagou a base de colaboradores.
+ */
+export function parseCsvRows(text: string, sep: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i += 2; continue; } // "" = aspas literal
+        inQuotes = false; i++; continue;
+      }
+      cell += ch; i++; continue;
+    }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === sep) { row.push(cell.trim()); cell = ''; i++; continue; }
+    if (ch === '\r') { i++; continue; }
+    if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; continue; }
+    cell += ch; i++;
+  }
+  if (cell.length > 0 || row.length > 0) { row.push(cell.trim()); rows.push(row); }
+  return rows;
+}
+
 /** Lê o texto bruto do arquivo/planilha e devolve o cabeçalho normalizado + linhas de dados. */
 export function parseDelimitedText(rawText: string): ParsedCsv {
   let text = rawText;
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
-  if (lines.length < 1) return { header: [], rows: [] };
+  if (!text.trim()) return { header: [], rows: [] };
 
-  const sep = detectSeparator(lines[0]);
-  const header = splitDelimitedLine(lines[0], sep).map(normalizeHeaderText);
-  const rows = lines.slice(1).map(line => splitDelimitedLine(line, sep));
+  const firstBreak = text.indexOf('\n');
+  const sep = detectSeparator(text.slice(0, firstBreak === -1 ? text.length : firstBreak));
+  const all = parseCsvRows(text, sep);
+  if (all.length < 1) return { header: [], rows: [] };
+
+  const header = all[0].map(normalizeHeaderText);
+  const rows = all.slice(1).filter(r => r.some(c => c !== ''));
   return { header, rows };
 }
 

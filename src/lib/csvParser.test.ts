@@ -41,6 +41,48 @@ describe('csvParser — normalizeHeaderText', () => {
   });
 });
 
+// Casos extraídos da planilha real que causaram o incidente de 11/08/2026:
+// campos entre aspas com quebra de linha dentro. A versão antiga do parser
+// quebrava o texto por \n antes de olhar as aspas e destruía essas linhas.
+describe('csvParser — campos com quebra de linha dentro de aspas (regressão do incidente)', () => {
+  it('mantém a linha inteira quando o campo entre aspas tem \\n dentro', () => {
+    const text = 'Colaborador,Ops ID,BPO,SOC\nMAYARA DOS SANTOS PAGINE,"Ops398312\n",GI Group,PR4';
+    const { header, rows } = parseDelimitedText(text);
+    expect(header).toEqual(['colaborador', 'ops id', 'bpo', 'soc']);
+    expect(rows).toHaveLength(1);
+    expect(rows[0][0]).toBe('MAYARA DOS SANTOS PAGINE');
+    expect(rows[0][2]).toBe('GI Group');
+    expect(rows[0][3]).toBe('PR4');
+  });
+
+  it('não deixa o nome absorver o resto da linha (o bug "Ops260982,SPX,AUXILIAR...")', () => {
+    const text = 'Colaborador,Ops ID,BPO,Cargo,Desligado,SOC\n"\nFERNANDA GABRIELLE",Ops496065,RANDSTAD,AUXILIAR DE LOGISTICA,,SP6';
+    const { rows } = parseDelimitedText(text);
+    expect(rows).toHaveLength(1);
+    expect(rows[0][0]).not.toContain(',');
+    expect(rows[0][1]).toBe('Ops496065');
+  });
+
+  it('trata aspas escapadas ("") como aspas literal, sem quebrar o campo', () => {
+    const text = 'Colaborador,Setor\n"MARIA ""LETICIA"" MORAES",PROCESSAMENTO';
+    const { rows } = parseDelimitedText(text);
+    expect(rows[0][0]).toBe('MARIA "LETICIA" MORAES');
+    expect(rows[0][1]).toBe('PROCESSAMENTO');
+  });
+
+  it('todas as linhas mantêm a mesma contagem de colunas do cabeçalho', () => {
+    const text = [
+      'Colaborador,Ops ID,SOC',
+      'ANA SILVA,Ops1,SP6',
+      'BRUNO "O" COSTA,"Ops2\n",SP5',
+      'CARLA LIMA,Ops3,SP8',
+    ].join('\n');
+    const { header, rows } = parseDelimitedText(text);
+    expect(rows).toHaveLength(3);
+    rows.forEach(r => expect(r).toHaveLength(header.length));
+  });
+});
+
 describe('csvParser — parseDelimitedText', () => {
   it('separa cabeçalho normalizado e linhas de dados', () => {
     const text = 'Colaborador,SOC,Setor\nJoão Silva,SP6,RECEBIMENTO\nMaria Souza,SP5,PROCESSAMENTO';
