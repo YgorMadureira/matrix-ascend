@@ -2,15 +2,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { BarChart2, Users, CheckCircle2, Percent, Trophy, Medal, Award } from 'lucide-react';
+import { BarChart2, Users, CheckCircle2, Percent, Trophy, Medal, Award, AlertCircle } from 'lucide-react';
+import {
+  calculateAreaStats,
+  calculateOverallTrainedPct,
+  calculateSocHealth,
+  type CollaboratorLite,
+  type MicroTraining,
+  type SocHealthResult,
+} from '@/lib/trainingRules';
 
 const SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'] as const;
-const ALL_CORE_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
 
-
-interface SectorStat  { sector: string; total: number; trained: number; pct: number }
-interface SocRank     { soc: string;   total: number; trained: number; pct: number }
-interface HealthState { pct: number; completed: number; total: number }
+interface SectorStat { sector: string; total: number; trained: number; pct: number }
+interface SocRank extends SocHealthResult { soc: string; totalCollaborators: number }
+interface CollabRow { id: string; sector: string; leader: string; soc: string; role: string }
+interface TrainingRow { collaborator_id: string; training_type: string }
 
 // ── Nível de saúde (cores SUTIS, sem glow/pulse) ───────────────
 const getLevel = (pct: number) => {
@@ -76,51 +83,6 @@ const getLevel = (pct: number) => {
   };
 };
 
-// ── Verifica conclusão de micro-treinamento (mesma lógica do ReportsPage) ──
-const checkMicroCompleted = (
-  collabId: string,
-  microName: string,
-  macroArea: string,
-  trainingsMap: Map<string, string[]>
-): boolean => {
-  const types = trainingsMap.get(collabId) || [];
-  const macro = macroArea.toUpperCase();
-  const req   = microName.toUpperCase();
-  const isCore = macro === 'RECEBIMENTO' || macro === 'PROCESSAMENTO' || macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO';
-
-  return types.some(tType => {
-    // Onboarding PTS (ou qualquer Onboarding) valida todas as 3 áreas core
-    if (tType.includes('ONBOARDING PTS') && isCore) return true;
-    if (tType.includes('ONBOARDING')     && isCore) return true;
-
-    // Treinamento Padrão SOC por área
-    const isPadrao = tType.includes('PADRÃO SOC') || tType.includes('PADRAO SOC') || tType.includes('TREINAMENTO PADRÃO') || tType.includes('TREINAMENTO PADRAO');
-    
-    if (isPadrao && tType.includes('RECEBIMENTO')   && (macro === 'RECEBIMENTO'   || req.includes('RECEBIMENTO')))   return true;
-    if (isPadrao && tType.includes('PROCESSAMENTO') && (macro === 'PROCESSAMENTO' || req.includes('PROCESSAMENTO'))) return true;
-    if (isPadrao && (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO')) && (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO' || req.includes('EXPEDIÇ') || req.includes('EXPEDIC'))) return true;
-
-    // Match direto pelo nome exato do treinamento
-    return tType === req || tType.includes(req) || req.includes(tType);
-  });
-};
-
-// Normaliza o setor/macro-área do colaborador
-const normalizeMacro = (raw?: string): string => {
-  const u = (raw || '').toUpperCase().trim();
-  if (u.includes('RECEBIMENTO')) return 'RECEBIMENTO';
-  if (u.includes('PROCESSAMENTO')) return 'PROCESSAMENTO';
-  if (u.includes('EXPEDIÇ') || u.includes('EXPEDIC')) return 'EXPEDIÇÃO';
-  return u;
-};
-
-// ── Verifica se colaborador tem qualquer treinamento core (para ranking) ──
-const hasAnyCore = (collabId: string, trainingsMap: Map<string, string[]>, coreTypes: string[]): boolean => {
-  const types = trainingsMap.get(collabId) || [];
-  return types.some(t => t.includes('ONBOARDING') || coreTypes.some(c => t.includes(c)));
-};
-
-
 // ── Pódio ─────────────────────────────────────────────────────
 const PODIUM_CONFIG = [
   { rank: 2, label: '2° Lugar', height: 'h-20', Icon: Medal,  iconColor: 'text-slate-400', cardBorder: 'border-slate-200', rankBg: 'bg-slate-300 text-slate-700', top: 'mt-10' },
@@ -134,18 +96,18 @@ export default function DashboardPage() {
 
   // Filtra ASM quando a SOC não possui sorting
   const showAsm = socHasSorting !== false;
-  const CORE_TYPES = showAsm ? ALL_CORE_TYPES : ALL_CORE_TYPES.filter(t => t !== 'ASM');
-
 
   const [stats,      setStats]      = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0, trainedCount: 0 });
-  const [health,     setHealth]     = useState<HealthState>({ pct: 0, completed: 0, total: 0 });
+  const [health,     setHealth]     = useState<SocHealthResult>({ eligible: false, microCount: 0, minRequired: 14, missing: 14, evaluatedCollaborators: 0, healthPct: 0 });
   const [sectorStats,setSectorStats]= useState<SectorStat[]>([]);
   const [socRanking, setSocRanking] = useState<SocRank[]>([]);
+  const [loading,    setLoading]    = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
-      // ── 1. Colaboradores ────────────────────────────────────
-      const allCollabs: { id: string; sector: string; leader: string; soc: string; role: string }[] = [];
+      setLoading(true);
+      // ── 1. Colaboradores (todas as SOCs — necessário para o ranking) ──
+      const allCollabs: CollabRow[] = [];
       let page = 0; const limit = 1000; let hasMore = true;
       while (hasMore) {
         const { data } = await supabase.from('collaborators').select('id, sector, leader, role, soc').range(page * limit, (page + 1) * limit - 1);
@@ -159,8 +121,8 @@ export default function DashboardPage() {
         supabase.from('trainings_completed').select('id', { count: 'exact', head: true }),
       ]);
 
-      // ── 3. Treinamentos concluídos ──────────────────────────
-      const allTrainings: any[] = [];
+      // ── 3. Treinamentos concluídos (todas as SOCs) ───────────
+      const allTrainings: TrainingRow[] = [];
       let tPage = 0; let tHasMore = true;
       while (tHasMore) {
         const { data, error } = await supabase.from('trainings_completed').select('collaborator_id, training_type').range(tPage * limit, (tPage + 1) * limit - 1);
@@ -169,44 +131,30 @@ export default function DashboardPage() {
         else tHasMore = false;
       }
 
-      // ── 4. Micro-treinamentos das 3 áreas core (somente os cadastrados em Processos Micros / Matriz) ──
-      const userSoc = profile?.soc || '';
-      const { data: microData } = userSoc
-        ? await supabase.from('soc_micro_trainings').select('macro_area, name').eq('soc_name', userSoc)
-        : { data: [] };
-
-      // Usa SOMENTE os micro-treinamentos cadastrados para este SOC (sem fallback hardcoded)
-      const microByMacro = new Map<string, string[]>();
-      if (microData && microData.length > 0) {
-        microData.forEach((m: any) => {
-          const normKey = normalizeMacro(m.macro_area);
-          if (['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].includes(normKey)) {
-            const arr = microByMacro.get(normKey) || [];
-            arr.push(m.name);
-            microByMacro.set(normKey, arr);
-          }
-        });
-      }
-
-      // Lista consolidada de TODOS os treinamentos específicos cadastrados para este SOC
-      const allCoreMicroTrainings: { name: string; macro: string }[] = [];
-      ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].forEach(macroKey => {
-        const items = microByMacro.get(macroKey) || [];
-        items.forEach(tName => {
-          allCoreMicroTrainings.push({ name: tName, macro: macroKey });
-        });
+      // ── 4. Micro-processos de TODAS as SOCs (necessário para o ranking) + tabela socs (has_sorting) ──
+      const [{ data: allMicros }, { data: socsData }] = await Promise.all([
+        supabase.from('soc_micro_trainings').select('soc_name, macro_area, name'),
+        supabase.from('socs').select('name, has_sorting'),
+      ]);
+      const microsBySoc = new Map<string, MicroTraining[]>();
+      (allMicros ?? []).forEach((m: { soc_name: string; macro_area: string; name: string }) => {
+        const arr = microsBySoc.get(m.soc_name) || [];
+        arr.push({ name: m.name, macro_area: m.macro_area });
+        microsBySoc.set(m.soc_name, arr);
       });
-      const totalCoreTrainingsCount = allCoreMicroTrainings.length;
+      const sortingBySoc = new Map<string, boolean>(
+        (socsData ?? []).map((s: { name: string; has_sorting: boolean | null }) => [s.name, !!s.has_sorting])
+      );
 
-      // ── 5. Mapa de treinamentos por colaborador ─────────────
-      const trainingsMap = new Map<string, string[]>();
+      // ── 5. Mapa de treinamentos por colaborador (O(1) lookup) ──
+      const trainingsByCollabId = new Map<string, string[]>();
       allTrainings.forEach(t => {
-        const arr = trainingsMap.get(t.collaborator_id) || [];
-        arr.push((t.training_type || '').toUpperCase());
-        trainingsMap.set(t.collaborator_id, arr);
+        const arr = trainingsByCollabId.get(t.collaborator_id) || [];
+        arr.push(t.training_type || '');
+        trainingsByCollabId.set(t.collaborator_id, arr);
       });
 
-      // ── 6. Filtro de colaboradores do usuário ───────────────
+      // ── 6. Filtro de colaboradores do usuário (Meu Time) ────
       const matchLeader = (collabLeader: string): boolean => {
         const cL = (collabLeader ?? '').trim().toUpperCase();
         if (!cL) return false;
@@ -219,114 +167,104 @@ export default function DashboardPage() {
         if (lw.length > 0 && lw.every(w => pName.includes(w))) return true;
         return false;
       };
+      const userSoc = profile?.soc || '';
       const socCollabs = userSoc ? allCollabs.filter(c => c.soc === userSoc) : allCollabs;
       const collabs    = isLider ? socCollabs.filter(c => matchLeader(c.leader)) : socCollabs;
       const totalCollabs = collabs.length;
 
-      // ── 7. Índice de saúde (Média do % de conclusão de cada colaborador sobre o TOTAL das 3 áreas) ──
-      // Exemplo do modelo:
-      // Total de treinamentos específicos (Recebimento + Processamento + Expedição) = N (ex: 14)
-      // Bruno concluiu 7 treinamentos dos 14 = 50%
-      // Ygor concluiu 14 treinamentos dos 14 = 100%
-      // Saúde do SOC = Média(50%, 100%) = 75%
-      let sumCollaboratorPcts = 0;
-      let evalCollabCount     = 0;
+      // ── 7. Índice de Saúde do "Meu Time" (motor único — src/lib/trainingRules.ts) ──
+      const userMicros = microsBySoc.get(userSoc) || [];
+      const socHealth = calculateSocHealth(userMicros, collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
+      setHealth(socHealth);
 
-      if (totalCoreTrainingsCount > 0) {
-        collabs.forEach(c => {
-          const collabMacro = normalizeMacro(c.sector || c.role);
-          if (['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'].includes(collabMacro)) {
-            let completedCount = 0;
-            allCoreMicroTrainings.forEach(item => {
-              if (checkMicroCompleted(c.id, item.name, item.macro, trainingsMap)) {
-                completedCount++;
-              }
-            });
-
-            const indivPct = (completedCount / totalCoreTrainingsCount) * 100;
-            sumCollaboratorPcts += indivPct;
-            evalCollabCount++;
-          }
-        });
-      }
-
-      const healthPct = evalCollabCount > 0
-        ? Number((sumCollaboratorPcts / evalCollabCount).toFixed(1))
-        : 0;
-
-      setHealth({ pct: healthPct, completed: totalCoreTrainingsCount, total: evalCollabCount });
-
-      // ── 8. Stats gerais (cards) ─────────────────────────────
-      const trainedCollabIds = new Set(
-        allTrainings.filter(t => collabs.some(c => c.id === t.collaborator_id)).map(t => t.collaborator_id)
-      );
-      const pct = totalCollabs > 0 ? Math.round((trainedCollabIds.size / totalCollabs) * 100) : 0;
+      // ── 8. Cards gerais — "% Treinados" usa a MESMA regra da Matriz/gráfico ──
+      const areaStats = calculateAreaStats(collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
+      const overall = calculateOverallTrainedPct(areaStats);
 
       setStats({
         collaborators: totalCollabs,
         materials:     mCount.count ?? 0,
-        trainings:     isLider ? trainedCollabIds.size : (tCount.count ?? 0),
-        trainedPct:    pct,
-        trainedCount:  trainedCollabIds.size,
+        trainings:     isLider ? overall.trained : (tCount.count ?? 0),
+        trainedPct:    overall.pct,
+        trainedCount:  overall.trained,
       });
 
-      // ── 9. Stats por setor ──────────────────────────────────
+      // ── 9. Desempenho por Macro-Setor (não alterado — RECEBIMENTO/PROCESSAMENTO/
+      //      EXPEDIÇÃO/TRATATIVAS/HSE/PEOPLE; HSE e PEOPLE avaliam todo o time) ──
+      const trainingsByCollabUpper = new Map<string, string[]>();
+      trainingsByCollabId.forEach((types, id) => trainingsByCollabUpper.set(id, types.map(t => t.toUpperCase())));
       const sStats: SectorStat[] = SECTORS.map(sector => {
         const isTransversal = sector === 'HSE' || sector === 'PEOPLE';
         const targetCollabs = isTransversal ? collabs : collabs.filter(c => c.sector?.toUpperCase() === sector);
         const total = targetCollabs.length;
-        const trained = targetCollabs.filter(c =>
-          allTrainings.some(t => {
-            if (t.collaborator_id !== c.id) return false;
-            const tType = t.training_type?.toUpperCase() ?? '';
+        const trained = targetCollabs.filter(c => {
+          const types = trainingsByCollabUpper.get(c.id) || [];
+          const cRole = c.role?.toUpperCase() ?? '';
+          const isCore = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO'].includes(sector) || sector.includes('LOGISTICA') || cRole.includes('LOGISTICA');
+          return types.some(tType => {
             if (isTransversal) return tType.includes(sector);
-            const cRole = c.role?.toUpperCase() ?? '';
-            const isCore = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO'].includes(sector) || sector.includes('LOGISTICA') || cRole.includes('LOGISTICA');
             if (isCore && tType.includes('ONBOARDING')) return true;
             return tType.includes(sector) || sector.includes(tType) || (cRole && (tType.includes(cRole) || cRole.includes(tType)));
-          })
-        ).length;
+          });
+        }).length;
         return { sector, total, trained, pct: total > 0 ? Math.round((trained / total) * 100) : 0 };
       });
       setSectorStats(sStats);
 
-      // ── 10. Ranking de SOCs (% com qualquer training core) ──
-      const socGroups = new Map<string, string[]>();
-      allCollabs.forEach(c => { if (!c.soc) return; const a = socGroups.get(c.soc) || []; a.push(c.id); socGroups.set(c.soc, a); });
+      // ── 10. Ranking de Saúde dos SOCs — TODAS as unidades aparecem;
+      //       elegíveis (≥14 micros core) recebem posição, as demais ficam
+      //       marcadas como "matriz incompleta" com quantos micros faltam. ──
+      const socGroups = new Map<string, CollabRow[]>();
+      allCollabs.forEach(c => { if (!c.soc) return; const a = socGroups.get(c.soc) || []; a.push(c); socGroups.set(c.soc, a); });
+
       const ranking: SocRank[] = [];
-      socGroups.forEach((ids, soc) => {
-        const total   = ids.length;
-        const trained = ids.filter(id => hasAnyCore(id, trainingsMap, CORE_TYPES)).length;
-        const pct     = total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0;
-        ranking.push({ soc, total, trained, pct });
+      socGroups.forEach((list, soc) => {
+        const hasSorting = sortingBySoc.get(soc) ?? false;
+        const socMicros = microsBySoc.get(soc) || [];
+        const result = calculateSocHealth(socMicros, list as CollaboratorLite[], trainingsByCollabId, hasSorting);
+        ranking.push({ soc, totalCollaborators: list.length, ...result });
       });
-      ranking.sort((a, b) => b.pct - a.pct);
+
+      // Desempate: 1º saúde desc, 2º nº de colaboradores desc, 3º sigla (estável).
+      ranking.sort((a, b) => {
+        if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
+        if (a.eligible && b.eligible) {
+          if (b.healthPct !== a.healthPct) return b.healthPct - a.healthPct;
+          if (b.totalCollaborators !== a.totalCollaborators) return b.totalCollaborators - a.totalCollaborators;
+          return a.soc.localeCompare(b.soc);
+        }
+        // Entre as não elegíveis: quem está mais perto de qualificar aparece primeiro.
+        if (a.missing !== b.missing) return a.missing - b.missing;
+        return b.totalCollaborators - a.totalCollaborators;
+      });
       setSocRanking(ranking);
+      setLoading(false);
     };
 
     fetchStats();
-  }, [isLider, profile?.full_name, profile?.soc]);
+  }, [isLider, profile?.full_name, profile?.leader_key, profile?.soc, showAsm]);
 
-  const level = getLevel(health.pct);
+  const level = getLevel(health.healthPct);
 
   const cards = [
-    { label: 'Meu Time',    value: stats.collaborators,    icon: Users,        color: 'text-[#EE4D2D]' },
-    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent,      color: 'text-emerald-600' },
-    { label: 'Materiais',   value: stats.materials,        icon: BarChart2,    color: 'text-[#EE4D2D]' },
-    { label: 'Treinados',   value: stats.trainedCount,     icon: CheckCircle2, color: 'text-amber-500' },
+    { label: 'Meu Time',    value: stats.collaborators,    icon: Users,        color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
+    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent,      color: 'text-emerald-600', iconBg: 'bg-emerald-50' },
+    { label: 'Materiais',   value: stats.materials,        icon: BarChart2,    color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
+    { label: 'Treinados',   value: stats.trainedCount,     icon: CheckCircle2, color: 'text-amber-500',   iconBg: 'bg-amber-50' },
   ];
 
-  const top3 = socRanking.slice(0, 3);
+  const eligibleRanking = socRanking.filter(s => s.eligible);
+  const top3 = eligibleRanking.slice(0, 3);
   // Ordem do pódio: 2° | 1° | 3°
   const podiumOrder = [top3[1], top3[0], top3[2]];
 
-  // Régua de marcos
+  // Régua de marcos — posições ajustadas para não sobrepor rótulos nas pontas
   const RULER = [
-    { label: 'Crítico', pct:  0, color: 'text-red-400'    },
-    { label: 'Bronze',  pct: 70, color: 'text-amber-600'  },
-    { label: 'Prata',   pct: 80, color: 'text-slate-500'  },
-    { label: 'Ouro',    pct: 95, color: 'text-yellow-500' },
-    { label: 'Modelo',  pct: 98, color: 'text-green-500'  },
+    { label: 'Crítico', pct:  1, color: 'text-red-400',    align: 'start'  as const },
+    { label: 'Bronze',  pct: 70, color: 'text-amber-600',  align: 'center' as const },
+    { label: 'Prata',   pct: 80, color: 'text-slate-500',  align: 'center' as const },
+    { label: 'Ouro',    pct: 95, color: 'text-yellow-500', align: 'center' as const },
+    { label: 'Modelo',  pct: 99, color: 'text-green-500',  align: 'end'    as const },
   ];
 
   return (
@@ -361,53 +299,74 @@ export default function DashboardPage() {
               </p>
               <p className={`text-3xl font-black ${level.titleText}`}>{level.name}</p>
               <p className={`text-[10px] font-medium mt-1 ${level.subText}`}>
-                {health.completed > 0 && health.total > 0
-                  ? `Média individual sobre os ${health.completed} treinamentos específicos (Recebimento, Processamento e Expedição)`
-                  : health.completed === 0
-                    ? `Nenhum processo micro cadastrado para ${profile?.soc || 'esta unidade'}. Cadastre em Configurações > Processos Micros (Matriz).`
-                    : `${stats.trainedCount} de ${stats.collaborators} colaboradores treinados`}
+                {health.eligible
+                  ? `Média individual sobre os ${health.microCount} treinamentos específicos cadastrados (Recebimento, Processamento, Expedição${showAsm ? ' e ASM' : ''})`
+                  : `Faltam ${health.missing} processo${health.missing !== 1 ? 's' : ''} micro${health.missing !== 1 ? 's' : ''} para medir a saúde de ${profile?.soc || 'sua unidade'} (mínimo de 14)`}
               </p>
             </div>
           </div>
 
-          {/* Direita: % + barra + régua */}
+          {/* Direita: % + barra + régua, OU aviso de cadastro pendente */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${level.subText}`}>Índice de Saúde</span>
-              <span className={`text-2xl font-black ${level.titleText}`}>{health.pct}%</span>
-            </div>
-
-            {/* Barra de progresso */}
-            <div className={`h-2.5 w-full rounded-full overflow-hidden ${level.barBg}`}>
-              <div
-                className={`h-full rounded-full ${level.barFg} transition-all duration-1000`}
-                style={{ width: `${Math.min(health.pct, 100)}%` }}
-              />
-            </div>
-
-            {/* Régua de níveis */}
-            <div className="relative mt-2 h-6">
-              {RULER.map(m => (
-                <div
-                  key={m.label}
-                  className="absolute flex flex-col items-center"
-                  style={{ left: `${m.pct}%`, transform: 'translateX(-50%)' }}
-                >
-                  <div className={`w-px h-2 ${level.barBg}`} />
-                  <span className={`text-[8px] font-black ${m.color} leading-none`}>{m.label}</span>
+            {health.eligible ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${level.subText}`}>Índice de Saúde</span>
+                  <span className={`text-2xl font-black ${level.titleText}`}>{health.healthPct}%</span>
                 </div>
-              ))}
-            </div>
+
+                {/* Barra de progresso */}
+                <div className={`h-2.5 w-full rounded-full overflow-hidden ${level.barBg}`}>
+                  <div
+                    className={`h-full rounded-full ${level.barFg} transition-all duration-1000`}
+                    style={{ width: `${Math.min(health.healthPct, 100)}%` }}
+                  />
+                </div>
+
+                {/* Régua de níveis */}
+                <div className="relative mt-2 h-6">
+                  {RULER.map(m => (
+                    <div
+                      key={m.label}
+                      className="absolute flex flex-col items-center"
+                      style={{
+                        left: `${m.pct}%`,
+                        transform: m.align === 'start' ? 'translateX(0)' : m.align === 'end' ? 'translateX(-100%)' : 'translateX(-50%)',
+                      }}
+                    >
+                      <div className={`w-px h-2 ${level.barBg}`} />
+                      <span className={`text-[8px] font-black ${m.color} leading-none whitespace-nowrap`}>{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <button
+                onClick={() => navigate('/settings')}
+                className="w-full flex items-center gap-3 p-4 rounded-lg bg-white/70 border border-dashed border-amber-300 hover:bg-white transition-colors text-left"
+              >
+                <AlertCircle size={22} className="text-amber-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black text-gray-800">
+                    {health.microCount} de 14 processos micros cadastrados
+                  </p>
+                  <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                    Cadastre mais {health.missing} em Configurações → Processos Micros para começar a medir a saúde desta unidade.
+                  </p>
+                </div>
+                <span className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-widest shrink-0">Ir →</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* ── Cards de estatísticas ────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map(({ label, value, icon: Icon, color }) => (
+        {cards.map(({ label, value, icon: Icon, color, iconBg }) => (
           <div key={label} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex items-center justify-between mb-3">
-              <div className={`p-2.5 rounded-lg ${color.replace('text-', 'bg-').replace('600', '100').replace('500', '100').replace('[#EE4D2D]', '[#FEF6F5]')}`}>
+              <div className={`p-2.5 rounded-lg ${iconBg}`}>
                 <Icon size={20} className={color} />
               </div>
               <span className="text-2xl font-black text-gray-900">{value}</span>
@@ -443,64 +402,93 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Pódio dos SOCs ──────────────────────────────────── */}
-      {socRanking.length >= 2 && (
+      {/* ── Ranking de Saúde dos SOCs — todas as unidades ──────── */}
+      {!loading && socRanking.length > 0 && (
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div className="mb-6">
             <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
               <Trophy size={17} className="text-amber-400" />
               Ranking de Saúde dos SOCs
             </h2>
-            <p className="text-[10px] text-gray-400 font-medium mt-0.5">Top 3 unidades com maior índice de colaboradores treinados</p>
+            <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+              {eligibleRanking.length} de {socRanking.length} unidades com matriz de processos micros completa (mínimo 14)
+            </p>
           </div>
 
-          {/* Pódio visual */}
-          <div className="flex items-end justify-center gap-4 pt-4 pb-2">
-            {podiumOrder.map((socData, i) => {
-              const pos = PODIUM_CONFIG[i];
-              if (!socData) return <div key={i} className="w-36" />;
-              const lv = getLevel(socData.pct);
-              return (
-                <div key={socData.soc} className={`flex flex-col items-center gap-2 ${pos.top}`}>
-                  <div className={`w-36 rounded-xl border ${pos.cardBorder} bg-white p-4 text-center shadow-sm`}>
-                    <div className="text-2xl mb-1">{lv.emoji}</div>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{pos.label}</p>
-                    <p className="text-base font-black text-gray-900 mt-0.5">{socData.soc}</p>
-                    <p className={`text-xl font-black mt-1 ${lv.titleText}`}>{socData.pct}%</p>
-                    <span className={`inline-block mt-1 text-[8px] font-black px-2 py-0.5 rounded-full border ${lv.badgeBg}`}>{lv.name}</span>
-                    <p className="text-[8px] text-gray-400 font-bold mt-2">{socData.trained}/{socData.total}</p>
-                  </div>
-                  <div className={`w-36 ${pos.height} ${pos.rankBg} rounded-t-lg flex items-center justify-center font-black text-xl`}>
-                    {pos.rank}°
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Ranking completo */}
-          {socRanking.length > 3 && (
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Ranking Completo</p>
-              <div className="space-y-1.5">
-                {socRanking.map((s, idx) => {
-                  const lv = getLevel(s.pct);
-                  return (
-                    <div key={s.soc} className="flex items-center gap-3 py-1.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
-                      <span className="text-[11px] font-black text-gray-400 w-6 text-right">{idx + 1}°</span>
-                      <span className="text-sm">{lv.emoji}</span>
-                      <span className="text-[12px] font-black text-gray-800 flex-1">{s.soc}</span>
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${lv.badgeBg}`}>{lv.name}</span>
-                      <div className={`w-24 h-1.5 rounded-full overflow-hidden ${lv.barBg}`}>
-                        <div className={`h-full rounded-full ${lv.barFg}`} style={{ width: `${s.pct}%` }} />
-                      </div>
-                      <span className={`text-[11px] font-black w-10 text-right ${lv.titleText}`}>{s.pct}%</span>
+          {/* Pódio visual — só entre as elegíveis */}
+          {eligibleRanking.length >= 2 ? (
+            <div className="flex items-end justify-center gap-4 pt-4 pb-2">
+              {podiumOrder.map((socData, i) => {
+                const pos = PODIUM_CONFIG[i];
+                if (!socData) return <div key={i} className="w-36" />;
+                const lv = getLevel(socData.healthPct);
+                return (
+                  <div key={socData.soc} className={`flex flex-col items-center gap-2 ${pos.top}`}>
+                    <div className={`w-36 rounded-xl border ${pos.cardBorder} bg-white p-4 text-center shadow-sm`}>
+                      <div className="text-2xl mb-1">{lv.emoji}</div>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{pos.label}</p>
+                      <p className="text-base font-black text-gray-900 mt-0.5">{socData.soc}</p>
+                      <p className={`text-xl font-black mt-1 ${lv.titleText}`}>{socData.healthPct}%</p>
+                      <span className={`inline-block mt-1 text-[8px] font-black px-2 py-0.5 rounded-full border ${lv.badgeBg}`}>{lv.name}</span>
+                      <p className="text-[8px] text-gray-400 font-bold mt-2">{socData.evaluatedCollaborators}/{socData.totalCollaborators}</p>
                     </div>
-                  );
-                })}
+                    <div className={`w-36 ${pos.height} ${pos.rankBg} rounded-t-lg flex items-center justify-center font-black text-xl`}>
+                      {pos.rank}°
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : eligibleRanking.length === 1 ? (
+            <div className="flex justify-center pt-2 pb-4">
+              <div className="w-40 rounded-xl border border-amber-200 bg-white p-4 text-center shadow-sm">
+                <div className="text-2xl mb-1">{getLevel(eligibleRanking[0].healthPct).emoji}</div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">1° Lugar (única elegível)</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">{eligibleRanking[0].soc}</p>
+                <p className={`text-xl font-black mt-1 ${getLevel(eligibleRanking[0].healthPct).titleText}`}>{eligibleRanking[0].healthPct}%</p>
               </div>
             </div>
+          ) : (
+            <div className="py-6 text-center text-gray-400 text-xs font-medium">
+              Nenhuma unidade cadastrou os 14 processos micros mínimos ainda.
+            </div>
           )}
+
+          {/* Ranking completo — todas as SOCs, elegíveis primeiro */}
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Ranking Completo</p>
+            <div className="space-y-1.5">
+              {socRanking.map((s, idx) => {
+                if (!s.eligible) {
+                  return (
+                    <div key={s.soc} className="flex items-center gap-3 py-1.5 px-3 rounded-lg bg-gray-50/50">
+                      <span className="text-[11px] font-black text-gray-300 w-6 text-right">—</span>
+                      <span className="text-sm opacity-40">🔒</span>
+                      <span className="text-[12px] font-black text-gray-500 flex-1">{s.soc}</span>
+                      <span className="text-[8px] font-black px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-600">
+                        matriz incompleta • faltam {s.missing}
+                      </span>
+                      <span className="text-[11px] font-bold w-16 text-right text-gray-300">{s.totalCollaborators} HC</span>
+                    </div>
+                  );
+                }
+                const lv = getLevel(s.healthPct);
+                const rankPos = eligibleRanking.findIndex(r => r.soc === s.soc) + 1;
+                return (
+                  <div key={s.soc} className="flex items-center gap-3 py-1.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <span className="text-[11px] font-black text-gray-400 w-6 text-right">{rankPos}°</span>
+                    <span className="text-sm">{lv.emoji}</span>
+                    <span className="text-[12px] font-black text-gray-800 flex-1">{s.soc}</span>
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${lv.badgeBg}`}>{lv.name}</span>
+                    <div className={`w-24 h-1.5 rounded-full overflow-hidden ${lv.barBg}`}>
+                      <div className={`h-full rounded-full ${lv.barFg}`} style={{ width: `${s.healthPct}%` }} />
+                    </div>
+                    <span className={`text-[11px] font-black w-10 text-right ${lv.titleText}`}>{s.healthPct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>

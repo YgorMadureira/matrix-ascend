@@ -1,0 +1,256 @@
+import { describe, it, expect } from 'vitest';
+import {
+  isMicroCompletedBy,
+  isAreaTrained,
+  calculateSocHealth,
+  calculateAreaStats,
+  calculateOverallTrainedPct,
+  normalizeMacroArea,
+  type MicroTraining,
+  type CollaboratorLite,
+} from './trainingRules';
+
+// Matriz de referência: SP6 (4 Recebimento + 7 Processamento + 3 Expedição + 9 Tratativas)
+const RECEB: MicroTraining[] = [
+  { name: 'Recebimento FM', macro_area: 'RECEBIMENTO' },
+  { name: 'Recebimento LH', macro_area: 'RECEBIMENTO' },
+  { name: 'Transbordo', macro_area: 'RECEBIMENTO' },
+  { name: 'Puxada IN', macro_area: 'RECEBIMENTO' },
+];
+const PROC: MicroTraining[] = [
+  { name: 'Indução', macro_area: 'PROCESSAMENTO' },
+  { name: 'Esteira Automática', macro_area: 'PROCESSAMENTO' },
+  { name: 'Esteira Java', macro_area: 'PROCESSAMENTO' },
+  { name: 'Esteira Termoplastica', macro_area: 'PROCESSAMENTO' },
+  { name: 'Setup', macro_area: 'PROCESSAMENTO' },
+  { name: 'TETRIS', macro_area: 'PROCESSAMENTO' },
+  { name: 'Goleiro', macro_area: 'PROCESSAMENTO' },
+];
+const EXPED: MicroTraining[] = [
+  { name: 'Puxada Out', macro_area: 'EXPEDIÇÃO' },
+  { name: 'Tipos de Carregamento', macro_area: 'EXPEDIÇÃO' },
+  { name: 'Expedição LH', macro_area: 'EXPEDIÇÃO' },
+];
+const TRAT: MicroTraining[] = [
+  { name: 'Tratativas', macro_area: 'TRATATIVAS' },
+  { name: 'Returns', macro_area: 'TRATATIVAS' },
+  { name: 'Receita Federal', macro_area: 'TRATATIVAS' },
+  { name: 'Faded', macro_area: 'TRATATIVAS' },
+  { name: 'Recebimento Correios', macro_area: 'TRATATIVAS' },
+  { name: 'Recebimento 3PL', macro_area: 'TRATATIVAS' },
+  { name: 'SIP', macro_area: 'TRATATIVAS' },
+  { name: 'Reetiquetagem', macro_area: 'TRATATIVAS' },
+  { name: 'Liquidation', macro_area: 'TRATATIVAS' },
+];
+const SP6_MICROS = [...RECEB, ...PROC, ...EXPED, ...TRAT];
+
+function countHits(trainingType: string, micros: MicroTraining[]): number {
+  return micros.filter(m => isMicroCompletedBy(trainingType, m.name, m.macro_area)).length;
+}
+
+describe('trainingRules — matriz de referência SP6 (tabela validada)', () => {
+  it('Onboarding PTS V3 acende as 3 áreas core inteiras e nada de Tratativas', () => {
+    expect(countHits('Onboarding PTS V3', RECEB)).toBe(4);
+    expect(countHits('Onboarding PTS V3', PROC)).toBe(7);
+    expect(countHits('Onboarding PTS V3', EXPED)).toBe(3);
+    expect(countHits('Onboarding PTS V3', TRAT)).toBe(0);
+  });
+
+  it('Onboarding PTS - Sem Sorter tem o mesmo efeito do PTS padrão', () => {
+    expect(countHits('Onboarding PTS - Sem Sorter', RECEB)).toBe(4);
+    expect(countHits('Onboarding PTS - Sem Sorter', PROC)).toBe(7);
+    expect(countHits('Onboarding PTS - Sem Sorter', EXPED)).toBe(3);
+  });
+
+  it('Onboarding PTS - Com Sorter acende as 3 core + ASM', () => {
+    const asm: MicroTraining[] = [{ name: 'Sorter Base', macro_area: 'ASM' }];
+    expect(countHits('Onboarding PTS - Com Sorter', RECEB)).toBe(4);
+    expect(countHits('Onboarding PTS - Com Sorter', PROC)).toBe(7);
+    expect(countHits('Onboarding PTS - Com Sorter', EXPED)).toBe(3);
+    expect(countHits('Onboarding PTS - Com Sorter', asm)).toBe(1);
+  });
+
+  it('02. Treinamento Padrão SOC - Processamento acende só Processamento (7/7)', () => {
+    expect(countHits('02. Treinamento Padrão SOC - Processamento', RECEB)).toBe(0);
+    expect(countHits('02. Treinamento Padrão SOC - Processamento', PROC)).toBe(7);
+    expect(countHits('02. Treinamento Padrão SOC - Processamento', EXPED)).toBe(0);
+    expect(countHits('02. Treinamento Padrão SOC - Processamento', TRAT)).toBe(0);
+  });
+
+  it('01. Treinamento Padrão SOC - Recebimento acende só Recebimento — sem vazar para Tratativas (fix R1)', () => {
+    expect(countHits('01. Treinamento Padrão SOC - Recebimento', RECEB)).toBe(4);
+    expect(countHits('01. Treinamento Padrão SOC - Recebimento', TRAT)).toBe(0);
+  });
+
+  it('03. Treinamento Padrão SOC - Expedição acende só Expedição (3/3)', () => {
+    expect(countHits('03. Treinamento Padrão SOC - Expedição', EXPED)).toBe(3);
+    expect(countHits('03. Treinamento Padrão SOC - Expedição', RECEB)).toBe(0);
+  });
+
+  it('04. Treinamento Padrão SOC - Tratativas acende a área Tratativas inteira (9/9, fix)', () => {
+    expect(countHits('04. Treinamento Padrão SOC - Tratativas', TRAT)).toBe(9);
+  });
+
+  it('00. Treinamento Padrão SOC - ASM acende a macro ASM inteira', () => {
+    const asm: MicroTraining[] = [
+      { name: 'Sorter Base', macro_area: 'ASM' },
+      { name: 'Sorter Avançado', macro_area: 'ASM' },
+    ];
+    expect(countHits('00. Treinamento Padrão SOC - ASM', asm)).toBe(2);
+  });
+
+  it.each([
+    'Onboarding Meio Ambiente',
+    'Onboarding People',
+    'Onboarding HSE',
+    'Onboarding Security',
+    'Onboarding Qualidade',
+  ])('%s (onboarding administrativo) não acende nenhum micro operacional', (tipo) => {
+    expect(countHits(tipo, SP6_MICROS)).toBe(0);
+  });
+
+  it('05. Treinamento Padrão SOC - Returns acende só o micro Returns (1/9 em Tratativas)', () => {
+    expect(countHits('05. Treinamento Padrão SOC - Returns', TRAT)).toBe(1);
+    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Returns', 'TRATATIVAS')).toBe(true);
+    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Tratativas', 'TRATATIVAS')).toBe(false);
+  });
+
+  it('treinamento com código de documento e versão casa com o micro por nome, tolerando mudança de versão', () => {
+    expect(
+      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.11', 'Receita Federal', 'TRATATIVAS')
+    ).toBe(true);
+    expect(
+      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.12', 'Receita Federal', 'TRATATIVAS')
+    ).toBe(true);
+  });
+
+  it('treinamento sem correspondência não acende nenhum micro', () => {
+    expect(countHits('Check List Outbound', SP6_MICROS)).toBe(0);
+  });
+});
+
+describe('trainingRules — normalizeMacroArea', () => {
+  it('reconhece as 5 macro-áreas com acentos e variações', () => {
+    expect(normalizeMacroArea('Recebimento')).toBe('RECEBIMENTO');
+    expect(normalizeMacroArea('Expedição')).toBe('EXPEDIÇÃO');
+    expect(normalizeMacroArea('Expedicao')).toBe('EXPEDIÇÃO');
+    expect(normalizeMacroArea('Tratativas')).toBe('TRATATIVAS');
+    expect(normalizeMacroArea('ASM')).toBe('ASM');
+  });
+});
+
+describe('trainingRules — isAreaTrained (card % Treinados / Matriz / gráfico)', () => {
+  it('Onboarding PTS treina as 3 áreas core, mas não Tratativas', () => {
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'RECEBIMENTO')).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'PROCESSAMENTO')).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'EXPEDIÇÃO')).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'TRATATIVAS')).toBe(false);
+  });
+
+  it('onboarding administrativo isolado não treina nenhuma área operacional (fix R2)', () => {
+    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'RECEBIMENTO')).toBe(false);
+    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'PROCESSAMENTO')).toBe(false);
+  });
+
+  it('Padrão SOC de uma área treina só aquela área', () => {
+    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'TRATATIVAS')).toBe(true);
+    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'RECEBIMENTO')).toBe(false);
+  });
+
+  it('Com Sorter treina ASM', () => {
+    expect(isAreaTrained(['ONBOARDING PTS - COM SORTER'], 'ASM')).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'ASM')).toBe(false);
+  });
+});
+
+describe('trainingRules — calculateSocHealth', () => {
+  // Nomes distintos sem prefixo comum, para não colidir com o match por
+  // substring do matchesMicroByName (ex: "Micro 1" seria substring de "Micro 10").
+  const MICRO_NAMES = [
+    'Alfa', 'Bravo', 'Charlie', 'Delta', 'Echo',
+    'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliett',
+    'Kilo', 'Lima', 'Mike', 'November',
+  ];
+  const N14 = MICRO_NAMES.map((name, i) => ({ name, macro_area: i < 5 ? 'RECEBIMENTO' : i < 10 ? 'PROCESSAMENTO' : 'EXPEDIÇÃO' }));
+
+  it('exemplo do usuário: Ygor 7/14, Bruno 14/14 → saúde 75%', () => {
+    const collabs: CollaboratorLite[] = [
+      { id: 'ygor', sector: 'RECEBIMENTO' },
+      { id: 'bruno', sector: 'RECEBIMENTO' },
+    ];
+    const trainingsByCollabId = new Map<string, string[]>([
+      ['ygor', MICRO_NAMES.slice(0, 7)],
+      ['bruno', MICRO_NAMES],
+    ]);
+    const result = calculateSocHealth(N14, collabs, trainingsByCollabId, false);
+    expect(result.eligible).toBe(true);
+    expect(result.microCount).toBe(14);
+    expect(result.healthPct).toBe(75);
+  });
+
+  it('SOC com menos de 14 micros core não é elegível, mesmo com 100% de conclusão', () => {
+    const micros13 = N14.slice(0, 13);
+    const collabs: CollaboratorLite[] = [{ id: 'a', sector: 'RECEBIMENTO' }];
+    const trainingsByCollabId = new Map<string, string[]>([['a', micros13.map(m => m.name)]]);
+    const result = calculateSocHealth(micros13, collabs, trainingsByCollabId, false);
+    expect(result.eligible).toBe(false);
+    expect(result.missing).toBe(1);
+  });
+
+  it('N real acima de 14 usa o total real como denominador (D2)', () => {
+    const micros17 = [...N14, { name: 'Papa', macro_area: 'EXPEDIÇÃO' }, { name: 'Quebec', macro_area: 'EXPEDIÇÃO' }, { name: 'Romeo', macro_area: 'EXPEDIÇÃO' }];
+    const collabs: CollaboratorLite[] = [{ id: 'a', sector: 'RECEBIMENTO' }];
+    const trainingsByCollabId = new Map<string, string[]>([['a', MICRO_NAMES]]);
+    const result = calculateSocHealth(micros17, collabs, trainingsByCollabId, false);
+    expect(result.microCount).toBe(17);
+    expect(result.healthPct).toBeCloseTo((14 / 17) * 100, 1);
+  });
+
+  it('ASM entra no denominador só quando a SOC tem sorting', () => {
+    const withAsm = [...N14, { name: 'Sorter Base', macro_area: 'ASM' }];
+    const collabs: CollaboratorLite[] = [{ id: 'a', sector: 'RECEBIMENTO' }];
+    const trainingsByCollabId = new Map<string, string[]>([['a', N14.map(m => m.name)]]);
+
+    const semSorting = calculateSocHealth(withAsm, collabs, trainingsByCollabId, false);
+    expect(semSorting.microCount).toBe(14); // ASM ignorado
+
+    const comSorting = calculateSocHealth(withAsm, collabs, trainingsByCollabId, true);
+    expect(comSorting.microCount).toBe(15); // ASM contado, e ainda >= 14 então elegível
+  });
+
+  it('sem colaboradores elegíveis, saúde fica em 0 mas a SOC continua elegível (matriz completa)', () => {
+    const result = calculateSocHealth(N14, [], new Map(), false);
+    expect(result.eligible).toBe(true);
+    expect(result.evaluatedCollaborators).toBe(0);
+    expect(result.healthPct).toBe(0);
+  });
+});
+
+describe('trainingRules — calculateAreaStats / calculateOverallTrainedPct', () => {
+  it('só considera colaboradores com setor preenchido', () => {
+    const collabs: CollaboratorLite[] = [
+      { id: '1', sector: 'RECEBIMENTO' },
+      { id: '2', sector: null },
+      { id: '3', sector: '' },
+      { id: '4', sector: 'PROCESSAMENTO' },
+    ];
+    const trainingsByCollabId = new Map<string, string[]>([
+      ['1', ['01. TREINAMENTO PADRÃO SOC - RECEBIMENTO']],
+      ['4', []],
+    ]);
+    const stats = calculateAreaStats(collabs, trainingsByCollabId, false);
+    const receb = stats.find(s => s.area === 'RECEBIMENTO')!;
+    expect(receb.total).toBe(1);
+    expect(receb.trained).toBe(1);
+    const overall = calculateOverallTrainedPct(stats);
+    // total = 1 (Receb) + 1 (Proc) = 2 (colaboradores 2 e 3 ficam de fora, sem setor)
+    expect(overall.total).toBe(2);
+  });
+
+  it('inclui ASM nas áreas operacionais quando hasSorting é true', () => {
+    const stats = calculateAreaStats([], new Map(), true);
+    expect(stats.map(s => s.area)).toContain('ASM');
+    const statsSemSorting = calculateAreaStats([], new Map(), false);
+    expect(statsSemSorting.map(s => s.area)).not.toContain('ASM');
+  });
+});

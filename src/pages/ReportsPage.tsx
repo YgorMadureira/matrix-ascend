@@ -4,7 +4,7 @@ import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle, Download, FileDo
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
+import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList, Cell } from 'recharts';
 
 const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
 const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
@@ -384,34 +384,44 @@ export default function ReportsPage() {
     return { generalTotal: total, generalCompleted: completed, generalPct: pct };
   }, [sectorStats]);
 
-  const chartData = useMemo(() => {
-    const socList = [...new Set(filtered.map(c => c.soc))].sort();
-    return socList.map(soc => {
-      const socCollabs = filtered.filter(c => c.soc === soc);
+  // ============================================================
+  // Gráfico "Desempenho por SOC" — a ÚNICA visão da tela que mostra
+  // TODAS as unidades, sempre, ignorando os filtros da página (SOC,
+  // setor, período, tipo). Vem de soc_performance_view — agregado no
+  // banco, nunca uma linha por pessoa cruzando unidades. Ver
+  // supabase/migrations/20260811_01_soc_performance_view.sql.
+  // ============================================================
+  const [socChartData, setSocChartData] = useState<{ soc: string; 'Treinados': number; 'Nº HCs': number }[]>([]);
+  const [socChartError, setSocChartError] = useState<string | null>(null);
 
-      let total = 0;
-      let trainedCount = 0;
-
-      if (selectedTrainingType) {
-        total = socCollabs.length;
-        trainedCount = socCollabs.filter(c => hasTraining(c.id, selectedTrainingType)).length;
-      } else {
-        currentTrainingTypes.forEach(type => {
-          const typeCollabs = socCollabs.filter(c => {
-            const s = c.sector?.toUpperCase() || '';
-            if (type === 'INVENTÁRIO') return s === 'INVENTARIO' || s === 'INVENTÁRIO';
-            if (selectedArea !== 'Operacional') return true;
-            return s === type || (type === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
-          });
-          total += typeCollabs.length;
-          trainedCount += typeCollabs.filter(c => hasTraining(c.id, type)).length;
-        });
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSocPerformance = async () => {
+      const { data, error } = await supabase
+        .from('soc_performance_view')
+        .select('soc, total_hc, trained_hc, pct')
+        .order('pct', { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
+        setSocChartError(error.message);
+        return;
       }
+      setSocChartError(null);
+      setSocChartData((data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc })));
+    };
+    fetchSocPerformance();
+    return () => { cancelled = true; };
+  }, []);
 
-      const pct = total > 0 ? Number(((trainedCount / total) * 100).toFixed(1)) : 0;
-      return { soc, 'Treinados': pct, 'Nº HCs': total };
-    });
-  }, [filtered, selectedTrainingType, hasTraining, currentTrainingTypes, selectedArea]);
+  const chartData = socChartData;
+
+  const socRankPosition = useMemo(() => {
+    if (!profile?.soc || socChartData.length === 0) return null;
+    const idx = socChartData.findIndex(d => d.soc === profile.soc);
+    if (idx === -1) return null;
+    return { position: idx + 1, total: socChartData.length };
+  }, [socChartData, profile?.soc]);
 
   const instructorStats = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -678,11 +688,26 @@ export default function ReportsPage() {
 
 
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-        <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
-          <BarChart2 className="text-[#EE4D2D]" size={18} />
-          Desempenho por SOC {selectedTrainingType && <span className="text-[10px] font-normal text-gray-400 ml-1">• {selectedTrainingType}</span>}
-        </h2>
-        {chartData.length > 0 ? (
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+            <BarChart2 className="text-[#EE4D2D]" size={18} />
+            Desempenho por SOC
+          </h2>
+          {socRankPosition && (
+            <span className="text-[10px] font-black text-[#EE4D2D] bg-[#FEF6F5] px-2.5 py-1 rounded-full border border-[#EE4D2D]/10">
+              {profile?.soc} está em {socRankPosition.position}º de {socRankPosition.total}
+            </span>
+          )}
+        </div>
+        <p className="text-[10px] text-gray-400 font-medium mb-4">
+          Comparativo entre todas as unidades — não muda com os filtros acima.
+        </p>
+        {socChartError ? (
+          <div className="h-[280px] flex flex-col items-center justify-center text-gray-300 text-xs gap-1">
+            <span>Comparativo entre unidades ainda não disponível.</span>
+            <span className="text-[10px] text-gray-300">(aguardando atualização do banco)</span>
+          </div>
+        ) : chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={chartData} margin={{ top: 20, right: 10, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
@@ -691,8 +716,11 @@ export default function ReportsPage() {
               <YAxis yAxisId="right" orientation="right" stroke="#1e3a8a" fontSize={10} tickLine={false} axisLine={false} />
               <Tooltip cursor={{ fill: '#FEF6F5' }} contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', fontSize: '12px' }} />
               <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-              <Bar yAxisId="left" dataKey="Treinados" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={28}>
+              <Bar yAxisId="left" dataKey="Treinados" radius={[4, 4, 0, 0]} barSize={28}>
                  <LabelList dataKey="Treinados" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" formatter={(val: any) => `${val}%`} />
+                 {chartData.map(d => (
+                   <Cell key={d.soc} fill={d.soc === profile?.soc ? '#EE4D2D' : '#cbd5e1'} />
+                 ))}
               </Bar>
               <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }} />
             </ComposedChart>
