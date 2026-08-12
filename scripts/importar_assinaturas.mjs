@@ -17,8 +17,7 @@
 // Por isso este script valida cada nome ANTES de gravar e se recusa a
 // prosseguir se algum não for reconhecido.
 //
-// Uso:
-//   $env:SUPABASE_SERVICE_ROLE_KEY="sua_chave"
+// Uso (a chave de serviço vem do .env — ver scripts/_conexao.mjs):
 //   node scripts/importar_assinaturas.mjs planilha.xlsx                 # confere, não grava
 //   node scripts/importar_assinaturas.mjs planilha.xlsx --aplicar       # grava
 //
@@ -28,17 +27,9 @@
 //   --data 2026-08-05      data padrão (AAAA-MM-DD) quando a planilha não traz
 //   --forcar-nomes         grava mesmo com nomes de treinamento não reconhecidos
 
-import { createClient } from '@supabase/supabase-js';
+import { db, paginar } from './_conexao.mjs';
 import xlsx from 'xlsx';
 import fs from 'node:fs';
-
-const URL = process.env.SUPABASE_URL || 'https://fezfsekzxtvozyemlncn.supabase.co';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!KEY) {
-  console.error('Defina SUPABASE_SERVICE_ROLE_KEY antes de rodar.');
-  console.error('  PowerShell:  $env:SUPABASE_SERVICE_ROLE_KEY="sua_chave"');
-  process.exit(1);
-}
 
 const args = process.argv.slice(2);
 const ARQUIVO = args.find(a => !a.startsWith('--'));
@@ -53,10 +44,9 @@ const DATA_PADRAO      = opcao('--data', null);
 
 if (!ARQUIVO || !fs.existsSync(ARQUIVO)) {
   console.error('Informe a planilha: node scripts/importar_assinaturas.mjs planilha.xlsx');
+  if (ARQUIVO) console.error(`  (não encontrei o arquivo "${ARQUIVO}")`);
   process.exit(1);
 }
-
-const db = createClient(URL, KEY, { auth: { persistSession: false } });
 
 // ── Normalização: as MESMAS regras de src/lib/trainingRules.ts ──────
 const normalizar = (raw) => (raw || '')
@@ -86,19 +76,6 @@ function acendeArea(nomeTreinamento) {
     return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'].includes(sufixo);
   }
   return false;
-}
-
-async function paginar(tabela, colunas) {
-  const linhas = [];
-  let p = 0;
-  while (true) {
-    const { data, error } = await db.from(tabela).select(colunas).range(p * 1000, (p + 1) * 1000 - 1);
-    if (error) { console.error(`Erro ao ler ${tabela}: ${error.message}`); process.exit(1); }
-    linhas.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
-    p++;
-  }
-  return linhas;
 }
 
 console.log(APLICAR ? '=== MODO GRAVAÇÃO ===\n' : '=== SIMULAÇÃO — nada será gravado ===\n');

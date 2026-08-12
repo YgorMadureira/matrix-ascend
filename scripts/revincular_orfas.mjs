@@ -13,43 +13,16 @@
 // referência que se perdeu. Para essas, o único caminho é a restauração do
 // backup do Supabase.
 //
-// Uso:
+// Uso (a chave de serviço vem do .env — ver scripts/_conexao.mjs):
 //   node scripts/revincular_orfas.mjs              (simulação, não grava nada)
 //   node scripts/revincular_orfas.mjs --aplicar    (grava)
-//
-// Requer:
-//   $env:SUPABASE_SERVICE_ROLE_KEY="sua_chave"
 
-import { createClient } from '@supabase/supabase-js';
-
-const URL = process.env.SUPABASE_URL || 'https://fezfsekzxtvozyemlncn.supabase.co';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!KEY) {
-  console.error('Defina SUPABASE_SERVICE_ROLE_KEY antes de rodar.');
-  console.error('  PowerShell:  $env:SUPABASE_SERVICE_ROLE_KEY="sua_chave"; node scripts/revincular_orfas.mjs');
-  process.exit(1);
-}
+import { db, paginar } from './_conexao.mjs';
 
 const APLICAR = process.argv.includes('--aplicar');
-const db = createClient(URL, KEY, { auth: { persistSession: false } });
 
 const chave = (n, s) => `${(n || '').toUpperCase().trim()}|${(s || '').toUpperCase().trim()}`;
 const soNome = (n) => (n || '').toUpperCase().trim();
-
-async function paginar(tabela, colunas, filtro) {
-  const linhas = [];
-  let p = 0;
-  while (true) {
-    let q = db.from(tabela).select(colunas).range(p * 1000, (p + 1) * 1000 - 1);
-    if (filtro) q = filtro(q);
-    const { data, error } = await q;
-    if (error) { console.error(`Erro ao ler ${tabela}: ${error.message}`); process.exit(1); }
-    linhas.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
-    p++;
-  }
-  return linhas;
-}
 
 console.log(APLICAR ? '=== MODO GRAVAÇÃO ===\n' : '=== SIMULAÇÃO (nada será gravado) ===\n');
 
