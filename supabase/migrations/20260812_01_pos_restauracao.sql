@@ -58,16 +58,53 @@ insert into public.sync_locks (id, locked, started_by)
     started_by = 'travado apos restauracao - liberar manualmente apos teste';
 
 -- ── 4. Views das telas ──────────────────────────────────────────
-create or replace view public.signatures_view
-with (security_invoker = true) as
-select
-  tc.id, tc.collaborator_id, tc.training_type, tc.instructor_name,
-  tc.completed_at, tc.created_at,
-  (tc.signature_pdf_url is not null) as has_signature,
-  c.name as collaborator_name, c.sector as collaborator_sector,
-  c.soc as collaborator_soc, c.role as collaborator_role
-from public.trainings_completed tc
-join public.collaborators c on c.id = tc.collaborator_id;
+-- LEFT JOIN, não INNER: uma assinatura cujo colaborador sumiu tem
+-- collaborator_id nulo, e com INNER JOIN ela desaparecia da tela por
+-- completo. Com o snapshot (20260812_02) ela continua identificável pelo
+-- nome congelado no momento da assinatura. O bloco abaixo se adapta:
+-- usa o snapshot se as colunas existirem, e funciona sem elas também.
+do $$
+declare
+  tem_snapshot boolean := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'trainings_completed'
+      and column_name = 'collaborator_name'
+  );
+begin
+  if tem_snapshot then
+    execute $v$
+      create or replace view public.signatures_view
+      with (security_invoker = true) as
+      select
+        tc.id, tc.collaborator_id, tc.training_type, tc.instructor_name,
+        tc.completed_at, tc.created_at,
+        (tc.signature_pdf_url is not null) as has_signature,
+        coalesce(c.name, tc.collaborator_name) as collaborator_name,
+        c.sector as collaborator_sector,
+        coalesce(c.soc, tc.collaborator_soc) as collaborator_soc,
+        c.role as collaborator_role,
+        (c.id is null) as collaborator_removed
+      from public.trainings_completed tc
+      left join public.collaborators c on c.id = tc.collaborator_id
+    $v$;
+  else
+    execute $v$
+      create or replace view public.signatures_view
+      with (security_invoker = true) as
+      select
+        tc.id, tc.collaborator_id, tc.training_type, tc.instructor_name,
+        tc.completed_at, tc.created_at,
+        (tc.signature_pdf_url is not null) as has_signature,
+        c.name as collaborator_name, c.sector as collaborator_sector,
+        c.soc as collaborator_soc, c.role as collaborator_role,
+        (c.id is null) as collaborator_removed
+      from public.trainings_completed tc
+      left join public.collaborators c on c.id = tc.collaborator_id
+    $v$;
+    raise notice 'Sem snapshot: rode 20260812_02 para as assinaturas orfas voltarem a ter nome.';
+  end if;
+end $$;
 
 grant select on public.signatures_view to authenticated;
 
