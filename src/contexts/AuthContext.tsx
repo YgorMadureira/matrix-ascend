@@ -7,7 +7,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
+  role: 'master' | 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
   leader_key?: string | null; // Nome exato como aparece em collaborators.leader
   soc?: string | null;
 }
@@ -16,11 +16,27 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  isMaster: boolean;
   isAdmin: boolean;
   isLider: boolean;
   isBpo: boolean;
   isPcp: boolean;
   mustChangePassword: boolean;
+  /**
+   * A unidade que as telas devem usar como escopo.
+   *
+   * Para todo mundo que não é master, é sempre a própria SOC do perfil —
+   * ninguém ganha nem perde acesso por causa deste campo. Só o master pode
+   * mudá-lo, pelo seletor no topo da tela; `null` significa "todas as
+   * unidades" e só acontece para ele.
+   *
+   * As telas devem ler ESTE valor, nunca profile.soc direto.
+   */
+  effectiveSoc: string | null;
+  /** Troca a unidade em foco. Ignorado para quem não é master. */
+  setScopeSoc: (soc: string | null) => void;
+  /** Unidades disponíveis no seletor — só é carregada para o master. */
+  allSocs: string[];
   /** true = SOC possui sorting (ASM visível); false = ASM oculto; null = ainda carregando */
   socHasSorting: boolean | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -29,29 +45,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// A escolha do master sobrevive ao recarregar a página. O sentinela existe
+// para separar "escolheu ver todas as unidades" de "ainda não escolheu nada".
+const SCOPE_KEY = 'master_scope_soc';
+const TODAS = '__TODAS__';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [socHasSorting, setSocHasSorting] = useState<boolean | null>(null);
+  const [allSocs, setAllSocs] = useState<string[]>([]);
+  const [scopeSoc, setScopeSocState] = useState<string | null>(() => {
+    const guardado = localStorage.getItem(SCOPE_KEY);
+    // Sem nada guardado, o master começa vendo todas as unidades — é o
+    // motivo de o perfil existir.
+    if (guardado === null || guardado === TODAS) return null;
+    return guardado;
+  });
   const initializedRef = useRef(false);
-
-  // Busca has_sorting da SOC do usuário
-  const fetchSocHasSorting = async (socName: string | null | undefined): Promise<boolean> => {
-    // Sem SOC restrita → admin global → vê ASM sempre
-    if (!socName) return true;
-    try {
-      const { data } = await supabase
-        .from('socs')
-        .select('has_sorting')
-        .ilike('name', socName.trim())
-        .maybeSingle();
-      // Se não encontrar a SOC, exibe por segurança
-      return data?.has_sorting ?? true;
-    } catch {
-      return true;
-    }
-  };
 
   const fetchProfile = async (userId: string, email: string, userMetadata?: Record<string, unknown>): Promise<UserProfile | null> => {
     try {
@@ -87,7 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: userId,
         email: email,
         full_name: metaName,
-        role: (metaRole as UserProfile['role']),
+        // 'master' nunca nasce de metadados do cadastro — só de outro master
+        // ou de um UPDATE direto no banco. O gatilho trg_guard_master_role
+        // recusaria de qualquer forma; aqui a intenção fica explícita.
+        role: (metaRole === 'master' ? 'user' : metaRole) as UserProfile['role'],
         soc: metaSoc,
       };
 
@@ -130,11 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             session.user.email ?? '',
             session.user.user_metadata
           );
-          if (p) {
-            setProfile(p);
-            const hasSorting = await fetchSocHasSorting(p.soc);
-            setSocHasSorting(hasSorting);
-          }
+          if (p) setProfile(p);
         }
       } catch (err) {
         console.error('[Auth] Erro na inicialização:', err);
@@ -167,11 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               session.user.email ?? '',
               session.user.user_metadata
             );
-            if (p) {
-              setProfile(p);
-              const hasSorting = await fetchSocHasSorting(p.soc);
-              setSocHasSorting(hasSorting);
-            }
+            if (p) setProfile(p);
           }
         }
       }
@@ -179,6 +186,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const currentRole = profile?.role?.toLowerCase().trim();
+  const isMaster = currentRole === 'master';
+
+  // Para quem não é master, o escopo é — e continua sendo — a própria SOC.
+  const effectiveSoc = isMaster ? scopeSoc : (profile?.soc?.trim() || null);
+
+  const setScopeSoc = (soc: string | null) => {
+    if (!isMaster) return;
+    setScopeSocState(soc);
+    localStorage.setItem(SCOPE_KEY, soc ?? TODAS);
+  };
+
+  // Lista do seletor de unidades — só o master usa.
+  useEffect(() => {
+    if (!isMaster) { setAllSocs([]); return; }
+    let cancelado = false;
+    (async () => {
+      const { data } = await supabase.from('socs').select('name').order('name');
+      if (!cancelado) setAllSocs((data ?? []).map(s => s.name).filter(Boolean));
+    })();
+    return () => { cancelado = true; };
+  }, [isMaster]);
+
+  // ASM aparece conforme a unidade EM FOCO — não a do cadastro. Vendo todas
+  // as unidades, ASM aparece (algumas têm sorting).
+  useEffect(() => {
+    if (!profile) { setSocHasSorting(null); return; }
+    let cancelado = false;
+    (async () => {
+      if (!effectiveSoc) { if (!cancelado) setSocHasSorting(true); return; }
+      try {
+        const { data } = await supabase
+          .from('socs')
+          .select('has_sorting')
+          .ilike('name', effectiveSoc)
+          .maybeSingle();
+        // Se não encontrar a SOC, exibe por segurança
+        if (!cancelado) setSocHasSorting(data?.has_sorting ?? true);
+      } catch {
+        if (!cancelado) setSocHasSorting(true);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [profile, effectiveSoc]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -201,18 +253,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const mustChangePassword = !!(user?.user_metadata?.must_change_password);
-  const currentRole = profile?.role?.toLowerCase().trim();
 
   return (
     <AuthContext.Provider value={{
       user,
       profile,
       loading,
-      isAdmin: currentRole === 'admin',
+      isMaster,
+      // O master faz tudo que um admin faz — em qualquer unidade. Manter
+      // isAdmin verdadeiro para ele evita ter que reescrever as dezenas de
+      // checagens de permissão espalhadas pelas telas.
+      isAdmin: currentRole === 'admin' || isMaster,
       isLider: currentRole === 'lider',
       isBpo: currentRole === 'bpo',
       isPcp: currentRole === 'pcp',
       mustChangePassword,
+      effectiveSoc,
+      setScopeSoc,
+      allSocs,
       socHasSorting,
       signIn,
       signOut

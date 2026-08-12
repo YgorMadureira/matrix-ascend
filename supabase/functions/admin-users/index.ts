@@ -55,11 +55,26 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profileErr || callerProfile?.role?.toLowerCase().trim() !== 'admin') {
+    const callerRole = callerProfile?.role?.toLowerCase().trim();
+    if (profileErr || (callerRole !== 'admin' && callerRole !== 'master')) {
       return json({ error: 'Apenas administradores podem gerenciar usuários.' }, 403);
     }
+    const callerIsMaster = callerRole === 'master';
 
     const body = (await req.json()) as Action;
+
+    // Conceder o perfil master é privilégio de master. Sem isto, qualquer
+    // admin de qualquer unidade se promoveria a acesso global em dois
+    // cliques — bastaria escolher a opção no seletor (ou chamar esta função
+    // direto). O gatilho trg_guard_master_role repete a regra no banco,
+    // para valer também fora deste caminho.
+    if (
+      body.action === 'create_user' &&
+      body.role?.toLowerCase().trim() === 'master' &&
+      !callerIsMaster
+    ) {
+      return json({ error: 'Somente um usuário master pode criar outro master.' }, 403);
+    }
 
     switch (body.action) {
       case 'create_user': {

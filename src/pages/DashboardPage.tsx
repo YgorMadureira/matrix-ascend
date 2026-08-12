@@ -91,7 +91,7 @@ const PODIUM_CONFIG = [
 ];
 
 export default function DashboardPage() {
-  const { profile, isLider, socHasSorting } = useAuth();
+  const { profile, isLider, socHasSorting, effectiveSoc } = useAuth();
   const navigate = useNavigate();
 
   // Filtra ASM quando a SOC não possui sorting
@@ -167,7 +167,7 @@ export default function DashboardPage() {
         if (lw.length > 0 && lw.every(w => pName.includes(w))) return true;
         return false;
       };
-      const userSoc = profile?.soc || '';
+      const userSoc = effectiveSoc || '';
       const socCollabs = userSoc ? allCollabs.filter(c => c.soc === userSoc) : allCollabs;
       const collabs    = isLider ? socCollabs.filter(c => matchLeader(c.leader)) : socCollabs;
       const totalCollabs = collabs.length;
@@ -242,7 +242,7 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, [isLider, profile?.full_name, profile?.leader_key, profile?.soc, showAsm]);
+  }, [isLider, profile?.full_name, profile?.leader_key, effectiveSoc, showAsm]);
 
   const level = getLevel(health.healthPct);
 
@@ -295,13 +295,13 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${level.subText}`}>
-                {userSocLabel(profile?.soc)} Nível de Saúde
+                {userSocLabel(effectiveSoc)} Nível de Saúde
               </p>
               <p className={`text-3xl font-black ${level.titleText}`}>{level.name}</p>
               <p className={`text-[10px] font-medium mt-1 ${level.subText}`}>
                 {health.eligible
                   ? `Média individual sobre os ${health.microCount} treinamentos específicos cadastrados (Recebimento, Processamento, Expedição${showAsm ? ' e ASM' : ''})`
-                  : `Faltam ${health.missing} processo${health.missing !== 1 ? 's' : ''} micro${health.missing !== 1 ? 's' : ''} para medir a saúde de ${profile?.soc || 'sua unidade'} (mínimo de 14)`}
+                  : `Faltam ${health.missing} processo${health.missing !== 1 ? 's' : ''} micro${health.missing !== 1 ? 's' : ''} para medir a saúde de ${effectiveSoc || 'sua unidade'} (mínimo de 14)`}
               </p>
             </div>
           </div>

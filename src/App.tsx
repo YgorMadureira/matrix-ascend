@@ -40,22 +40,25 @@ function RouteFallback() {
 // MAPA DE ACESSO POR PERFIL
 // Define quais roles podem acessar cada rota
 // ============================================================
-type Role = 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
+type Role = 'master' | 'admin' | 'user' | 'lider' | 'bpo' | 'pcp';
 
+// 'master' entra em TODAS as rotas: é um admin sem fronteira de unidade.
+// Esquecer de listá-lo aqui trancaria o perfil para fora do sistema inteiro.
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  '/dashboard':    ['admin', 'user', 'lider'],
-  '/materials':    ['admin', 'user'],
-  '/collaborators':['admin', 'user', 'lider', 'bpo'],
-  '/reports':      ['admin', 'user', 'lider'],
-  '/socs':         ['admin', 'user'],
-  '/schedule':     ['admin', 'user', 'lider', 'pcp'],
-  '/settings':     ['admin'],
-  '/trainings':    ['admin', 'user', 'lider'],
-  '/signatures':   ['admin', 'user'],
+  '/dashboard':    ['master', 'admin', 'user', 'lider'],
+  '/materials':    ['master', 'admin', 'user'],
+  '/collaborators':['master', 'admin', 'user', 'lider', 'bpo'],
+  '/reports':      ['master', 'admin', 'user', 'lider'],
+  '/socs':         ['master', 'admin', 'user'],
+  '/schedule':     ['master', 'admin', 'user', 'lider', 'pcp'],
+  '/settings':     ['master', 'admin'],
+  '/trainings':    ['master', 'admin', 'user', 'lider'],
+  '/signatures':   ['master', 'admin', 'user'],
 };
 
 // Página inicial de cada perfil (redirecionamento após login ou acesso negado)
 const ROLE_HOME: Record<Role, string> = {
+  master: '/dashboard',
   admin:  '/dashboard',
   user:   '/dashboard',
   lider:  '/dashboard',
@@ -173,7 +176,13 @@ function RoleRoute({ path, children }: { path: string; children: React.ReactNode
 
   // ProtectedRoute já garante que profile existe antes de chegar aqui;
   // 'user' (não 'admin') é o piso de segurança caso essa invariante mude.
-  const effectiveRole = ((profile?.role || (user?.user_metadata?.role as string) || 'user').toLowerCase().trim()) as Role;
+  //
+  // O perfil vem SEMPRE de users_profiles, nunca do user_metadata: o
+  // metadata é editável pelo próprio usuário (auth.updateUser) e serviria
+  // de atalho para alguém se declarar master e alcançar as telas de
+  // administração. As Edge Functions e o RLS leem users_profiles de
+  // qualquer forma, mas não faz sentido deixar a porta encostada.
+  const effectiveRole = ((profile?.role || 'user').toLowerCase().trim()) as Role;
   const allowedRoles = ROUTE_PERMISSIONS[path] ?? [];
   const hasAccess = allowedRoles.includes(effectiveRole);
 

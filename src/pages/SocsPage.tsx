@@ -16,7 +16,7 @@ interface Soc {
 }
 
 export default function SocsPage() {
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, isMaster, profile, effectiveSoc } = useAuth();
   const [socs, setSocs] = useState<Soc[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [viewingSoc, setViewingSoc] = useState<Soc | null>(null);
@@ -39,7 +39,8 @@ export default function SocsPage() {
   // Verifica se o usuário admin tem permissão para editar ESTA SOC específica
   const canEditSoc = (socName: string) => {
     if (!isAdmin) return false;
-    if (!profile?.soc) return true; // Se o admin não tiver SOC restrito no cadastro, edita todas
+    if (isMaster) return true; // O master edita qualquer unidade, sempre
+    if (!profile?.soc) return true; // Admin sem SOC restrita no cadastro edita todas
     return profile.soc.trim().toUpperCase() === socName.trim().toUpperCase();
   };
 
@@ -138,7 +139,11 @@ export default function SocsPage() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">SOCs (Unidades)</h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
             {socs.length} unidades cadastradas no sistema
-            {profile?.soc && (
+            {isMaster ? (
+              <span className="ml-2 font-bold text-[#EE4D2D]">
+                • Acesso global: você edita <span className="underline">todas</span> as unidades
+              </span>
+            ) : profile?.soc && (
               <span className="ml-2 font-bold text-[#EE4D2D]">
                 • Sua unidade de cadastro: <span className="underline">{profile.soc}</span>
               </span>

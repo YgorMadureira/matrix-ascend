@@ -29,8 +29,8 @@ const PAGE_SIZE = 50;
 const sanitizeForFilter = (s: string) => s.replace(/[,()%]/g, ' ').trim();
 
 export default function SignaturesPage() {
-  const { profile } = useAuth();
-  const userSoc = profile?.soc?.trim() || null;
+  const { profile, effectiveSoc } = useAuth();
+  const userSoc = effectiveSoc;
 
   const [records, setRecords] = useState<SignatureRecord[]>([]);
   const [totalCount, setTotalCount] = useState(0);

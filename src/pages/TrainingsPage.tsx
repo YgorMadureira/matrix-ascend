@@ -8,7 +8,7 @@ interface FolderItem { id: string; name: string; parent_id: string | null; }
 interface TrainingItem { id: string; name: string; video_url: string | null; folder_id: string | null; }
 
 export default function TrainingsPage() {
-  const { isAdmin, isLider, user, profile } = useAuth();
+  const { isAdmin, isLider, user, profile, effectiveSoc } = useAuth();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [trainings, setTrainings] = useState<TrainingItem[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Raiz' }]);
@@ -192,10 +192,12 @@ export default function TrainingsPage() {
     }
 
     // Load questions
+    // O questionário é por unidade. Vendo "todas as unidades", o master cai
+    // na própria SOC de cadastro — carregar de todas duplicaria as perguntas.
     const { data: q } = await supabase.from('quiz_questions')
       .select('*')
       .eq('training_id', t.id)
-      .eq('soc_name', profile?.soc)
+      .eq('soc_name', effectiveSoc ?? profile?.soc ?? '')
       .order('order_num');
     setQuestions(q ?? []);
   };

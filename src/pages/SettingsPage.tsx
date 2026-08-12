@@ -40,6 +40,15 @@ interface SocMicroTraining {
   order_num: number;
 }
 
+const ACCESS_LABELS: Record<string, string> = {
+  master: 'Todas as unidades',
+  admin:  'Acesso Total',
+  lider:  'Gestão de Time',
+  bpo:    'BPO Onboarding',
+  pcp:    'PCP Agenda',
+  user:   'Consulta Ltda',
+};
+
 // Operações de admin (criar/excluir usuário, redefinir senha) rodam na Edge Function
 // `admin-users` — a service_role key nunca fica exposta no navegador. Ver
 // supabase/functions/admin-users/index.ts.
@@ -51,7 +60,7 @@ async function callAdminUsers<T = { id: string }>(body: Record<string, unknown>)
 }
 
 export default function SettingsPage() {
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, isMaster, profile, effectiveSoc } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [socs, setSocs] = useState<Soc[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -124,14 +133,20 @@ export default function SettingsPage() {
     toast.success('Ordem dos processos atualizada!');
   };
 
+  // Esta tela SEMPRE opera sobre uma unidade concreta: criar usuário,
+  // instrutor ou processo micro exige um destino. Com o master vendo "todas
+  // as unidades", effectiveSoc é nulo — então caímos na unidade de cadastro
+  // dele, e um aviso no topo diz qual está sendo gerenciada.
+  const managedSoc = effectiveSoc ?? profile?.soc ?? null;
+
   const fetchAll = async () => {
-    if (!profile?.soc) return;
+    if (!managedSoc) return;
     const [{ data: u }, { data: s }, { data: inst }, { data: tr }, { data: micro }] = await Promise.all([
-      supabase.from('users_profiles').select('*').eq('soc', profile.soc).order('full_name'),
+      supabase.from('users_profiles').select('*').eq('soc', managedSoc).order('full_name'),
       supabase.from('socs').select('id, name').order('name'),
-      supabase.from('instructors').select('*').eq('soc_name', profile.soc).order('name'),
+      supabase.from('instructors').select('*').eq('soc_name', managedSoc).order('name'),
       supabase.from('trainings').select('id, name').order('name'),
-      supabase.from('soc_micro_trainings').select('*').eq('soc_name', profile.soc).order('order_num')
+      supabase.from('soc_micro_trainings').select('*').eq('soc_name', managedSoc).order('order_num')
     ]);
     setUsers(u ?? []);
     setSocs(s ?? []);
@@ -141,9 +156,9 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (!isAdmin || !profile?.soc) return;
+    if (!isAdmin || !managedSoc) return;
     fetchAll();
-  }, [isAdmin, profile?.soc]);
+  }, [isAdmin, managedSoc]);
 
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -185,7 +200,7 @@ export default function SettingsPage() {
         password: newUserPassword.trim(),
         full_name: newUserName.trim(),
         role: newUserRole,
-        soc: profile?.soc || null,
+        soc: managedSoc,
       });
 
       if (error) {
@@ -253,7 +268,7 @@ export default function SettingsPage() {
     const updatePayload: Record<string, unknown> = {
       full_name: editUserName.trim(),
       role: editUserRole,
-      soc: profile?.soc || null,
+      soc: managedSoc,
     };
     // Salva leader_key apenas para líderes; limpa para outros perfis
     if (editUserRole === 'lider') {
@@ -298,14 +313,14 @@ export default function SettingsPage() {
   };
 
   const saveInstructor = async () => {
-    if (!newInstructorName.trim() || !profile?.soc) {
+    if (!newInstructorName.trim() || !managedSoc) {
       toast.error('Preencha o nome do instrutor e garanta que sua unidade está configurada');
       return;
     }
     setSavingInstructor(true);
     const { error } = await supabase.from('instructors').insert({
       name: newInstructorName.trim(),
-      soc_name: profile.soc,
+      soc_name: managedSoc,
     });
     if (error) {
       toast.error('Erro ao salvar instrutor: ' + error.message);
@@ -319,7 +334,7 @@ export default function SettingsPage() {
   };
 
   const saveMicroTraining = async () => {
-    if (!newMicroName.trim() || !profile?.soc) {
+    if (!newMicroName.trim() || !managedSoc) {
       toast.error('Preencha o nome do processo e certifique-se de estar em uma unidade');
       return;
     }
@@ -338,8 +353,8 @@ export default function SettingsPage() {
         // Atualiza as certificações já concluídas se o nome mudou, LIMITADO aos colaboradores do SOC atual.
         // Em batches de 150 IDs: um .in() com todos os colaboradores de uma SOC grande
         // (SP8 tem 2.278) estoura o limite de 16 KB de cabeçalho HTTP e falha silenciosamente.
-        if (editingMicroNameOriginal !== newMicroName.trim() && profile?.soc) {
-           const { data: socCollabs } = await supabase.from('collaborators').select('id').eq('soc', profile.soc);
+        if (editingMicroNameOriginal !== newMicroName.trim() && managedSoc) {
+           const { data: socCollabs } = await supabase.from('collaborators').select('id').eq('soc', managedSoc);
            if (socCollabs && socCollabs.length > 0) {
               const collabIds = socCollabs.map(c => c.id);
               const BATCH = 150;
@@ -363,7 +378,7 @@ export default function SettingsPage() {
       const { error } = await supabase.from('soc_micro_trainings').insert({
         name: newMicroName.trim(),
         macro_area: newMicroArea,
-        soc_name: profile.soc,
+        soc_name: managedSoc,
         is_mandatory: newMicroMandatory,
         order_num: microTrainings.length + 1
       });
@@ -413,7 +428,7 @@ export default function SettingsPage() {
 
   const openQuestionManager = async (t: TrainingItem) => {
     setManagingTraining(t);
-    const { data, error } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).eq('soc_name', profile?.soc).order('order_num');
+    const { data, error } = await supabase.from('quiz_questions').select('*').eq('training_id', t.id).eq('soc_name', managedSoc).order('order_num');
     if (error) {
       console.error('[QuizQuestions] Erro ao buscar questões:', error.message);
       toast.error('Erro ao buscar questões do treinamento: ' + error.message);
@@ -428,7 +443,7 @@ export default function SettingsPage() {
     }
     const payload = {
       training_id: managingTraining!.id,
-      soc_name: profile?.soc,
+      soc_name: managedSoc,
       question: qForm.question,
       option_a: qForm.option_a,
       option_b: qForm.option_b,
@@ -479,6 +494,20 @@ export default function SettingsPage() {
           </h1>
           <p className="text-sm text-gray-400 font-medium ml-1">Central de controle para acessos, unidades e avaliações</p>
         </div>
+        {/* Esta tela sempre age sobre UMA unidade. Para o master, que pode
+            estar vendo "todas", deixar explícito qual vai receber o que for
+            criado aqui evita cadastrar um usuário na unidade errada. */}
+        {isMaster && (
+          <div className="shrink-0 rounded-2xl border border-[#EE4D2D]/20 bg-[#FEF6F5] px-5 py-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#EE4D2D]">Gerenciando</p>
+            <p className="text-lg font-black text-gray-900 leading-tight">{managedSoc ?? '—'}</p>
+            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+              {effectiveSoc
+                ? 'Troque a unidade no topo da tela'
+                : 'Sua unidade de cadastro — escolha outra no seletor do topo'}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -501,12 +530,12 @@ export default function SettingsPage() {
               <div key={u.id} className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 transition-all group">
                 <div className="flex items-center gap-4">
                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-xs uppercase
-                     ${u.role === 'admin' ? 'bg-[#EE4D2D] text-white shadow-lg shadow-[#EE4D2D]/20' : 'bg-gray-200 text-gray-500'}`}>
+                     ${u.role === 'master' ? 'bg-gray-900 text-white shadow-lg shadow-gray-900/20' : u.role === 'admin' ? 'bg-[#EE4D2D] text-white shadow-lg shadow-[#EE4D2D]/20' : 'bg-gray-200 text-gray-500'}`}>
                       {u.full_name.charAt(0)}
                    </div>
                    <div>
                       <p className="text-sm font-black text-gray-800 leading-none mb-1">{u.full_name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{u.role === 'admin' ? 'Acesso Total' : u.role === 'lider' ? 'Gestão de Time' : u.role === 'bpo' ? 'BPO Onboarding' : u.role === 'pcp' ? 'PCP Agenda' : 'Consulta Ltda'}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{ACCESS_LABELS[u.role] ?? 'Consulta Ltda'}</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -572,7 +601,7 @@ export default function SettingsPage() {
               <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
                  Processos Micros (Matriz)
               </h2>
-              <p className="text-xs text-gray-400 font-medium mt-1">Gerencie os processos da matriz de certificação para {profile?.soc}</p>
+              <p className="text-xs text-gray-400 font-medium mt-1">Gerencie os processos da matriz de certificação para {managedSoc}</p>
             </div>
             <button 
                onClick={() => { closeMicroModal(); setShowNewMicro(true); }} 
@@ -703,11 +732,15 @@ export default function SettingsPage() {
                     <option value="bpo">BPO (Acesso Onboarding)</option>
                     <option value="admin">Administrador Geral</option>
                     <option value="pcp">PCP (Agenda)</option>
+                    {/* Só um master cria outro master. A Edge Function e o
+                        gatilho do banco recusam de qualquer forma — esconder
+                        aqui é a camada de cima, não a que segura. */}
+                    {isMaster && <option value="master">Master (todas as unidades)</option>}
                   </select>
                </div>
                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                  <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
+                  <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                </div>
             </div>
             <button disabled={creatingUser} onClick={createUser} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-xs uppercase tracking-[0.2em] shadow-lg hover:brightness-110 active:scale-95 transition-all">
@@ -738,11 +771,13 @@ export default function SettingsPage() {
                       <option value="bpo">BPO (Acesso Onboarding)</option>
                       <option value="admin">Administrador</option>
                       <option value="pcp">PCP (Agenda)</option>
+                      {/* Idem: conceder ou retirar master é privilégio de master. */}
+                      {(isMaster || editUserRole === 'master') && <option value="master">Master (todas as unidades)</option>}
                     </select>
                  </div>
                  <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                  <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
+                  <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                  </div>
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}
                  {editUserRole === 'lider' && (
@@ -810,7 +845,7 @@ export default function SettingsPage() {
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                    <input value={profile?.soc || ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
+                    <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                  </div>
               </div>
               <button disabled={savingInstructor} onClick={saveInstructor} className="w-full py-4 rounded-xl shopee-gradient-bg text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-lg hover:brightness-110 transition-all">

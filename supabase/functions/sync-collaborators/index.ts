@@ -3,7 +3,10 @@
 // Sincroniza a tabela `collaborators` com a planilha do Google Sheets.
 // Roda de duas formas, ambas chamando este mesmo código:
 //   1. Automaticamente às 05:00 (America/Sao_Paulo), via pg_cron
-//   2. Manualmente, pelo botão "Sincronizar Sheets" na tela de Colaboradores
+//   2. Manualmente, pelo botão "Sincronizar Sheets" — visível só para o master
+//
+// ⚠️ É uma operação GLOBAL: atinge todas as unidades numa tacada. Por isso
+// a autorização aqui é master-ou-cron, e não "qualquer admin".
 //
 // ⚠️ HISTÓRICO — leia antes de mexer na lógica de remoção:
 // Em 11/08/2026 uma versão anterior desta função apagou 17.815 dos 18.716
@@ -153,7 +156,60 @@ function json(body: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
+
+  // ── Quem pode disparar isto ─────────────────────────────────
+  // Esta função é GLOBAL: reescreve e remove colaboradores de TODAS as
+  // unidades de uma vez. Antes ela só exigia um login válido — qualquer
+  // usuário, de qualquer perfil, conseguia dispará-la pelo console do
+  // navegador. Agora são só dois chamadores legítimos:
+  //   · o cron das 05h, que se autentica com a service_role key;
+  //   · um usuário com perfil master.
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (!token) return json({ error: 'Não autenticado.' }, 401);
+
+  const ehCron = token === serviceKey;
+
+  if (!ehCron) {
+    const { data: { user }, error: userErr } = await admin.auth.getUser(token);
+    if (userErr || !user) return json({ error: 'Sessão inválida.' }, 401);
+
+    const { data: perfil } = await admin
+      .from('users_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (perfil?.role?.toLowerCase().trim() !== 'master') {
+      return json({
+        error: 'Apenas o perfil master pode sincronizar. A sincronização afeta todas as unidades de uma vez.',
+      }, 403);
+    }
+  }
+
+  // ── Travas ──────────────────────────────────────────────────
+  // São duas coisas diferentes:
+  //   · disabled — bloqueio deliberado, sem prazo. Só um UPDATE explícito
+  //     solta. É o que ficou ligado depois do incidente de 11/08.
+  //   · locked   — trava de concorrência de um sync em andamento, que
+  //     expira sozinha em 20 min caso a função morra no meio.
+  const { data: estado, error: estadoErr } = await admin
+    .from('sync_locks')
+    .select('disabled, disabled_reason')
+    .eq('id', LOCK_ID)
+    .maybeSingle();
+
+  if (estadoErr) return json({ error: 'Erro ao verificar trava: ' + estadoErr.message }, 500);
+  if (estado?.disabled) {
+    return json({
+      skipped: true,
+      disabled: true,
+      reason: estado.disabled_reason || 'Sincronização desligada por um administrador.',
+    });
+  }
 
   const staleBefore = new Date(Date.now() - LOCK_STALE_MINUTES * 60_000).toISOString();
   const { data: lockRow, error: lockErr } = await admin
@@ -165,7 +221,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (lockErr) return json({ error: 'Erro ao verificar trava: ' + lockErr.message }, 500);
-  if (!lockRow) return json({ skipped: true, reason: 'Sincronização bloqueada ou já em andamento.' });
+  if (!lockRow) return json({ skipped: true, reason: 'Já existe uma sincronização em andamento.' });
 
   try {
     const response = await fetch(GSHEET_URL);

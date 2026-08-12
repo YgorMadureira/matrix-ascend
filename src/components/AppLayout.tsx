@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Users, BarChart2, Settings, LogOut, Building2, GraduationCap, PenTool, Menu, X, CalendarDays, Globe } from 'lucide-react';
 import shopeeLogoWhite from '@/assets/shopee_logo_white.png';
 
+const ROLE_LABELS: Record<string, string> = {
+  master: 'Master',
+  admin: 'Admin',
+  lider: 'Líder',
+  bpo: 'BPO',
+  pcp: 'PCP',
+  user: 'Usuário',
+};
+
 export default function AppLayout() {
-  const { profile, isAdmin, isLider, isBpo, isPcp, signOut } = useAuth();
+  const { profile, isMaster, isAdmin, isLider, isBpo, isPcp, signOut, effectiveSoc, setScopeSoc, allSocs } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -66,9 +75,29 @@ export default function AppLayout() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Seletor de unidade — exclusivo do master. Define o escopo de
+              TODAS as telas; quem não é master nem vê este controle e
+              continua preso à própria SOC. */}
+          {isMaster && (
+            <label className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-full pl-3 pr-1 py-1 hover:bg-white/20 transition-colors">
+              <Globe size={14} className="text-white/80 shrink-0" />
+              <span className="sr-only">Unidade em foco</span>
+              <select
+                value={effectiveSoc ?? ''}
+                onChange={e => setScopeSoc(e.target.value || null)}
+                className="bg-transparent text-white text-[11px] font-bold uppercase tracking-wider outline-none cursor-pointer pr-1 py-1 focus-visible:ring-2 focus-visible:ring-white/60 rounded"
+                title="Unidade em foco — vale para todas as telas"
+              >
+                <option value="" className="text-gray-900">Todas as unidades</option>
+                {allSocs.map(s => (
+                  <option key={s} value={s} className="text-gray-900">{s}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="hidden md:flex flex-col items-end text-white mr-2">
             <span className="text-xs font-bold">{profile?.full_name}</span>
-            <span className="text-[10px] opacity-80 uppercase">{profile?.role === 'lider' ? 'Líder' : profile?.role}</span>
+            <span className="text-[10px] opacity-80 uppercase">{ROLE_LABELS[profile?.role ?? ''] ?? profile?.role}</span>
           </div>
           <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold shadow-inner">
             {profile?.full_name?.charAt(0) ?? '?'}

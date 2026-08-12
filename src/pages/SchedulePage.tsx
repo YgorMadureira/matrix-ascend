@@ -104,7 +104,7 @@ function toLocalISODate(d: Date): string {
 
 
 export default function SchedulePage() {
-  const { isAdmin, isLider, isPcp, profile } = useAuth();
+  const { isAdmin, isLider, isPcp, profile, effectiveSoc } = useAuth();
   const canManageEnrollments = isAdmin || isLider || isPcp;
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -191,14 +191,14 @@ export default function SchedulePage() {
         supabase.from('training_schedule_enrollments').select('*').order('enrolled_at', { ascending: false }),
         fetchAllPages((from, to) => {
           let q = supabase.from('collaborators').select('id, name, role, soc, leader, sector').order('name').range(from, to);
-          if (profile?.soc) q = q.eq('soc', profile.soc);
+          if (effectiveSoc) q = q.eq('soc', effectiveSoc);
           return q;
         }),
       ]);
       let fetchedSchedules = sch ?? [];
 
-      if (profile?.soc) {
-        fetchedSchedules = fetchedSchedules.filter((s: Schedule) => s.soc === profile.soc);
+      if (effectiveSoc) {
+        fetchedSchedules = fetchedSchedules.filter((s: Schedule) => s.soc === effectiveSoc);
       }
 
       setSchedules(fetchedSchedules);
@@ -210,10 +210,10 @@ export default function SchedulePage() {
       try {
         const { data: logs } = await supabase.from('schedule_audit_log').select('*').order('created_at', { ascending: false }).limit(200);
         let filteredLogs = logs ?? [];
-        if (profile?.soc) {
+        if (effectiveSoc) {
           const { data: allSch } = await supabase.from('training_schedules').select('id, soc');
           if (allSch) {
-            const validScheduleIds = new Set(allSch.filter(s => s.soc === profile.soc).map(s => s.id));
+            const validScheduleIds = new Set(allSch.filter(s => s.soc === effectiveSoc).map(s => s.id));
             filteredLogs = filteredLogs.filter(log => validScheduleIds.has(log.schedule_id));
           }
         }
@@ -229,8 +229,8 @@ export default function SchedulePage() {
       // Carregar solicitações e colaboradores solicitados
       try {
         let reqQuery = supabase.from('training_scheduling_requests').select('*').order('created_at', { ascending: false });
-        if (profile?.soc) {
-          reqQuery = reqQuery.eq('soc', profile.soc);
+        if (effectiveSoc) {
+          reqQuery = reqQuery.eq('soc', effectiveSoc);
         }
         const { data: reqs } = await reqQuery;
 
@@ -254,7 +254,7 @@ export default function SchedulePage() {
         console.error('[Schedule] Erro ao carregar solicitações:', err);
       }
     } catch (err) { console.error('[Schedule] Erro ao carregar dados:', err); }
-  }, [profile?.soc]);
+  }, [effectiveSoc]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -477,7 +477,7 @@ export default function SchedulePage() {
 
     setSubmittingRequest(true);
     try {
-      const userSoc = profile?.soc || 'SPX BR';
+      const userSoc = effectiveSoc || profile?.soc || 'SPX BR';
       const [hour, minute] = requestForm.start_time.split(':');
       const calculatedEndTime = `${String((Number(hour) + 1) % 24).padStart(2, '0')}:${minute}`;
 
@@ -820,7 +820,7 @@ export default function SchedulePage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-black text-gray-900 text-sm">Slots Cadastrados</h2>
-            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location: profile?.soc || 'SPX BR', color:'#EE4D2D', soc: profile?.soc || 'SPX BR', is_recurring: true, specific_date: '' }); }}
+            <button onClick={() => { setShowNewForm(v => !v); setEditingSchedule(null); setForm({ title:'', training_type:'RECEBIMENTO', day_of_week:1, start_time:'10:00', end_time:'11:00', instructor_name:'', instructor_email:'', location: effectiveSoc || profile?.soc || 'SPX BR', color:'#EE4D2D', soc: effectiveSoc || profile?.soc || 'SPX BR', is_recurring: true, specific_date: '' }); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EE4D2D] text-white text-[11px] font-black rounded-lg hover:bg-[#D04426] transition-colors">
               <Plus size={13}/> Novo Slot
             </button>
@@ -1355,7 +1355,7 @@ export default function SchedulePage() {
               <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="text-[10px] font-black text-gray-500 uppercase">Local *</label>
-                  <input value={profile?.soc || 'SPX BR'} readOnly disabled
+                  <input value={effectiveSoc || profile?.soc || 'SPX BR'} readOnly disabled
                     className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none bg-gray-50 text-gray-500 cursor-not-allowed"/>
                 </div>
               </div>
@@ -1387,7 +1387,7 @@ export default function SchedulePage() {
                   placeholder="Buscar colaborador pelo nome..." className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-[#EE4D2D]/20"/>
                 <ul className="mt-1 max-h-40 overflow-y-auto border border-gray-100 rounded-lg bg-white shadow-sm">
                   {collaborators
-                    .filter(c => c.soc === profile?.soc && !requestCollabs.find(rc => rc.id === c.id))
+                    .filter(c => c.soc === (effectiveSoc || profile?.soc) && !requestCollabs.find(rc => rc.id === c.id))
                     .filter(c => isLider && profile?.leader_key ? c.leader?.toUpperCase() === profile.leader_key.toUpperCase() : true)
                     .filter(c => c.name.toLowerCase().includes(requestCollabSearch.toLowerCase()))
                     .map(c => {
@@ -1408,7 +1408,7 @@ export default function SchedulePage() {
                         </li>
                       );
                     })}
-                  {collaborators.filter(c => c.soc === profile?.soc && !requestCollabs.find(rc => rc.id === c.id) && c.name.toLowerCase().includes(requestCollabSearch.toLowerCase())).length === 0 && (
+                  {collaborators.filter(c => c.soc === (effectiveSoc || profile?.soc) && !requestCollabs.find(rc => rc.id === c.id) && c.name.toLowerCase().includes(requestCollabSearch.toLowerCase())).length === 0 && (
                     <li className="px-3 py-3 text-center text-gray-300 text-xs italic">Nenhum colaborador encontrado para o seu SOC</li>
                   )}
                 </ul>

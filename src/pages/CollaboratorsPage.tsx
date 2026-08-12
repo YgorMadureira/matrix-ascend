@@ -21,16 +21,19 @@ interface Collaborator {
   is_onboarding?: boolean;
   admission_date?: string;
   activity?: string;
+  /** Calculado no banco pela view collaborators_status. */
+  is_trained: boolean;
+  /** Tipos de treinamento de onboarding já assinados, em MAIÚSCULAS. */
+  onboarding_modules: string[];
 }
 
 const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '' };
 const EMPTY_COLLABS: Collaborator[] = [];
-const EMPTY_TRAININGS: { collaborator_id: string; training_type: string }[] = [];
 // A busca da planilha do Google Sheets roda agora na Edge Function
 // sync-collaborators (server-side) — ver supabase/functions/sync-collaborators.
 
 export default function CollaboratorsPage() {
-  const { isAdmin, isBpo, loading: authLoading, profile } = useAuth();
+  const { isMaster, isAdmin, isBpo, loading: authLoading, effectiveSoc } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -61,10 +64,10 @@ export default function CollaboratorsPage() {
     { key: 'PTS',         initial: 'P', label: 'Onboarding PTS',          color: 'bg-cyan-100 text-cyan-600 border-cyan-200' },
   ] as const;
 
-  const getCompletedModules = (collabId: string) => {
-    const done = trainings
-      .filter(t => t.collaborator_id === collabId)
-      .map(t => t.training_type?.toUpperCase() ?? '');
+  // Os módulos já vêm agregados do banco (collaborators_status.onboarding_modules),
+  // então isto é só leitura de memória — não custa mais uma consulta por linha.
+  const getCompletedModules = (c: Collaborator) => {
+    const done = c.onboarding_modules ?? [];
     return ONBOARDING_MODULES.map(m => ({
       ...m,
       done: done.some(t => t.includes('ONBOARDING') && t.includes(m.key)),
@@ -90,14 +93,18 @@ export default function CollaboratorsPage() {
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
-  // ── Fetch escopado pela SOC do usuário (mesma regra que o filtro client-side
-  // já aplicava) + cache via React Query. Antes baixava as 18.716 linhas de
-  // TODAS as unidades a cada navegação; agora só a própria SOC (até ~2.300
-  // linhas no pior caso) e reaproveita o cache ao sair e voltar da tela.
-  const socScope = profile?.soc?.trim() || null;
-
+  // ── Fetch escopado pela unidade em foco ──────────────────────────────
+  // Para quem não é master, effectiveSoc é sempre a própria SOC. Para o
+  // master, é o que estiver escolhido no seletor do topo — e `null` quer
+  // dizer "todas as unidades".
+  //
+  // A fonte é a view collaborators_status, não a tabela: ela já traz
+  // is_trained e os módulos de onboarding calculados no banco. Antes a tela
+  // baixava TODOS os registros de treinamento em lotes de 150 ids (~15
+  // requisições para SP6, e mais de 130 se fosse ver todas as unidades)
+  // só para calcular esses dois campos no navegador.
   const { data: queryData, isLoading: dataLoading, refetch } = useQuery({
-    queryKey: ['collaborators', socScope],
+    queryKey: ['collaborators', effectiveSoc],
     enabled: !authLoading,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -105,40 +112,23 @@ export default function CollaboratorsPage() {
       let page = 0; const limit = 1000; let hasMore = true;
       while (hasMore) {
         let q = supabase
-          .from('collaborators')
-          .select('id, name, opsid, gender, soc, sector, shift, leader, role, bpo, is_onboarding, admission_date, activity')
+          .from('collaborators_status')
+          .select('id, name, opsid, gender, soc, sector, shift, leader, role, bpo, is_onboarding, admission_date, activity, is_trained, onboarding_modules')
           .order('name')
           .range(page * limit, (page + 1) * limit - 1);
-        if (socScope) q = q.eq('soc', socScope);
+        if (effectiveSoc) q = q.eq('soc', effectiveSoc);
         const { data, error } = await q;
         if (error) throw error;
         if (data && data.length > 0) { allCollabs.push(...(data as Collaborator[])); if (data.length < limit) hasMore = false; else page++; }
         else hasMore = false;
       }
-
-      // Treinamentos só dos colaboradores já escopados, em lotes — um .in()
-      // com os ~2.300 ids de uma SOC grande de uma vez estoura o limite de
-      // 16 KB de cabeçalho HTTP (foi exatamente o bug que zerava as
-      // assinaturas de SP5 antes da correção da tela de Assinaturas).
-      const ids = allCollabs.map(c => c.id);
-      const allTrainings: { collaborator_id: string; training_type: string }[] = [];
-      const BATCH = 150;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const chunk = ids.slice(i, i + BATCH);
-        const { data, error } = await supabase.from('trainings_completed').select('collaborator_id, training_type').in('collaborator_id', chunk);
-        if (error) throw error;
-        allTrainings.push(...(data ?? []));
-      }
-
-      return { collaborators: allCollabs, trainings: allTrainings };
+      return { collaborators: allCollabs };
     },
   });
 
-  // Referências estáveis (não um [] novo a cada render) — evita que os useMemo
-  // abaixo, que dependem de "collaborators"/"trainings", recalculem à toa
-  // enquanto a query ainda está carregando.
+  // Referência estável (não um [] novo a cada render) — evita que os useMemo
+  // abaixo recalculem à toa enquanto a query ainda está carregando.
   const collaborators = queryData?.collaborators ?? EMPTY_COLLABS;
-  const trainings = queryData?.trainings ?? EMPTY_TRAININGS;
   const fetchData = () => refetch();
 
   // Sem memo, essas 3 listas e o filtro abaixo eram recalculados a cada
@@ -167,7 +157,13 @@ export default function CollaboratorsPage() {
   // agora é uma linha na tabela sync_locks, então funciona certo mesmo com
   // vários admins clicando ao mesmo tempo em navegadores diferentes.
   const handleGSheetSync = async () => {
-    if (!isAdmin) return;
+    // Exclusivo do master, e não por preferência de interface: a
+    // sincronização é GLOBAL — lê a planilha inteira e escreve e remove em
+    // todas as unidades de uma vez. Um admin de SP6 disparando isto mexe em
+    // ES2, RS2 e em todas as outras. A mesma regra é verificada dentro da
+    // Edge Function, que é o que realmente vale — esconder o botão não
+    // impede ninguém de chamar a função pelo console do navegador.
+    if (!isMaster) return;
     if (isSyncing.current) {
       toast.info('Já existe uma sincronização em andamento.');
       return;
@@ -179,7 +175,13 @@ export default function CollaboratorsPage() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.skipped) {
-        toast.info(data.reason || 'Sincronização já em andamento.', { id: toastId });
+        // "desligada" é diferente de "já rodando": a primeira exige alguém
+        // religar de propósito, a segunda passa sozinha em minutos.
+        if (data.disabled) {
+          toast.warning(`Sincronização desligada. ${data.reason ?? ''}`, { id: toastId, duration: 15000 });
+        } else {
+          toast.info(data.reason || 'Sincronização já em andamento.', { id: toastId });
+        }
         return;
       }
       // Erros de gravação NÃO podem passar despercebidos: no incidente de
@@ -208,26 +210,11 @@ export default function CollaboratorsPage() {
   };
 
 
-  const isTrained = (c: Collaborator) => {
-    return trainings.some((t) => {
-      if (t.collaborator_id !== c.id) return false;
-
-      const tName = t.training_type?.toUpperCase() || '';
-      const cSec = c.sector?.toUpperCase() || '';
-      const cRole = c.role?.toUpperCase() || '';
-      
-      // 1. Match Direto: Se o nome do treinamento contém o setor ou cargo
-      if (cSec && (tName.includes(cSec) || cSec.includes(tName))) return true;
-      if (cRole && (tName.includes(cRole) || cRole.includes(tName))) return true;
-      
-      // 2. Regra de Onboarding:
-      // Se for um treinamento de Onboarding, aceita para setores operacionais ou se o usuário estiver em onboarding
-      const isOperational = cSec === 'RECEBIMENTO' || cSec === 'PROCESSAMENTO' || cSec === 'EXPEDIÇÃO' || cSec === 'EXPEDICAO' || cSec === 'TRATATIVAS' || cSec === 'ASM';
-      if (tName.includes('ONBOARDING') && (isOperational || c.is_onboarding)) return true;
-
-      return false;
-    });
-  };
+  // A regra de "treinado" vive agora no banco, na função
+  // training_matches_collaborator, usada pela view collaborators_status
+  // (ver supabase/migrations/20260812_04). É a MESMA lógica que rodava
+  // aqui, portada linha por linha — se mudar em um lado, mude no outro.
+  const isTrained = (c: Collaborator) => c.is_trained === true;
 
   // Sem memo, esse filtro (que chama isTrained por colaborador) rodava de
   // novo a cada tecla digitada na busca, cada clique de filtro e cada
@@ -254,7 +241,10 @@ export default function CollaboratorsPage() {
       norm(c.sector || '').includes(searchNormalized);
     
     const userSoc = normSoc(c.soc);
-    const mySoc = normSoc(profile?.soc ?? '');
+    // Rede de segurança: a consulta já vem escopada por effectiveSoc. Com o
+    // master vendo todas as unidades, effectiveSoc é nulo e nada é filtrado
+    // aqui — que é justamente o comportamento desejado.
+    const mySoc = normSoc(effectiveSoc ?? '');
     if (mySoc && userSoc !== mySoc) return false;
 
     const matchSoc = selectedSoc ? userSoc === normSoc(selectedSoc) : true;
@@ -277,7 +267,7 @@ export default function CollaboratorsPage() {
 
     // Onboarding-only: multi-module filter (mostra quem NÃO assinou nos módulos selecionados)
     if (currentTab === 'onboarding' && onboardingModuleFilter.size > 0) {
-      const modules = getCompletedModules(c.id);
+      const modules = getCompletedModules(c);
       // Colaborador aparece se tiver pelo menos 1 módulo selecionado pendente
       const hasPending = Array.from(onboardingModuleFilter).some(key => {
         const mod = modules.find(m => m.key === key);
@@ -287,7 +277,7 @@ export default function CollaboratorsPage() {
     }
     
     return matchSearch && matchSoc && matchLeader && matchShift;
-  }), [collaborators, trainings, currentTab, search, selectedSoc, selectedLeader, selectedShift, statusFilter, dateFrom, dateTo, onboardingModuleFilter, profile?.soc]);
+  }), [collaborators, currentTab, search, selectedSoc, selectedLeader, selectedShift, statusFilter, dateFrom, dateTo, onboardingModuleFilter, effectiveSoc]);
 
   const displayTotal = filtered.length;
 
@@ -307,7 +297,7 @@ export default function CollaboratorsPage() {
       .filter(l => l && l !== '-' && l !== 'N/A')
   ).size, [filtered]);
 
-  const uniqueTrained = useMemo(() => filtered.filter(c => isTrained(c)).length, [filtered, trainings]);
+  const uniqueTrained = useMemo(() => filtered.filter(c => isTrained(c)).length, [filtered]);
   const trainedPct = displayTotal > 0 ? Math.round((uniqueTrained / displayTotal) * 100) : 0;
 
   const handleSave = async () => {
@@ -611,19 +601,21 @@ export default function CollaboratorsPage() {
               <Upload size={14} /> Importar
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
             </label>
-            {isAdmin && (
+            {/* Só o master. A sincronização atinge TODAS as unidades de uma
+                vez, então nunca foi uma ação de escopo local. */}
+            {isMaster && (
               <div className="flex flex-col items-end gap-1">
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleGSheetSync()}
                     className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#EE4D2D]/10 text-[#EE4D2D] text-[10px] font-black uppercase tracking-wider hover:bg-[#EE4D2D]/20 transition-all border border-[#EE4D2D]/20"
-                    title="A sincronização automática já roda todo dia às 05h — use este botão só se precisar forçar uma atualização agora."
+                    title="Atualiza os colaboradores de TODAS as unidades a partir da planilha. Já roda sozinho todo dia às 05h — use aqui só para forçar agora."
                   >
                     <RefreshCw size={14} /> Sincronizar Sheets
                   </button>
                 </div>
                 <span className="text-[7px] font-bold text-gray-400 uppercase mr-2">
-                  Sincronização automática diária às 05h
+                  Todas as unidades • diária às 05h
                   {localStorage.getItem('last_gsheet_sync') && ` • Última manual: ${new Date(localStorage.getItem('last_gsheet_sync')!).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`}
                 </span>
               </div>
@@ -951,7 +943,7 @@ export default function CollaboratorsPage() {
                       {/* Onboarding badges */}
                       <td className="p-2.5">
                         <div className="flex items-center justify-center gap-1">
-                          {getCompletedModules(c.id).map(m => (
+                          {getCompletedModules(c).map(m => (
                             <div
                               key={m.key}
                               title={`${m.label}${m.done ? ' ✓ Concluído' : ' ✗ Pendente'}`}

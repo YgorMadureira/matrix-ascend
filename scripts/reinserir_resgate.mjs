@@ -55,9 +55,16 @@ for (const t of tr) {
   }
   if (!collaboratorId) semDono++;
 
+  // Grava o nome/OPS ID/SOC na própria linha, mesmo quando o vínculo não
+  // fecha. É o que faltava em 11/08: sem isso, uma assinatura sem
+  // collaborator_id não tem como ser identificada depois — nem por script,
+  // nem a olho. (Colunas criadas em 20260812_02.)
   const { error } = await db.from('trainings_completed').insert({
     id: t.id,
     collaborator_id: collaboratorId,
+    collaborator_name:  t._colaborador_nome  || null,
+    collaborator_soc:   t._colaborador_soc   || null,
+    collaborator_opsid: t._colaborador_opsid || null,
     training_type: t.training_type,
     completed_at: t.completed_at,
     signature_pdf_url: t.signature_pdf_url,

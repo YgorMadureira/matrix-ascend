@@ -39,7 +39,7 @@ interface Training {
 }
 
 export default function ReportsPage() {
-  const { user, profile, isLider, isAdmin, loading: authLoading, socHasSorting } = useAuth();
+  const { user, profile, isLider, isAdmin, loading: authLoading, socHasSorting, effectiveSoc } = useAuth();
   const location = useLocation();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -247,7 +247,7 @@ export default function ReportsPage() {
         .range(page * limit, (page + 1) * limit - 1);
       // soc null = admin sem unidade restrita → vê todas. Filtrar por '' não
       // casaria com nenhum colaborador e mostraria a tela vazia sem aviso.
-      if (profile?.soc) collabQuery = collabQuery.eq('soc', profile.soc);
+      if (effectiveSoc) collabQuery = collabQuery.eq('soc', effectiveSoc);
       const { data, error } = await collabQuery;
 
       if (error) break;
@@ -280,7 +280,7 @@ export default function ReportsPage() {
     }
 
     let microQuery = supabase.from('soc_micro_trainings').select('*').order('order_num');
-    if (profile?.soc) microQuery = microQuery.eq('soc_name', profile.soc);
+    if (effectiveSoc) microQuery = microQuery.eq('soc_name', effectiveSoc);
     const { data: microData } = await microQuery;
 
     const matchLeader = (collaboratorLeader: string): boolean => {
@@ -303,7 +303,7 @@ export default function ReportsPage() {
     setTrainings(allTrainings);
     setMicroTrainings(microData || []);
     setSectors([...new Set(allCollabs.map(x => (x.sector as string) || 'Sem Setor'))]);
-  }, [isLider, isAdmin, profile?.full_name, profile?.leader_key, profile?.soc]);
+  }, [isLider, isAdmin, profile?.full_name, profile?.leader_key, effectiveSoc]);
 
   useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
@@ -417,11 +417,11 @@ export default function ReportsPage() {
   const chartData = socChartData;
 
   const socRankPosition = useMemo(() => {
-    if (!profile?.soc || socChartData.length === 0) return null;
-    const idx = socChartData.findIndex(d => d.soc === profile.soc);
+    if (!effectiveSoc || socChartData.length === 0) return null;
+    const idx = socChartData.findIndex(d => d.soc === effectiveSoc);
     if (idx === -1) return null;
     return { position: idx + 1, total: socChartData.length };
-  }, [socChartData, profile?.soc]);
+  }, [socChartData, effectiveSoc]);
 
   const instructorStats = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -461,7 +461,7 @@ export default function ReportsPage() {
     setIsExporting(true);
     try {
       // soc null = admin sem unidade restrita → exporta de todas as unidades.
-      const USER_SOC = profile?.soc || null;
+      const USER_SOC = effectiveSoc;
 
       // Busca todos os colaboradores do SOC
       const allCollabsForExport: any[] = [];
@@ -573,10 +573,10 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Relatórios & Matriz</h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
             Gestão de certificações por unidade e setor operacional
-            {profile?.soc && (
+            {effectiveSoc && (
               <span className="ml-2 inline-flex items-center gap-1 bg-[#EE4D2D]/10 text-[#EE4D2D] text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#EE4D2D]/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EE4D2D] animate-pulse inline-block" />
-                SOC: {profile.soc}
+                SOC: {effectiveSoc}
               </span>
             )}
           </p>
@@ -623,7 +623,7 @@ export default function ReportsPage() {
             id="btn-export-pending"
             onClick={exportPendingCollaborators}
             disabled={isExporting}
-            title={profile?.soc ? `Exportar pendentes do SOC ${profile.soc}` : 'Exportar pendentes de todas as SOCs'}
+            title={effectiveSoc ? `Exportar pendentes do SOC ${effectiveSoc}` : 'Exportar pendentes de todas as SOCs'}
             className="flex items-center gap-1.5 px-3 py-2 bg-[#EE4D2D] hover:bg-[#d63b1f] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
           >
             {isExporting ? (
@@ -695,7 +695,7 @@ export default function ReportsPage() {
           </h2>
           {socRankPosition && (
             <span className="text-[10px] font-black text-[#EE4D2D] bg-[#FEF6F5] px-2.5 py-1 rounded-full border border-[#EE4D2D]/10">
-              {profile?.soc} está em {socRankPosition.position}º de {socRankPosition.total}
+              {effectiveSoc} está em {socRankPosition.position}º de {socRankPosition.total}
             </span>
           )}
         </div>
@@ -719,7 +719,7 @@ export default function ReportsPage() {
               <Bar yAxisId="left" dataKey="Treinados" radius={[4, 4, 0, 0]} barSize={28}>
                  <LabelList dataKey="Treinados" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" formatter={(val: any) => `${val}%`} />
                  {chartData.map(d => (
-                   <Cell key={d.soc} fill={d.soc === profile?.soc ? '#EE4D2D' : '#cbd5e1'} />
+                   <Cell key={d.soc} fill={d.soc === effectiveSoc ? '#EE4D2D' : '#cbd5e1'} />
                  ))}
               </Bar>
               <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }} />
@@ -879,7 +879,7 @@ export default function ReportsPage() {
         {/* Filter bar + category headers */}
         {microTrainings.length === 0 ? (
           <div className="p-10 text-center text-gray-500 font-medium">
-             Nenhum processo micro cadastrado para {profile?.soc || 'sua unidade'}. Peça ao administrador para configurar na tela de Configurações.
+             Nenhum processo micro cadastrado para {effectiveSoc || 'sua unidade'}. Peça ao administrador para configurar na tela de Configurações.
           </div>
         ) : (() => {
           const macroAreasOrder: string[] = [];
