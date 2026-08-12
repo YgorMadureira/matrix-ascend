@@ -99,6 +99,29 @@ describe('trainingRules — matriz de referência SP6 (tabela validada)', () => 
     expect(countHits('00. Treinamento Padrão SOC - ASM', asm)).toBe(2);
   });
 
+  // Regressão: este é o nome REAL usado na operação (1.474 assinaturas na
+  // planilha de importação de 12/08/2026). O sufixo é "SORTER ASM", não
+  // "ASM" — com a comparação exata anterior ele não acendia nada aqui,
+  // enquanto a função do banco (ILIKE '%asm%') acendia. As duas precisam
+  // concordar, senão o Relatório e o card de saúde mostram números
+  // diferentes para a mesma pessoa.
+  it('06. Treinamento Padrão SOC - Sorter (ASM) acende a macro ASM', () => {
+    const asm: MicroTraining[] = [
+      { name: 'Sorter Base', macro_area: 'ASM' },
+      { name: 'Sorter Avançado', macro_area: 'ASM' },
+    ];
+    expect(countHits('06. Treinamento Padrão SOC - Sorter (ASM)', asm)).toBe(2);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'ASM')).toBe(true);
+  });
+
+  it('o sufixo com nome de área não vaza para as outras áreas', () => {
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'RECEBIMENTO')).toBe(false);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'PROCESSAMENTO')).toBe(false);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'EXPEDIÇÃO')).toBe(false);
+    // "PROCESSAMENTO" contém "SAM", não "ASM" — não pode acender ASM
+    expect(isAreaTrained(['02. Treinamento Padrão SOC - Processamento'], 'ASM')).toBe(false);
+  });
+
   it.each([
     'Onboarding Meio Ambiente',
     'Onboarding People',

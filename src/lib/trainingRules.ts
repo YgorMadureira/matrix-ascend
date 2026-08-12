@@ -92,14 +92,26 @@ function areasUnlockedBy(trainingType: string): MacroArea[] | null {
 
   if (t.includes('TREINAMENTO PADRAO SOC')) {
     const suffix = t.split('TREINAMENTO PADRAO SOC').pop()!.trim();
-    const targets: Record<string, MacroArea> = {
-      RECEBIMENTO: 'RECEBIMENTO',
-      PROCESSAMENTO: 'PROCESSAMENTO',
-      EXPEDICAO: 'EXPEDIÇÃO',
-      TRATATIVAS: 'TRATATIVAS',
-      ASM: 'ASM',
-    };
-    if (suffix in targets) return [targets[suffix]];
+    // Procura a palavra-chave DENTRO do sufixo, em vez de exigir que o
+    // sufixo seja exatamente ela. O nome real usado na operação é
+    // "06. Treinamento Padrão SOC - Sorter (ASM)" — com a comparação exata,
+    // o sufixo virava "SORTER ASM", não batia com nada, e 1.474 assinaturas
+    // de ASM não acendiam a área no Dashboard. A função equivalente no banco
+    // (training_unlocks_area) sempre usou ILIKE '%asm%', então as duas
+    // discordavam: o Relatório contava, o card de saúde não.
+    //
+    // Nenhuma das palavras é substring de outra ("PROCESSAMENTO" contém
+    // "SAM", não "ASM"), então não há match cruzado. Um nome que cite duas
+    // áreas acende as duas — que é o comportamento correto.
+    const targets: [string, MacroArea][] = [
+      ['RECEBIMENTO', 'RECEBIMENTO'],
+      ['PROCESSAMENTO', 'PROCESSAMENTO'],
+      ['EXPEDICAO', 'EXPEDIÇÃO'],
+      ['TRATATIVAS', 'TRATATIVAS'],
+      ['ASM', 'ASM'],
+    ];
+    const encontradas = targets.filter(([chave]) => suffix.includes(chave)).map(([, area]) => area);
+    if (encontradas.length > 0) return encontradas;
   }
 
   return null;
