@@ -26,6 +26,8 @@
 //   --instrutor "NOME"     instrutor padrão quando a planilha não traz
 //   --data 2026-08-05      data padrão (AAAA-MM-DD) quando a planilha não traz
 //   --forcar-nomes         grava mesmo com nomes de treinamento não reconhecidos
+//   --sem-vinculo          grava também quem ainda não está na base de colaboradores,
+//                          com nome e unidade congelados (revincular_orfas.mjs religa depois)
 
 import { db, paginar } from './_conexao.mjs';
 import xlsx from 'xlsx';
@@ -35,6 +37,7 @@ const args = process.argv.slice(2);
 const ARQUIVO = args.find(a => !a.startsWith('--'));
 const APLICAR = args.includes('--aplicar');
 const FORCAR   = args.includes('--forcar-nomes');
+const SEM_VINCULO = args.includes('--sem-vinculo');
 const opcao = (nome, padrao) => {
   const i = args.indexOf(nome);
   return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : padrao;
@@ -72,8 +75,10 @@ function acendeArea(nomeTreinamento) {
   if (t.includes('ONBOARDING PTS')) return true;
   if (t.includes('ONBOARDING')) return true; // administrativo: válido, mas não acende área
   if (t.includes('TREINAMENTO PADRAO SOC')) {
+    // Procura a palavra-chave DENTRO do sufixo — "Sorter (ASM)" vira
+    // "SORTER ASM" e precisa acender ASM. Mesma regra de trainingRules.ts.
     const sufixo = t.split('TREINAMENTO PADRAO SOC').pop().trim();
-    return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'].includes(sufixo);
+    return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'].some(k => sufixo.includes(k));
   }
   return false;
 }
@@ -133,34 +138,66 @@ const nomesConhecidos = new Set([
 ].filter(Boolean));
 console.log(`  ${nomesConhecidos.size} nomes de treinamento no catálogo`);
 
-const jaExistem = new Set(
-  (await paginar('trainings_completed', 'collaborator_id,training_type'))
-    .map(t => `${t.collaborator_id}|${semVersao(normalizar(t.training_type))}`)
-);
-console.log(`  ${jaExistem.size} assinaturas já registradas\n`);
+// Duas chaves de duplicata, porque há dois tipos de registro:
+//   · vinculado  → id do colaborador + treinamento
+//   · sem dono   → nome + unidade + treinamento (via snapshot)
+const existentes = await paginar('trainings_completed', 'collaborator_id,training_type,collaborator_name,collaborator_soc');
+const jaExistem = new Set();
+const jaExistemSemDono = new Set();
+for (const t of existentes) {
+  const tN = semVersao(normalizar(t.training_type));
+  if (t.collaborator_id) jaExistem.add(`${t.collaborator_id}|${tN}`);
+  else if (t.collaborator_name) jaExistemSemDono.add(`${chaveColab(t.collaborator_name, t.collaborator_soc)}|${tN}`);
+}
+console.log(`  ${existentes.length} assinaturas já registradas (${jaExistemSemDono.size} sem dono)\n`);
 
 // ── 3. Validar ──────────────────────────────────────────────────────
-const prontas = [], colabNaoAchado = [], duplicadas = [], nomeEstranho = new Map();
+const prontas = [], semVinculo = [], colabNaoAchado = [], duplicadas = [], nomeEstranho = new Map();
+
+const dataDaLinha = (l) => {
+  let quando = DATA_PADRAO ? `${DATA_PADRAO}T12:00:00-03:00` : new Date().toISOString();
+  if (l.data) {
+    const d = new Date(l.data.includes('/') ? l.data.split('/').reverse().join('-') : l.data);
+    if (!isNaN(d.getTime())) quando = d.toISOString();
+  }
+  return quando;
+};
 
 for (const l of linhas) {
-  const c = porChave.get(chaveColab(l.nome, l.soc));
-  if (!c) { colabNaoAchado.push(l); continue; }
-
   const tNorm = semVersao(normalizar(l.treinamento));
   if (!nomesConhecidos.has(tNorm) && !acendeArea(l.treinamento)) {
-    if (!nomeEstranho.has(l.treinamento)) nomeEstranho.set(l.treinamento, 0);
-    nomeEstranho.set(l.treinamento, nomeEstranho.get(l.treinamento) + 1);
+    nomeEstranho.set(l.treinamento, (nomeEstranho.get(l.treinamento) ?? 0) + 1);
+  }
+
+  const c = porChave.get(chaveColab(l.nome, l.soc));
+
+  // ── Colaborador não está (ainda) na base ──────────────────────
+  // Acontece com unidade recém-criada, cujo quadro só entra na próxima
+  // sincronização, e com quem já foi desligado. Nos dois casos o registro
+  // é preservado com nome e unidade congelados nas colunas de snapshot —
+  // depois, `node scripts/revincular_orfas.mjs` religa automaticamente
+  // quem aparecer na base.
+  if (!c) {
+    colabNaoAchado.push(l);
+    if (!SEM_VINCULO) continue;
+    const chaveOrfa = `${chaveColab(l.nome, l.soc)}|${tNorm}`;
+    if (jaExistemSemDono.has(chaveOrfa)) { duplicadas.push(l); continue; }
+    jaExistemSemDono.add(chaveOrfa);
+    semVinculo.push({
+      collaborator_id:    null,
+      collaborator_name:  l.nome.trim(),
+      collaborator_soc:   l.soc.trim(),
+      collaborator_opsid: null,
+      training_type:      l.treinamento.trim(),
+      instructor_name:    l.instrutor || INSTRUTOR_PADRAO,
+      completed_at:       dataDaLinha(l),
+      signature_pdf_url:  null,
+    });
+    continue;
   }
 
   if (jaExistem.has(`${c.id}|${tNorm}`)) { duplicadas.push(l); continue; }
-
-  let quando = DATA_PADRAO ? `${DATA_PADRAO}T12:00:00-03:00` : new Date().toISOString();
-  if (l.data) {
-    const d = new Date(l.data.includes('/')
-      ? l.data.split('/').reverse().join('-')
-      : l.data);
-    if (!isNaN(d.getTime())) quando = d.toISOString();
-  }
+  jaExistem.add(`${c.id}|${tNorm}`); // evita duplicar dentro da própria planilha
 
   prontas.push({
     collaborator_id:    c.id,
@@ -169,24 +206,28 @@ for (const l of linhas) {
     collaborator_opsid: c.opsid,
     training_type:      l.treinamento.trim(),
     instructor_name:    l.instrutor || INSTRUTOR_PADRAO,
-    completed_at:       quando,
+    completed_at:       dataDaLinha(l),
     // Sem imagem: é um registro histórico, não uma assinatura coletada na
     // tela. A coluna de assinatura na tela vai aparecer vazia — é esperado.
     signature_pdf_url:  null,
   });
-  jaExistem.add(`${c.id}|${tNorm}`); // evita duplicar dentro da própria planilha
 }
 
 console.log('=== VALIDAÇÃO ===');
-console.log(`  ✓ prontas para inserir : ${prontas.length}`);
-console.log(`  · já existiam          : ${duplicadas.length}`);
-console.log(`  ✗ colaborador não achado: ${colabNaoAchado.length}`);
-console.log(`  ⚠ nomes não reconhecidos: ${nomeEstranho.size}\n`);
+console.log(`  ✓ vinculadas ao colaborador : ${prontas.length}`);
+if (SEM_VINCULO) console.log(`  ✓ sem vínculo (com snapshot): ${semVinculo.length}`);
+console.log(`  · já existiam               : ${duplicadas.length}`);
+console.log(`  ${SEM_VINCULO ? '·' : '✗'} colaborador não achado     : ${colabNaoAchado.length}${SEM_VINCULO ? ' (preservadas pelo snapshot)' : ' (serão ignoradas)'}`);
+console.log(`  ⚠ nomes não reconhecidos    : ${nomeEstranho.size}\n`);
 
 if (colabNaoAchado.length > 0) {
-  console.log('Colaboradores que não bateram (nome + SOC precisam ser idênticos ao cadastro):');
-  for (const l of colabNaoAchado.slice(0, 15)) console.log(`   linha ${l.linha}: "${l.nome}" (${l.soc})`);
-  if (colabNaoAchado.length > 15) console.log(`   ... e mais ${colabNaoAchado.length - 15}`);
+  const porSoc = new Map();
+  for (const l of colabNaoAchado) porSoc.set(l.soc, (porSoc.get(l.soc) ?? 0) + 1);
+  console.log(`Colaboradores fora da base, por unidade:`);
+  for (const [s, n] of [...porSoc.entries()].sort((a, b) => b[1] - a[1])) {
+    console.log(`   ${String(s).padEnd(6)} ${String(n).padStart(6)}`);
+  }
+  console.log(`   Amostra: ${colabNaoAchado.slice(0, 3).map(l => `"${l.nome}" (${l.soc})`).join(', ')}`);
   console.log();
 }
 
@@ -205,12 +246,17 @@ if (nomeEstranho.size > 0 && !FORCAR) {
   process.exit(1);
 }
 
-if (prontas.length > 0) {
+const aInserir = [...prontas, ...semVinculo];
+
+if (aInserir.length > 0) {
   console.log('Amostra do que será inserido:');
-  for (const p of prontas.slice(0, 8)) {
+  for (const p of prontas.slice(0, 5)) {
     console.log(`   ${p.collaborator_name} (${p.collaborator_soc}) · ${p.training_type}`);
   }
-  if (prontas.length > 8) console.log(`   ... e mais ${prontas.length - 8}`);
+  for (const p of semVinculo.slice(0, 3)) {
+    console.log(`   ${p.collaborator_name} (${p.collaborator_soc}) · ${p.training_type}   [sem vínculo]`);
+  }
+  console.log(`   ... total: ${aInserir.length}`);
   console.log();
 }
 
@@ -222,16 +268,18 @@ if (!APLICAR) {
 // ── 4. Gravar ───────────────────────────────────────────────────────
 let ok = 0;
 const erros = [];
-for (let i = 0; i < prontas.length; i += 200) {
-  const lote = prontas.slice(i, i + 200);
+for (let i = 0; i < aInserir.length; i += 200) {
+  const lote = aInserir.slice(i, i + 200);
   const { error } = await db.from('trainings_completed').insert(lote);
   if (error) erros.push(`Lote ${i}-${i + lote.length}: ${error.message}`);
   else ok += lote.length;
-  console.log(`  ${Math.min(i + 200, prontas.length)}/${prontas.length}...`);
+  if (i % 2000 === 0 || i + 200 >= aInserir.length) {
+    console.log(`  ${Math.min(i + 200, aInserir.length)}/${aInserir.length}...`);
+  }
 }
 
 console.log('\n=== CONCLUÍDO ===');
-console.log(`  inseridas: ${ok}`);
+console.log(`  inseridas: ${ok}  (${prontas.length} vinculadas + ${semVinculo.length} sem vínculo)`);
 if (erros.length > 0) {
   console.log(`  falhas   : ${erros.length} lote(s)`);
   for (const e of erros.slice(0, 10)) console.log(`   ${e}`);

@@ -135,8 +135,21 @@ create policy "admin_write_socs" on public.socs
   with check (public.current_user_role() in ('admin', 'master'));
 
 -- ── trainings_completed: sem leitura pública hoje — vira same-soc nos dois sentidos ──
--- Mantém o insert anônimo (QR Code) intocado: aquela policy tem 'anon' em
--- roles e não é removida pelo helper acima.
+-- ⚠️ CORRIGIDO em 13/08 depois do inventário completo do banco: esta nota
+-- dizia "mantém o insert anônimo intocado porque aquela policy tem 'anon'
+-- em roles". Falso — o inventário mostrou que a policy real
+-- ("Permitir Insert Anonimo (Trainings)") foi criada SEM "to anon",
+-- então o Postgres guarda o alcance dela como roles = {public}, não
+-- {anon}. O helper acima só poupa quem tem 'anon' LITERALMENTE no
+-- array — {public} não bate — então ela seria apagada por
+-- drop_authenticated_policies() e NUNCA recriada. O check-in por QR Code
+-- (SignPage, sem login) teria parado de funcionar no primeiro scan depois
+-- desta migração, sem nenhum erro visível até alguém tentar assinar.
+-- Corrigido recriando a policy explicitamente abaixo, restrita a "anon"
+-- de verdade — o que também fecha uma folga que a versão antiga tinha:
+-- "to public" cobria authenticated também, então qualquer usuário logado
+-- conseguia inserir treinamento para colaborador de QUALQUER SOC por essa
+-- policy, por fora da regra same-soc que a authenticated deveria seguir.
 --
 -- A leitura tem uma cláusula a mais quando a migração de snapshot
 -- (20260812_02) já rodou: assinaturas cujo colaborador foi removido
@@ -166,6 +179,12 @@ begin
     regra
   );
 end $$;
+
+-- Recriada explícita — ver a nota grande acima do porquê ela não pode
+-- ficar por conta do helper de preservação.
+create policy "anon_insert_trainings_completed" on public.trainings_completed
+  for insert to anon
+  with check (true);
 
 create policy "same_soc_write_trainings_completed" on public.trainings_completed
   for insert to authenticated

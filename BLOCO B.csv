@@ -1,0 +1,252 @@
+tipo,nome,security_type,definicao
+FUNCAO,current_user_role,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.current_user_role()
+ RETURNS text
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select lower(trim(role)) from public.users_profiles where id = auth.uid();
+$function$
+"
+FUNCAO,current_user_soc,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.current_user_soc()
+ RETURNS text
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select soc from public.users_profiles where id = auth.uid();
+$function$
+"
+FUNCAO,guard_master_role,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.guard_master_role()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  novo_e_master   boolean := lower(trim(coalesce(new.role, ''))) = 'master';
+  antigo_e_master boolean := tg_op = 'UPDATE' and lower(trim(coalesce(old.role, ''))) = 'master';
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  if novo_e_master is distinct from antigo_e_master and not public.is_master() then
+    raise exception
+      'Somente um usuário master pode conceder ou retirar o perfil master.'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$function$
+"
+FUNCAO,handle_new_user,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.handle_new_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  -- Insere o novo usuário na tabela public.users_profiles
+  INSERT INTO public.users_profiles (id, email, full_name, role, soc)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    -- Pega o Full Name dos metadados (que seu front-end envia) ou usa o email de fallback
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    -- Pega a permissão específica 'admin' / 'lider' dos metadados, ou cai no padrão 'user'
+    COALESCE(NEW.raw_user_meta_data->>'role', 'user'),
+    -- Pega a unidade operacional ou cai no padrão 'SP6'
+    COALESCE(NEW.raw_user_meta_data->>'soc', 'SP6')
+  )
+  -- Se o perfil por algum milagre já existir, ignora para não dar erro
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$function$
+"
+FUNCAO,is_master,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.is_master()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(
+    (select lower(trim(role)) = 'master' from public.users_profiles where id = auth.uid()),
+    false
+  );
+$function$
+"
+FUNCAO,rls_auto_enable,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.rls_auto_enable()
+ RETURNS event_trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+  cmd record;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
+$function$
+"
+FUNCAO,snapshot_collaborator_on_training,SECURITY DEFINER,"CREATE OR REPLACE FUNCTION public.snapshot_collaborator_on_training()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if new.collaborator_id is not null then
+    select name, opsid, soc
+      into new.collaborator_name, new.collaborator_opsid, new.collaborator_soc
+      from public.collaborators
+      where id = new.collaborator_id;
+  end if;
+  return new;
+end;
+$function$
+"
+FUNCAO,training_matches_collaborator,security invoker,"CREATE OR REPLACE FUNCTION public.training_matches_collaborator(p_training_type text, p_sector text, p_role text, p_is_onboarding boolean)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  with n as (
+    select
+      upper(coalesce(p_training_type, '')) as t,
+      upper(coalesce(p_sector, ''))        as s,
+      upper(coalesce(p_role, ''))          as r
+  )
+  select
+    -- 1. Match direto: o nome do treinamento contém o setor (ou vice-versa)
+    (n.s <> '' and (strpos(n.t, n.s) > 0 or strpos(n.s, n.t) > 0))
+    -- 1b. Mesmo match, agora pelo cargo
+    or (n.r <> '' and (strpos(n.t, n.r) > 0 or strpos(n.r, n.t) > 0))
+    -- 2. Onboarding vale para setor operacional ou para quem ainda está em onboarding
+    or (
+      strpos(n.t, 'ONBOARDING') > 0
+      and (
+        n.s in ('RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM')
+        or coalesce(p_is_onboarding, false)
+      )
+    )
+  from n;
+$function$
+"
+FUNCAO,training_unlocks_area,security invoker,"CREATE OR REPLACE FUNCTION public.training_unlocks_area(training_type text, area text)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select case
+    when training_type ilike '%onboarding%' and training_type ilike '%pts%' then
+      area in ('RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO')
+      or (area = 'ASM' and training_type ilike '%com sorter%')
+    when training_type ilike '%onboarding%' then false
+    when training_type ilike '%padr%o soc%' then
+      (area = 'RECEBIMENTO' and training_type ilike '%recebimento%')
+      or (area = 'PROCESSAMENTO' and training_type ilike '%processamento%')
+      or (area = 'EXPEDIÇÃO' and training_type ilike '%expedi%')
+      or (area = 'TRATATIVAS' and training_type ilike '%tratativa%')
+      or (area = 'ASM' and training_type ilike '%asm%')
+    else false
+  end;
+$function$
+"
+FUNCAO,update_updated_at,security invoker,"CREATE OR REPLACE FUNCTION public.update_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$function$
+"
+VIEW,collaborators_status,null," SELECT c.id,
+    c.name,
+    c.opsid,
+    c.gender,
+    c.soc,
+    c.sector,
+    c.shift,
+    c.leader,
+    c.role,
+    c.bpo,
+    c.is_onboarding,
+    c.admission_date,
+    c.activity,
+    COALESCE(t.is_trained, false) AS is_trained,
+    COALESCE(t.onboarding_modules, '{}'::text[]) AS onboarding_modules
+   FROM (collaborators c
+     LEFT JOIN LATERAL ( SELECT bool_or(training_matches_collaborator(tc.training_type, c.sector, c.role, c.is_onboarding)) AS is_trained,
+            array_agg(upper(tc.training_type)) FILTER (WHERE (tc.training_type ~~* '%onboarding%'::text)) AS onboarding_modules
+           FROM trainings_completed tc
+          WHERE (tc.collaborator_id = c.id)) t ON (true));"
+VIEW,signatures_view,null," SELECT tc.id,
+    tc.collaborator_id,
+    tc.training_type,
+    tc.instructor_name,
+    tc.completed_at,
+    tc.created_at,
+    (tc.signature_pdf_url IS NOT NULL) AS has_signature,
+    COALESCE(c.name, tc.collaborator_name) AS collaborator_name,
+    c.sector AS collaborator_sector,
+    COALESCE(c.soc, tc.collaborator_soc) AS collaborator_soc,
+    c.role AS collaborator_role,
+    (c.id IS NULL) AS collaborator_removed
+   FROM (trainings_completed tc
+     LEFT JOIN collaborators c ON ((c.id = tc.collaborator_id)));"
+VIEW,soc_performance_view,null," WITH collab_area AS (
+         SELECT c.id AS collaborator_id,
+            c.soc,
+                CASE
+                    WHEN (c.sector ~~* '%recebimento%'::text) THEN 'RECEBIMENTO'::text
+                    WHEN (c.sector ~~* '%processamento%'::text) THEN 'PROCESSAMENTO'::text
+                    WHEN (c.sector ~~* '%expedi%'::text) THEN 'EXPEDIÇÃO'::text
+                    WHEN (c.sector ~~* '%tratativa%'::text) THEN 'TRATATIVAS'::text
+                    WHEN (c.sector ~* '(^|[^a-z])asm([^a-z]|$)'::text) THEN 'ASM'::text
+                    ELSE NULL::text
+                END AS area
+           FROM collaborators c
+          WHERE ((c.soc IS NOT NULL) AND (c.soc <> ''::text))
+        ), eligible AS (
+         SELECT ca.collaborator_id,
+            ca.soc,
+            ca.area
+           FROM (collab_area ca
+             JOIN socs s ON ((s.name = ca.soc)))
+          WHERE ((ca.area IS NOT NULL) AND ((ca.area <> 'ASM'::text) OR COALESCE(s.has_sorting, false)))
+        )
+ SELECT soc,
+    (count(*))::integer AS total_hc,
+    (count(*) FILTER (WHERE (EXISTS ( SELECT 1
+           FROM trainings_completed tc
+          WHERE ((tc.collaborator_id = e.collaborator_id) AND training_unlocks_area(tc.training_type, e.area))))))::integer AS trained_hc,
+        CASE
+            WHEN (count(*) > 0) THEN round((((count(*) FILTER (WHERE (EXISTS ( SELECT 1
+               FROM trainings_completed tc
+              WHERE ((tc.collaborator_id = e.collaborator_id) AND training_unlocks_area(tc.training_type, e.area))))))::numeric / (count(*))::numeric) * (100)::numeric), 1)
+            ELSE (0)::numeric
+        END AS pct
+   FROM eligible e
+  GROUP BY soc;"

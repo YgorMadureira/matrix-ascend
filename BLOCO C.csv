@@ -1,0 +1,109 @@
+tipo,nome,tabela,definicao
+POLITICA,Admin deleta colaborador de solicitacao,training_scheduling_request_collaborators,"roles=authenticated | comando=DELETE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text)))) | with_check=—"
+POLITICA,Admin deleta solicitacao,training_scheduling_requests,"roles=authenticated | comando=DELETE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text)))) | with_check=—"
+POLITICA,Admin e PTS editam colaboradores da solicitacao,training_scheduling_request_collaborators,"roles=authenticated | comando=UPDATE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'pts'::text]))))) | with_check=—"
+POLITICA,Admin e PTS editam solicitacoes,training_scheduling_requests,"roles=authenticated | comando=UPDATE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'pts'::text]))))) | with_check=—"
+POLITICA,Admin lider e pcp atualizam inscricoes,training_schedule_enrollments,"roles=authenticated | comando=UPDATE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text]))))) | with_check=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text])))))"
+POLITICA,Admin lider e pcp inscrevem colaboradores,training_schedule_enrollments,"roles=authenticated | comando=INSERT | using=— | with_check=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text])))))"
+POLITICA,Admin lider e pcp removem inscricoes,training_schedule_enrollments,"roles=authenticated | comando=DELETE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text]))))) | with_check=—"
+POLITICA,Admin lider pcp podem inserir audit log,schedule_audit_log,"roles=authenticated | comando=INSERT | using=— | with_check=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text])))))"
+POLITICA,Admin pode deletar audit log,schedule_audit_log,"roles=authenticated | comando=DELETE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text)))) | with_check=—"
+POLITICA,"Admin, lider e pcp criam solicitacoes",training_scheduling_requests,"roles=authenticated | comando=INSERT | using=— | with_check=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = ANY (ARRAY['admin'::text, 'lider'::text, 'pcp'::text])))))"
+POLITICA,Admins gerenciam SOCs,socs,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Agenda visível para todos autenticados,training_schedules,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Authenticated can manage collaborators,collaborators,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Authenticated can manage trainings,trainings_completed,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Authenticated can manage units,units,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Authenticated can view collaborators,collaborators,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Authenticated can view trainings,trainings_completed,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Authenticated can view units,units,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Authenticated users can read trainings,trainings_completed,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Inscrições visíveis para todos autenticados,training_schedule_enrollments,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Inserir colaboradores solicitados,training_scheduling_request_collaborators,roles=authenticated | comando=INSERT | using=— | with_check=true
+POLITICA,Leitura de colaboradores solicitados por autenticados,training_scheduling_request_collaborators,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Leitura de solicitacoes por autenticados,training_scheduling_requests,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Líderes e admins podem editar processos,soc_micro_trainings,roles=public | comando=UPDATE | using=true | with_check=—
+POLITICA,Líderes e admins podem excluir processos,soc_micro_trainings,roles=public | comando=DELETE | using=true | with_check=—
+POLITICA,Líderes e admins podem inserir processos,soc_micro_trainings,roles=public | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir Escrita (Collaborators),collaborators,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Permitir Escrita (Folders),folders,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Permitir Escrita (Materials),materials,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Permitir Escrita de Instrutores,instructors,roles=authenticated | comando=ALL | using=true | with_check=true
+POLITICA,Permitir Insert Anonimo (Trainings),trainings_completed,roles=public | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir Leitura (Collaborators),collaborators,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir Leitura (Folders),folders,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir Leitura (Instructors),instructors,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir Leitura (Materials),materials,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir Leitura (Socs),socs,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir Leitura de Instrutores,instructors,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir atualizacao de quiz para autenticados,quiz_questions,roles=authenticated | comando=UPDATE | using=true | with_check=true
+POLITICA,Permitir atualização de pastas para autenticados,training_folders,roles=authenticated | comando=UPDATE | using=true | with_check=true
+POLITICA,Permitir atualização de perfil proprio,users_profiles,roles=authenticated | comando=UPDATE | using=true | with_check=true
+POLITICA,Permitir atualização de treinamentos para autenticados,trainings,roles=authenticated | comando=UPDATE | using=true | with_check=true
+POLITICA,Permitir exclusao de quiz para autenticados,quiz_questions,roles=authenticated | comando=DELETE | using=true | with_check=—
+POLITICA,Permitir exclusão de pastas para autenticados,training_folders,roles=authenticated | comando=DELETE | using=true | with_check=—
+POLITICA,Permitir exclusão de treinamentos para autenticados,trainings,roles=authenticated | comando=DELETE | using=true | with_check=—
+POLITICA,Permitir insercao de quiz para autenticados,quiz_questions,roles=authenticated | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir inserção de pastas para autenticados,training_folders,roles=authenticated | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir inserção de perfil proprio,users_profiles,roles=authenticated | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir inserção de treinamentos para autenticados,trainings,roles=authenticated | comando=INSERT | using=— | with_check=true
+POLITICA,Permitir leitura de pastas para autenticados,training_folders,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir leitura de perfis para autenticados,users_profiles,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir leitura de quiz para autenticados,quiz_questions,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Permitir leitura de treinamentos para autenticados,trainings,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Somente admin cria agenda,training_schedules,"roles=authenticated | comando=INSERT | using=— | with_check=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text))))"
+POLITICA,Somente admin deleta agenda,training_schedules,"roles=authenticated | comando=DELETE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text)))) | with_check=—"
+POLITICA,Somente admin edita agenda,training_schedules,"roles=authenticated | comando=UPDATE | using=(EXISTS ( SELECT 1
+   FROM users_profiles
+  WHERE ((users_profiles.id = auth.uid()) AND (users_profiles.role = 'admin'::text)))) | with_check=—"
+POLITICA,Todos autenticados podem ler audit log,schedule_audit_log,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Todos podem ver SOCs,socs,roles=authenticated | comando=SELECT | using=true | with_check=—
+POLITICA,Todos podem ver processos micros,soc_micro_trainings,roles=public | comando=SELECT | using=true | with_check=—
+POLITICA,Users can update own profile,users_profiles,roles=authenticated | comando=UPDATE | using=(id = auth.uid()) | with_check=—
+POLITICA,Users can view all profiles,users_profiles,roles=authenticated | comando=SELECT | using=true | with_check=—
+RLS_ENABLED,backup_assinaturas_05_08,null,ATIVO
+RLS_ENABLED,collaborators,null,ATIVO
+RLS_ENABLED,folders,null,ATIVO
+RLS_ENABLED,instructors,null,ATIVO
+RLS_ENABLED,materials,null,ATIVO
+RLS_ENABLED,quiz_attempts,null,ATIVO
+RLS_ENABLED,quiz_questions,null,ATIVO
+RLS_ENABLED,schedule_audit_log,null,ATIVO
+RLS_ENABLED,soc_micro_trainings,null,ATIVO
+RLS_ENABLED,socs,null,ATIVO
+RLS_ENABLED,sync_locks,null,ATIVO
+RLS_ENABLED,training_folders,null,ATIVO
+RLS_ENABLED,training_schedule_enrollments,null,ATIVO
+RLS_ENABLED,training_schedules,null,ATIVO
+RLS_ENABLED,training_scheduling_request_collaborators,null,ATIVO
+RLS_ENABLED,training_scheduling_requests,null,ATIVO
+RLS_ENABLED,trainings,null,ATIVO
+RLS_ENABLED,trainings_completed,null,ATIVO
+RLS_ENABLED,units,null,ATIVO
+RLS_ENABLED,users_profiles,null,ATIVO
