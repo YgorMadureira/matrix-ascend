@@ -22,7 +22,7 @@ const SAIDA = opcao('--saida', SOC_FILTRO ? `pendentes_${SOC_FILTRO}.xlsx` : 'pe
 console.log('Lendo colaboradores...');
 const todos = await paginar(
   'collaborators_status',
-  'name,sector,soc,role,is_trained,is_onboarding',
+  'id,name,opsid,gender,soc,sector,shift,leader,role,bpo,is_onboarding,admission_date,activity,is_trained,onboarding_modules',
   SOC_FILTRO ? q => q.eq('soc', SOC_FILTRO) : undefined
 );
 
@@ -38,16 +38,49 @@ if (pendentes.length === 0) {
   process.exit(0);
 }
 
+// Assinaturas de cada pendente — para a analista ver, linha a linha, o que
+// a pessoa já assinou (mesmo que nada disso tenha batido com a regra de
+// "treinado"). Uma query em massa, não uma por colaborador.
+console.log('Lendo assinaturas dos pendentes...');
+const idsPendentes = new Set(pendentes.map(c => c.id));
+const assinaturas = await paginar('trainings_completed', 'collaborator_id,training_type,completed_at');
+const assinaturasPorColab = new Map();
+for (const a of assinaturas) {
+  if (!a.collaborator_id || !idsPendentes.has(a.collaborator_id)) continue;
+  if (!assinaturasPorColab.has(a.collaborator_id)) assinaturasPorColab.set(a.collaborator_id, []);
+  assinaturasPorColab.get(a.collaborator_id).push(a);
+}
+
 const livro = xlsx.utils.book_new();
 
-// ── Aba 1: a lista pedida — Nome, Setor, SOC ────────────────────────
+// ── Aba 1: todos os dados do colaborador + o que ele já assinou ─────
+const formatarData = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '';
+const cabecalho = [
+  'Nome', 'OPSID', 'SOC', 'Setor', 'Cargo', 'Turno', 'Líder', 'Gênero', 'BPO',
+  'Em Onboarding', 'Data de Admissão', 'Atividade',
+  'Qtd. Assinaturas', 'Treinamentos Assinados (sem bater com a regra)', 'Última Assinatura',
+];
 const linhasLista = [
-  ['Nome', 'Setor', 'SOC'],
-  ...pendentes.map(c => [c.name, c.sector || '(sem setor)', c.soc]),
+  cabecalho,
+  ...pendentes.map(c => {
+    const assin = (assinaturasPorColab.get(c.id) ?? []).sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+    return [
+      c.name, c.opsid || '', c.soc, c.sector || '(sem setor)', c.role || '', c.shift || '',
+      c.leader || '', c.gender || '', c.bpo || '',
+      c.is_onboarding ? 'Sim' : 'Não', formatarData(c.admission_date), c.activity || '',
+      assin.length,
+      [...new Set(assin.map(a => a.training_type))].join(' | '),
+      assin.length ? formatarData(assin[0].completed_at) : '',
+    ];
+  }),
 ];
 const abaLista = xlsx.utils.aoa_to_sheet(linhasLista);
-abaLista['!cols'] = [{ wch: 42 }, { wch: 26 }, { wch: 8 }];
-abaLista['!autofilter'] = { ref: `A1:C${linhasLista.length}` };
+abaLista['!cols'] = [
+  { wch: 34 }, { wch: 12 }, { wch: 7 }, { wch: 15 }, { wch: 22 }, { wch: 10 },
+  { wch: 22 }, { wch: 9 }, { wch: 8 }, { wch: 13 }, { wch: 15 }, { wch: 16 },
+  { wch: 15 }, { wch: 50 }, { wch: 15 },
+];
+abaLista['!autofilter'] = { ref: `A1:${xlsx.utils.encode_col(cabecalho.length - 1)}${linhasLista.length}` };
 xlsx.utils.book_append_sheet(livro, abaLista, 'Pendentes');
 
 // ── Aba 2: resumo por unidade ────────────────────────────────────────
