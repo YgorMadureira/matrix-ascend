@@ -147,9 +147,13 @@ export default function ReportsPage() {
         return tType.includes('ONBOARDING') && tType.includes(area);
       }
 
-      // Setores operacionais: treinamento de ONBOARDING valida apenas estes 3 setores
-      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS' || (showAsm && reqType === 'ASM');
+      // Setores operacionais: treinamento de ONBOARDING valida estes setores. ASM é à
+      // parte: só acende com "Onboarding PTS ... Com Sorter" (mesma regra de
+      // src/lib/trainingRules.ts) — Onboarding PTS Sem Sorter, ou qualquer outro
+      // onboarding administrativo, não acende ASM.
+      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS';
       if (tType.includes('ONBOARDING') && isOp) return true;
+      if (showAsm && reqType === 'ASM' && tType.includes('ONBOARDING PTS') && tType.includes('COM SORTER')) return true;
 
       // Se o usuário fez Onboarding PTS V3 ou Treinamento Padrão SOC da área, valida os treinamentos específicos
       const isPTS = tType.includes('ONBOARDING PTS');
@@ -178,11 +182,15 @@ export default function ReportsPage() {
   // ============================================================
   // hasMicroTraining: verifica se um micro-treinamento específico
   // está concluído, considerando que:
-  //   - "Treinamento Padrão SOC - Recebimento"  → valida TODA macro-área RECEBIMENTO
+  //   - "Treinamento Padrão SOC - Recebimento"   → valida TODA macro-área RECEBIMENTO
   //   - "Treinamento Padrão SOC - Processamento" → valida TODA macro-área PROCESSAMENTO
-  //   - "Treinamento Padrão SOC - Expedição"    → valida TODA macro-área EXPEDIÇÃO
-  //   - "Onboarding PTS" (qualquer variação)    → valida RECEBIMENTO + PROCESSAMENTO + EXPEDIÇÃO
-  //   - Qualquer outro ONBOARDING               → valida as 3 áreas core acima
+  //   - "Treinamento Padrão SOC - Expedição"     → valida TODA macro-área EXPEDIÇÃO
+  //   - "Treinamento Padrão SOC - Tratativas"    → valida TODA macro-área TRATATIVAS
+  //   - "Treinamento Padrão SOC - Sorter (ASM)"  → valida TODA macro-área ASM
+  //   - "Onboarding PTS" (qualquer variação)     → valida RECEBIMENTO + PROCESSAMENTO + EXPEDIÇÃO
+  //   - "Onboarding PTS ... Com Sorter"          → valida também ASM
+  //   - Qualquer outro ONBOARDING                → valida as 3 áreas core acima (não ASM/Tratativas)
+  // Mesma regra de src/lib/trainingRules.ts (areasUnlockedBy) — se mudar aqui, mude lá também.
   // ============================================================
   const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) => {
     const collabTrainings = trainingsByCollabId.get(collabId);
@@ -221,6 +229,24 @@ export default function ReportsPage() {
         (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO')) &&
         (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO')
       ) return true;
+
+      // 04. Treinamento Padrão SOC - Tratativas → valida TODOS os micro de TRATATIVAS
+      if (
+        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
+        tType.includes('TRATATIVA') &&
+        macro === 'TRATATIVAS'
+      ) return true;
+
+      // Treinamento Padrão SOC - Sorter (ASM) / ASM → valida TODOS os micro de ASM
+      if (
+        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
+        tType.includes('ASM') &&
+        macro === 'ASM'
+      ) return true;
+
+      // Onboarding PTS "Com Sorter" → valida TODOS os micro de ASM também (mesma regra
+      // de src/lib/trainingRules.ts: Sem Sorter e onboarding administrativo não acendem ASM)
+      if (tType.includes('ONBOARDING PTS') && tType.includes('COM SORTER') && macro === 'ASM') return true;
 
       // Match direto pelo nome exato do micro-treinamento
       return tType === reqType || tType.includes(reqType) || reqType.includes(tType);
