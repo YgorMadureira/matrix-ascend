@@ -5,6 +5,15 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList, Cell } from 'recharts';
+import {
+  isAreaTrained,
+  isCollaboratorTrained,
+  isMicroCompletedBy,
+  collaboratorArea,
+  operationalAreas,
+  OTHER_AREA,
+  type MacroArea,
+} from '@/lib/trainingRules';
 
 const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
 const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
@@ -129,133 +138,64 @@ export default function ReportsPage() {
     return map;
   }, [trainings]);
 
+  /** Tipos de treinamento de um colaborador, já como array de string (formato do motor). */
+  const typesOf = useCallback((collabId: string) =>
+    (trainingsByCollabId.get(collabId) ?? []).map(t => t.training_type ?? ''),
+  [trainingsByCollabId]);
+
+  /**
+   * "Este colaborador está treinado nesta área?" — motor único
+   * (src/lib/trainingRules.ts). Até 13/08/2026 esta função era uma cópia
+   * própria da regra, mais frouxa que a do Dashboard: qualquer treinamento
+   * com a palavra "Onboarding" (inclusive HSE e People) valia como
+   * treinamento operacional, e por isso a tela mostrava 99,1% onde o
+   * Dashboard mostrava 97,9%.
+   */
   const hasTraining = useCallback((collabId: string, type: string) => {
-    const collabTrainings = trainingsByCollabId.get(collabId);
-    if (!collabTrainings || collabTrainings.length === 0) return false;
+    const types = typesOf(collabId);
+    if (types.length === 0) return false;
+
+    // Cards de área administrativa (HSE, People, Qualidade...): a aba não é
+    // operacional, então a pergunta é só "fez o onboarding daquela área?".
+    const reqType = type.toUpperCase();
+    if (!ALL_CORE_SECTORS.includes(reqType)) {
+      return types.some(t => {
+        const tType = t.toUpperCase();
+        return tType.includes('ONBOARDING') && tType.includes(reqType);
+      });
+    }
 
     const collab = collaboratorMap.get(collabId);
-    const reqType = type.toUpperCase();
-    const cRole = collab?.role?.toUpperCase() ?? '';
-    const cSector = collab?.sector?.toUpperCase() ?? '';
+    // Quem está na própria área é avaliado pela regra canônica (que carrega a
+    // exceção do Sorter); para as demais colunas da matriz vale a área pedida.
+    const area = (reqType === 'EXPEDICAO' ? 'EXPEDIÇÃO' : reqType) as MacroArea;
+    if (collab && collaboratorArea(collab.sector, showAsm) === area) {
+      return isCollaboratorTrained(collab.sector, types, showAsm);
+    }
+    return isAreaTrained(types, area);
+  }, [typesOf, collaboratorMap, showAsm]);
 
-    return collabTrainings.some((t) => {
-      const tType = t.training_type?.toUpperCase() ?? '';
+  /**
+   * Tick da Matriz de Certificação: este micro-processo está concluído?
+   * Delega ao motor único (isMicroCompletedBy). Antes de 13/08/2026 esta
+   * função era a 4ª cópia da regra e a única que não conhecia ASM nem
+   * "Com Sorter" — o mesmo colaborador acendia ASM no Dashboard e não
+   * acendia na matriz desta tela.
+   */
+  const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) =>
+    typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea)),
+  [typesOf]);
 
-      // Onboarding específico: exige que o treinamento contenha ONBOARDING + a área específica
-      if (reqType.startsWith('ONBOARDING ')) {
-        const area = reqType.replace('ONBOARDING ', '');
-        return tType.includes('ONBOARDING') && tType.includes(area);
-      }
-
-      // Setores operacionais: treinamento de ONBOARDING valida estes setores. ASM é à
-      // parte: só acende com "Onboarding PTS ... Com Sorter" (mesma regra de
-      // src/lib/trainingRules.ts) — Onboarding PTS Sem Sorter, ou qualquer outro
-      // onboarding administrativo, não acende ASM.
-      const isOp = reqType === 'RECEBIMENTO' || reqType === 'PROCESSAMENTO' || reqType === 'EXPEDIÇÃO' || reqType === 'EXPEDICAO' || reqType === 'TRATATIVAS';
-      if (tType.includes('ONBOARDING') && isOp) return true;
-      if (showAsm && reqType === 'ASM' && tType.includes('ONBOARDING PTS') && tType.includes('COM SORTER')) return true;
-
-      // Se o usuário fez Onboarding PTS V3 ou Treinamento Padrão SOC da área, valida os treinamentos específicos
-      const isPTS = tType.includes('ONBOARDING PTS');
-      const isPadraoRecebimento = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && tType.includes('RECEBIMENTO');
-      const isPadraoProcessamento = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && tType.includes('PROCESSAMENTO');
-      const isPadraoExpedicao = (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) && (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO'));
-
-      if (isPTS || isPadraoRecebimento) {
-        if (cSector === 'RECEBIMENTO' && (reqType === 'RECEBIMENTO FM' || reqType === 'RECEBIMENTO LH')) return true;
-      }
-      if (isPTS || isPadraoProcessamento) {
-        if (cSector === 'PROCESSAMENTO' && (reqType === 'ESTEIRA AUTOMÁTICA' || reqType === 'ESTEIRA JAVA' || reqType === 'ESTEIRA TERMOPLÁSTICA')) return true;
-      }
-      if (isPTS || isPadraoExpedicao) {
-        if ((cSector === 'EXPEDIÇÃO' || cSector === 'EXPEDICAO') && (reqType === 'CARREGAMENTO LH' || reqType === 'CARRREGAMENTO 3PL' || reqType === 'CARREGAMENTO 3PL')) return true;
-      }
-
-      // Match direto por nome do setor
-      const matchSector = tType === reqType || tType.includes(reqType) || reqType.includes(tType);
-      const matchRole = cRole && (tType.includes(cRole) || cRole.includes(tType));
-
-      return matchSector || matchRole;
-    });
-  }, [trainingsByCollabId, collaboratorMap]);
-
-  // ============================================================
-  // hasMicroTraining: verifica se um micro-treinamento específico
-  // está concluído, considerando que:
-  //   - "Treinamento Padrão SOC - Recebimento"   → valida TODA macro-área RECEBIMENTO
-  //   - "Treinamento Padrão SOC - Processamento" → valida TODA macro-área PROCESSAMENTO
-  //   - "Treinamento Padrão SOC - Expedição"     → valida TODA macro-área EXPEDIÇÃO
-  //   - "Treinamento Padrão SOC - Tratativas"    → valida TODA macro-área TRATATIVAS
-  //   - "Treinamento Padrão SOC - Sorter (ASM)"  → valida TODA macro-área ASM
-  //   - "Onboarding PTS" (qualquer variação)     → valida RECEBIMENTO + PROCESSAMENTO + EXPEDIÇÃO
-  //   - "Onboarding PTS ... Com Sorter"          → valida também ASM
-  //   - Qualquer outro ONBOARDING                → valida as 3 áreas core acima (não ASM/Tratativas)
-  // Mesma regra de src/lib/trainingRules.ts (areasUnlockedBy) — se mudar aqui, mude lá também.
-  // ============================================================
-  const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) => {
-    const collabTrainings = trainingsByCollabId.get(collabId);
-    if (!collabTrainings || collabTrainings.length === 0) return false;
-
-    const macro = macroArea.toUpperCase();
-    const reqType = microName.toUpperCase();
-    const isCoreMacro = macro === 'RECEBIMENTO' || macro === 'PROCESSAMENTO' || macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO';
-
-    return collabTrainings.some((t) => {
-      const tType = t.training_type?.toUpperCase() ?? '';
-
-      // Onboarding PTS (V3 ou qualquer variação) → valida RECEBIMENTO, PROCESSAMENTO e EXPEDIÇÃO inteiros
-      if (tType.includes('ONBOARDING PTS') && isCoreMacro) return true;
-
-      // Qualquer outro Onboarding → também valida as áreas core
-      if (tType.includes('ONBOARDING') && isCoreMacro) return true;
-
-      // 01. Treinamento Padrão SOC - Recebimento → valida TODOS os micro de RECEBIMENTO
-      if (
-        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
-        tType.includes('RECEBIMENTO') &&
-        macro === 'RECEBIMENTO'
-      ) return true;
-
-      // 02. Treinamento Padrão SOC - Processamento → valida TODOS os micro de PROCESSAMENTO
-      if (
-        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
-        tType.includes('PROCESSAMENTO') &&
-        macro === 'PROCESSAMENTO'
-      ) return true;
-
-      // 03. Treinamento Padrão SOC - Expedição → valida TODOS os micro de EXPEDIÇÃO
-      if (
-        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
-        (tType.includes('EXPEDIÇÃO') || tType.includes('EXPEDICAO')) &&
-        (macro === 'EXPEDIÇÃO' || macro === 'EXPEDICAO')
-      ) return true;
-
-      // 04. Treinamento Padrão SOC - Tratativas → valida TODOS os micro de TRATATIVAS
-      if (
-        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
-        tType.includes('TRATATIVA') &&
-        macro === 'TRATATIVAS'
-      ) return true;
-
-      // Treinamento Padrão SOC - Sorter (ASM) / ASM → valida TODOS os micro de ASM
-      if (
-        (tType.includes('TREINAMENTO PADRÃO SOC') || tType.includes('TREINAMENTO PADRAO SOC')) &&
-        tType.includes('ASM') &&
-        macro === 'ASM'
-      ) return true;
-
-      // Onboarding PTS "Com Sorter" → valida TODOS os micro de ASM também (mesma regra
-      // de src/lib/trainingRules.ts: Sem Sorter e onboarding administrativo não acendem ASM)
-      if (tType.includes('ONBOARDING PTS') && tType.includes('COM SORTER') && macro === 'ASM') return true;
-
-      // Match direto pelo nome exato do micro-treinamento
-      return tType === reqType || tType.includes(reqType) || reqType.includes(tType);
-    });
-  }, [trainingsByCollabId]);
-
+  /**
+   * "Esta pessoa está pendente?" — a MESMA pergunta que a tela de
+   * Colaboradores faz. Era `CORE_SECTORS.some(...)`, ou seja, "treinado em
+   * QUALQUER área", e por isso o filtro de pendentes daqui mostrava 2 onde
+   * a tela de Colaboradores mostrava 17.
+   */
   const isGenerallyTrained = useCallback((collabId: string) => {
-    return CORE_SECTORS.some(type => hasTraining(collabId, type));
-  }, [hasTraining]);
+    const collab = collaboratorMap.get(collabId);
+    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm);
+  }, [collaboratorMap, typesOf, showAsm]);
 
   const loadData = useCallback(async () => {
     lastLoadRef.current = Date.now();
@@ -352,8 +292,10 @@ export default function ReportsPage() {
     // Filter by Area Tab
     const s = (c.sector || '').toUpperCase();
     if (selectedArea === 'Operacional') {
-      const isOp = s === 'RECEBIMENTO' || s === 'PROCESSAMENTO' || s === 'EXPEDIÇÃO' || s === 'EXPEDICAO' || s === 'TRATATIVAS' || (showAsm && s === 'ASM');
-      if (!isOp) return false;
+      // Entra a unidade INTEIRA: as macro-áreas e também quem está em Apoio,
+      // Almox ou sem setor (grupo OUTROS). Antes de 13/08/2026 esse pessoal
+      // era descartado aqui — sumia do relatório mas aparecia como pendente
+      // na tela de Colaboradores, e era parte da divergência entre as telas.
     } else if (selectedArea === 'Inventario') {
       if (s !== 'INVENTARIO' && s !== 'INVENTÁRIO') return false;
     } else if (selectedArea === 'People') {
@@ -385,23 +327,27 @@ export default function ReportsPage() {
   }, [microFiltered]);
 
   const currentTrainingTypes = useMemo(() => {
-    if (selectedArea === 'Operacional') return TRAINING_TYPES as unknown as string[];
+    // OUTROS entra como um grupo próprio para que a soma dos cards feche com
+    // o card GERAL — ninguém fica de fora da conta.
+    if (selectedArea === 'Operacional') return [...operationalAreas(showAsm), OTHER_AREA] as string[];
     if (selectedArea === 'Inventario') return ['INVENTÁRIO'];
     return [selectedArea.toUpperCase()];
-  }, [selectedArea]);
+  }, [selectedArea, showAsm]);
 
   const sectorStats = useMemo(() => currentTrainingTypes.map(type => {
-    const sectorCollabs = filtered.filter(c => {
-      const s = c.sector?.toUpperCase() || '';
-      if (type === 'INVENTÁRIO') return s === 'INVENTARIO' || s === 'INVENTÁRIO';
-      if (selectedArea !== 'Operacional') return true;
-      return s === type || (type === 'EXPEDIÇÃO' && s === 'EXPEDICAO');
-    });
-    const total = sectorCollabs.length;
-    const completed = sectorCollabs.filter(c => hasTraining(c.id, type)).length;
-    const pct = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
-    return { type, total, completed, pct };
-  }), [currentTrainingTypes, filtered, hasTraining, selectedArea]);
+    // Aba Operacional: cada pessoa cai em exatamente um grupo (a área dela,
+    // ou OUTROS) e é avaliada contra o próprio grupo, pela regra canônica.
+    if (selectedArea === 'Operacional') {
+      const bucket = filtered.filter(c => collaboratorArea(c.sector, showAsm) === type);
+      const completed = bucket.filter(c => isGenerallyTrained(c.id)).length;
+      return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
+    }
+    const bucket = type === 'INVENTÁRIO'
+      ? filtered.filter(c => ['INVENTARIO', 'INVENTÁRIO'].includes((c.sector || '').toUpperCase()))
+      : filtered;
+    const completed = bucket.filter(c => hasTraining(c.id, type)).length;
+    return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
+  }), [currentTrainingTypes, filtered, hasTraining, isGenerallyTrained, selectedArea, showAsm]);
 
   const { generalTotal, generalCompleted, generalPct } = useMemo(() => {
     const total = sectorStats.reduce((sum, s) => sum + s.total, 0);
@@ -476,9 +422,12 @@ export default function ReportsPage() {
       .slice(0, 15);
   }, [filteredTrainings, filtered, selectedTrainingType]);
 
-  const displayTrainingTypes = useMemo(() => selectedTrainingType 
-    ? currentTrainingTypes.filter(t => t === selectedTrainingType) 
-    : currentTrainingTypes, [selectedTrainingType, currentTrainingTypes]);
+  // Colunas da tabela "Matriz de Treinamentos": só macro-áreas de verdade —
+  // OUTROS é um grupo de pessoas, não uma coluna de certificação.
+  const displayTrainingTypes = useMemo(() => {
+    const areas = currentTrainingTypes.filter(t => t !== OTHER_AREA);
+    return selectedTrainingType ? areas.filter(t => t === selectedTrainingType) : areas;
+  }, [selectedTrainingType, currentTrainingTypes]);
 
   // ============================================================
   // EXPORTAÇÃO: Colaboradores NÃO treinados do SOC do usuário
@@ -524,28 +473,24 @@ export default function ReportsPage() {
         else tPage++;
       }
 
-      // Cria mapa de treinamentos por colaborador
+      // Mapa de treinamentos por colaborador
       const trainingsMapExport = new Map<string, string[]>();
       allTrainingsForExport.forEach(t => {
         const arr = trainingsMapExport.get(t.collaborator_id) || [];
-        arr.push((t.training_type || '').toUpperCase());
+        arr.push(t.training_type || '');
         trainingsMapExport.set(t.collaborator_id, arr);
       });
 
-      // Mesma lógica de verificação usada no relatório
-      const CORE_TYPES = showAsm
-        ? ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM']
-        : ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS'];
-      const isTrained = (collabId: string) => {
-        const types = trainingsMapExport.get(collabId) || [];
-        return types.some(t =>
-          t.includes('ONBOARDING') ||
-          CORE_TYPES.some(core => t.includes(core))
-        );
-      };
-
-      // Filtra apenas os NÃO treinados
-      const pending = allCollabsForExport.filter(c => !isTrained(c.id));
+      // A MESMA regra da tela e da tela de Colaboradores — motor único.
+      // Até 13/08/2026 aqui morava uma 6ª cópia da regra, que perguntava
+      // apenas "tem alguma assinatura com 'Onboarding' ou com o nome de
+      // alguma área?", sem olhar o setor da pessoa: alguém do Recebimento
+      // que só fez o treinamento de Processamento saía como treinado. Por
+      // isso a tela de Colaboradores listava 17 pendentes em SC1 e este
+      // arquivo trazia 2.
+      const pending = allCollabsForExport.filter(c =>
+        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm)
+      );
 
       if (pending.length === 0) {
         toast.success('Todos os colaboradores' + (USER_SOC ? ` do SOC ${USER_SOC}` : '') + ' já estão treinados!');
@@ -553,8 +498,10 @@ export default function ReportsPage() {
         return;
       }
 
-      // Gera CSV
-      const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO'];
+      // Gera CSV — a coluna de treinamentos assinados mostra, para cada
+      // pendente, o que ele JÁ tem, que é a primeira pergunta de quem abre
+      // o arquivo ("por que essa pessoa está aqui?").
+      const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO', 'Treinamentos ja assinados'];
       const rows = pending.map(c => [
         c.name || '',
         c.sector || '',
@@ -563,6 +510,7 @@ export default function ReportsPage() {
         c.leader || '',
         c.soc || '',
         c.bpo || '',
+        [...new Set(trainingsMapExport.get(c.id) || [])].join(' | '),
       ]);
 
       const csvContent = [

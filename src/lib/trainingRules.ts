@@ -2,10 +2,15 @@
 // Motor único de regras de treinamento — Recebimento, Processamento,
 // Expedição, Tratativas e ASM.
 //
-// Fonte de verdade para: card "% Treinados" e barra de Saúde do
-// Dashboard, Matriz de Certificação e gráfico "Desempenho por SOC"
-// dos Relatórios, e a view soc_performance_view do banco (mesma
-// lógica replicada em SQL — ver supabase/migrations).
+// ⚠️ ESTE É O ÚNICO LUGAR ONDE A REGRA MORA.
+// Dashboard, Colaboradores e Relatórios (cards, matriz, filtro de
+// pendentes e exportação) chamam as funções daqui. Antes de 13/08/2026
+// cada tela tinha a sua própria cópia da regra — eram SEIS — e a mesma
+// unidade aparecia com 96%, 97,9% e 99,1% ao mesmo tempo, além de a
+// exportação de pendentes trazer 2 pessoas onde a tela mostrava 17.
+// Se precisar mudar a regra, mude AQUI e no espelho SQL
+// (training_matches_collaborator / training_unlocks_area, ver
+// supabase/migrations) — nunca dentro de uma tela.
 //
 // Regras (definidas e validadas com o time de operações):
 //   1. "Onboarding PTS ... Com Sorter"   → acende Receb+Proc+Exped+ASM
@@ -17,6 +22,9 @@
 //      → acende aquela macro inteira
 //   5. Qualquer outro treinamento → acende SOMENTE o micro de nome
 //      equivalente (comparação tolerante a acento/caixa/código/versão)
+//
+// TRATATIVAS nunca é aceso por Onboarding — exige o "Treinamento Padrão
+// SOC - Tratativas" (decisão de 13/08/2026).
 // ============================================================
 
 export type MacroArea = 'RECEBIMENTO' | 'PROCESSAMENTO' | 'EXPEDIÇÃO' | 'TRATATIVAS' | 'ASM';
@@ -158,6 +166,60 @@ export function operationalAreas(hasSorting: boolean): MacroArea[] {
   return hasSorting ? [...OPERATIONAL_BASE_AREAS, 'ASM'] : OPERATIONAL_BASE_AREAS;
 }
 
+/**
+ * Grupo de quem não está em nenhuma macro-área operacional — "Apoio",
+ * "Almox", "EHA", setor em branco. Até 13/08/2026 essas pessoas eram
+ * simplesmente ignoradas pelo Dashboard e pelos Relatórios (apareciam só
+ * na tela de Colaboradores), o que inflava o percentual das duas telas.
+ * Hoje entram na conta como um grupo próprio.
+ */
+export const OTHER_AREA = 'OUTROS' as const;
+export type StatArea = MacroArea | typeof OTHER_AREA;
+
+/** Em que grupo do relatório este colaborador cai — cada pessoa cai em exatamente um. */
+export function collaboratorArea(sector: string | null | undefined, hasSorting: boolean): StatArea {
+  const area = normalizeMacroArea(sector);
+  if (!area) return OTHER_AREA;
+  if (area === 'ASM' && !hasSorting) return OTHER_AREA;
+  return area;
+}
+
+/**
+ * A PERGUNTA CANÔNICA: esta pessoa está treinada?
+ *
+ * Toda tela que precise responder isso — card do Dashboard, coluna de
+ * status em Colaboradores, filtro e exportação de pendentes em
+ * Relatórios — precisa chamar esta função, e nenhuma outra.
+ *
+ *  · Quem está numa macro-área operacional → precisa de um treinamento
+ *    que acenda A ÁREA DELE. Ter feito o treinamento de outra área não
+ *    conta (era o furo da exportação de pendentes: alguém do Recebimento
+ *    que só fez o de Processamento saía como treinado).
+ *  · Quem NÃO está numa macro-área operacional (Apoio, Almox, sem setor)
+ *    → basta ter um treinamento que acenda qualquer área, porque o
+ *    Onboarding PTS cobre todas elas (decisão de 13/08/2026).
+ */
+export function isCollaboratorTrained(
+  sector: string | null | undefined,
+  trainingTypes: string[],
+  hasSorting: boolean
+): boolean {
+  const area = collaboratorArea(sector, hasSorting);
+
+  if (area !== OTHER_AREA) {
+    if (isAreaTrained(trainingTypes, area)) return true;
+    // Exceção do Sorter: nas SOCs com ASM, quem trabalha no Sorter continua
+    // cadastrado com setor "Processamento", e o treinamento dele chama-se
+    // "Treinamento Padrão SOC - Sorter (ASM)". Sem esta linha, 968 pessoas de
+    // SP8/SP2 apareciam como pendentes tendo assinado o treinamento certo.
+    // Espelhado no SQL em supabase/migrations/20260813_05.
+    if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM')) return true;
+    return false;
+  }
+
+  return trainingTypes.some(t => (areasUnlockedBy(t) ?? []).length > 0);
+}
+
 /** Áreas relevantes para o Índice de Saúde — ASM só entra se a SOC tem sorting. */
 export function healthAreas(hasSorting: boolean): MacroArea[] {
   return hasSorting ? [...CORE_HEALTH_AREAS, 'ASM'] : CORE_HEALTH_AREAS;
@@ -221,9 +283,10 @@ export interface AreaTrainingStat {
 }
 
 /**
- * Estatística "% Treinados" por área — mesma conta usada pelo card do
- * Dashboard, pela Matriz e pelo gráfico Desempenho por SOC. Só entram
- * colaboradores com setor preenchido e igual a uma das áreas operacionais.
+ * Estatística "% Treinados" por área operacional. Cada pessoa é avaliada
+ * contra a área DELA, por isCollaboratorTrained. Não inclui quem está
+ * fora das macro-áreas — para o número da unidade inteira use
+ * calculateUnitStats, que é o que as telas mostram.
  */
 export function calculateAreaStats(
   collaborators: CollaboratorLite[],
@@ -232,16 +295,58 @@ export function calculateAreaStats(
 ): AreaTrainingStat[] {
   const areas = operationalAreas(hasSorting);
   return areas.map(area => {
-    const areaCollabs = collaborators.filter(c => normalizeMacroArea(c.sector) === area);
+    const areaCollabs = collaborators.filter(c => collaboratorArea(c.sector, hasSorting) === area);
     const total = areaCollabs.length;
-    const trained = areaCollabs.filter(c => isAreaTrained(trainingsByCollabId.get(c.id) || [], area)).length;
+    const trained = areaCollabs.filter(c =>
+      isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting)
+    ).length;
     return { area, total, trained, pct: total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0 };
   });
 }
 
 /** Agrega as AreaTrainingStat em um único percentual geral (soma/soma, não média das médias). */
-export function calculateOverallTrainedPct(stats: AreaTrainingStat[]): { total: number; trained: number; pct: number } {
+export function calculateOverallTrainedPct(stats: { total: number; trained: number }[]): { total: number; trained: number; pct: number } {
   const total = stats.reduce((s, a) => s + a.total, 0);
   const trained = stats.reduce((s, a) => s + a.trained, 0);
   return { total, trained, pct: total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0 };
+}
+
+export interface UnitStats {
+  /** Uma linha por área operacional + a linha OUTROS. Cada pessoa aparece em exatamente uma. */
+  byArea: { area: StatArea; total: number; trained: number; pct: number }[];
+  total: number;
+  trained: number;
+  pct: number;
+}
+
+/**
+ * O NÚMERO OFICIAL DA UNIDADE — o mesmo em Dashboard, Colaboradores e
+ * Relatórios. Toda pessoa da lista entra exatamente uma vez, inclusive
+ * quem está em Apoio/Almox/sem setor (que cai no grupo OUTROS), então
+ * `total` bate com o headcount informado e a soma das áreas fecha com o
+ * geral — sem "pessoas invisíveis" como acontecia antes de 13/08/2026.
+ */
+export function calculateUnitStats(
+  collaborators: CollaboratorLite[],
+  trainingsByCollabId: Map<string, string[]>,
+  hasSorting: boolean
+): UnitStats {
+  const areas: StatArea[] = [...operationalAreas(hasSorting), OTHER_AREA];
+  const buckets = new Map<StatArea, { total: number; trained: number }>(
+    areas.map(a => [a, { total: 0, trained: 0 }])
+  );
+
+  for (const c of collaborators) {
+    const bucket = buckets.get(collaboratorArea(c.sector, hasSorting));
+    if (!bucket) continue;
+    bucket.total++;
+    if (isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting)) bucket.trained++;
+  }
+
+  const byArea = areas.map(area => {
+    const { total, trained } = buckets.get(area)!;
+    return { area, total, trained, pct: total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0 };
+  });
+
+  return { byArea, ...calculateOverallTrainedPct(byArea) };
 }

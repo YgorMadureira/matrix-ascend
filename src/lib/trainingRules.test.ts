@@ -2,10 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   isMicroCompletedBy,
   isAreaTrained,
+  isCollaboratorTrained,
   calculateSocHealth,
   calculateAreaStats,
   calculateOverallTrainedPct,
+  calculateUnitStats,
+  collaboratorArea,
   normalizeMacroArea,
+  OTHER_AREA,
   type MicroTraining,
   type CollaboratorLite,
 } from './trainingRules';
@@ -275,5 +279,95 @@ describe('trainingRules — calculateAreaStats / calculateOverallTrainedPct', ()
     expect(stats.map(s => s.area)).toContain('ASM');
     const statsSemSorting = calculateAreaStats([], new Map(), false);
     expect(statsSemSorting.map(s => s.area)).not.toContain('ASM');
+  });
+});
+
+// ============================================================
+// A pergunta canônica — a mesma que as três telas fazem desde 13/08/2026.
+// Cada caso abaixo veio de uma divergência real entre telas.
+// ============================================================
+describe('trainingRules — isCollaboratorTrained', () => {
+  it('conta o treinamento da área DA PESSOA, não o de qualquer área', () => {
+    // ANA CLAUDIA (SC1): é do Recebimento e só fez o de Processamento.
+    // A exportação de pendentes dizia que ela estava treinada.
+    expect(isCollaboratorTrained('RECEBIMENTO', ['02. Treinamento Padrão SOC - Processamento'], false)).toBe(false);
+    expect(isCollaboratorTrained('RECEBIMENTO', ['01. Treinamento Padrão SOC - Recebimento'], false)).toBe(true);
+  });
+
+  it('Tratativas exige o treinamento próprio — Onboarding PTS não basta', () => {
+    expect(isCollaboratorTrained('TRATATIVAS', ['Onboarding PTS V3'], false)).toBe(false);
+    expect(isCollaboratorTrained('TRATATIVAS', ['Onboarding PTS - Com Sorter'], true)).toBe(false);
+    expect(isCollaboratorTrained('TRATATIVAS', ['04. Treinamento Padrão SOC - Tratativas'], false)).toBe(true);
+  });
+
+  it('Onboarding PTS treina as três áreas core', () => {
+    for (const setor of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO']) {
+      expect(isCollaboratorTrained(setor, ['Onboarding PTS - Sem Sorter'], false)).toBe(true);
+    }
+  });
+
+  it('exceção do Sorter: quem é de Processamento e fez o Sorter (ASM) está treinado', () => {
+    // BIANCA GONCALVES TEMISTOCLES (SP8) e mais 967 pessoas.
+    expect(isCollaboratorTrained('PROCESSAMENTO', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true)).toBe(true);
+    // ...mas o Sorter não treina quem é do Recebimento ou da Expedição.
+    expect(isCollaboratorTrained('RECEBIMENTO', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true)).toBe(false);
+    expect(isCollaboratorTrained('EXPEDIÇÃO', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true)).toBe(false);
+  });
+
+  it('sem setor operacional (Apoio, Almox, vazio): qualquer treinamento de área conta', () => {
+    for (const setor of ['Apoio', 'Almox', '', null, undefined]) {
+      expect(isCollaboratorTrained(setor, ['Onboarding PTS V3'], false)).toBe(true);
+      expect(isCollaboratorTrained(setor, ['01. Treinamento Padrão SOC - Recebimento'], false)).toBe(true);
+      expect(isCollaboratorTrained(setor, [], false)).toBe(false);
+    }
+  });
+
+  it('onboarding administrativo não treina ninguém, tenha setor ou não', () => {
+    expect(isCollaboratorTrained('Apoio', ['Onboarding HSE', 'Onboarding People'], false)).toBe(false);
+    expect(isCollaboratorTrained('PROCESSAMENTO', ['Onboarding HSE'], false)).toBe(false);
+  });
+
+  it('ASM só é uma área própria quando a SOC tem sorting', () => {
+    expect(collaboratorArea('ASM', true)).toBe('ASM');
+    expect(collaboratorArea('ASM', false)).toBe(OTHER_AREA);
+    expect(collaboratorArea('Apoio', true)).toBe(OTHER_AREA);
+    expect(collaboratorArea('Expedicao', false)).toBe('EXPEDIÇÃO');
+  });
+});
+
+describe('trainingRules — calculateUnitStats (o número oficial da unidade)', () => {
+  const collabs: CollaboratorLite[] = [
+    { id: 'r1', sector: 'RECEBIMENTO' },
+    { id: 'p1', sector: 'PROCESSAMENTO' },
+    { id: 't1', sector: 'TRATATIVAS' },
+    { id: 'a1', sector: 'Apoio' },
+    { id: 'a2', sector: null },
+  ];
+  const trainings = new Map<string, string[]>([
+    ['r1', ['Onboarding PTS V3']],
+    ['p1', ['Onboarding PTS V3']],
+    ['t1', ['Onboarding PTS V3']],   // não basta para Tratativas
+    ['a1', ['Onboarding PTS V3']],   // basta, pois Apoio não é área operacional
+    ['a2', []],
+  ]);
+
+  it('ninguém fica de fora: a soma das áreas fecha com o total', () => {
+    const stats = calculateUnitStats(collabs, trainings, false);
+    expect(stats.total).toBe(5);
+    expect(stats.byArea.reduce((s, a) => s + a.total, 0)).toBe(5);
+  });
+
+  it('conta Apoio e sem-setor no grupo OUTROS, em vez de ignorá-los', () => {
+    const stats = calculateUnitStats(collabs, trainings, false);
+    const outros = stats.byArea.find(a => a.area === OTHER_AREA)!;
+    expect(outros.total).toBe(2);
+    expect(outros.trained).toBe(1);
+  });
+
+  it('o geral reflete a regra de Tratativas', () => {
+    const stats = calculateUnitStats(collabs, trainings, false);
+    // r1, p1 e a1 treinados; t1 (só onboarding) e a2 (nada) pendentes.
+    expect(stats.trained).toBe(3);
+    expect(stats.pct).toBe(60);
   });
 });

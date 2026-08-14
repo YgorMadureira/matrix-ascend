@@ -4,15 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { BarChart2, Users, CheckCircle2, Percent, Trophy, Medal, Award, AlertCircle } from 'lucide-react';
 import {
-  calculateAreaStats,
-  calculateOverallTrainedPct,
   calculateSocHealth,
+  calculateUnitStats,
   type CollaboratorLite,
   type MicroTraining,
   type SocHealthResult,
 } from '@/lib/trainingRules';
 
-const SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'HSE', 'PEOPLE'] as const;
+/** Onboardings administrativos: valem para o time inteiro, não por setor. */
+const TRANSVERSAL_SECTORS = ['HSE', 'PEOPLE'] as const;
 
 interface SectorStat { sector: string; total: number; trained: number; pct: number }
 interface SocRank extends SocHealthResult { soc: string; totalCollaborators: number }
@@ -177,39 +177,39 @@ export default function DashboardPage() {
       const socHealth = calculateSocHealth(userMicros, collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
       setHealth(socHealth);
 
-      // ── 8. Cards gerais — "% Treinados" usa a MESMA regra da Matriz/gráfico ──
-      const areaStats = calculateAreaStats(collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
-      const overall = calculateOverallTrainedPct(areaStats);
+      // ── 8. Cards gerais — número OFICIAL da unidade (motor único) ──
+      // O mesmo unitStats alimenta o card "% Treinados" E os quadros de
+      // macro-setor logo abaixo. Antes eram duas contas diferentes na mesma
+      // tela: o card dizia 460 treinados e os quadros somavam 466.
+      const unit = calculateUnitStats(collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
 
       setStats({
         collaborators: totalCollabs,
         materials:     mCount.count ?? 0,
-        trainings:     isLider ? overall.trained : (tCount.count ?? 0),
-        trainedPct:    overall.pct,
-        trainedCount:  overall.trained,
+        trainings:     isLider ? unit.trained : (tCount.count ?? 0),
+        trainedPct:    unit.pct,
+        trainedCount:  unit.trained,
       });
 
-      // ── 9. Desempenho por Macro-Setor (não alterado — RECEBIMENTO/PROCESSAMENTO/
-      //      EXPEDIÇÃO/TRATATIVAS/HSE/PEOPLE; HSE e PEOPLE avaliam todo o time) ──
+      // ── 9. Desempenho por Macro-Setor ───────────────────────
+      // As áreas operacionais (+ o grupo OUTROS, que reúne Apoio/Almox/sem
+      // setor) vêm direto do unitStats acima, então a soma dos quadros fecha
+      // com o card. HSE e PEOPLE são onboardings administrativos: continuam
+      // transversais, avaliados sobre o time inteiro.
       const trainingsByCollabUpper = new Map<string, string[]>();
       trainingsByCollabId.forEach((types, id) => trainingsByCollabUpper.set(id, types.map(t => t.toUpperCase())));
-      const sStats: SectorStat[] = SECTORS.map(sector => {
-        const isTransversal = sector === 'HSE' || sector === 'PEOPLE';
-        const targetCollabs = isTransversal ? collabs : collabs.filter(c => c.sector?.toUpperCase() === sector);
-        const total = targetCollabs.length;
-        const trained = targetCollabs.filter(c => {
-          const types = trainingsByCollabUpper.get(c.id) || [];
-          const cRole = c.role?.toUpperCase() ?? '';
-          const isCore = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO'].includes(sector) || sector.includes('LOGISTICA') || cRole.includes('LOGISTICA');
-          return types.some(tType => {
-            if (isTransversal) return tType.includes(sector);
-            if (isCore && tType.includes('ONBOARDING')) return true;
-            return tType.includes(sector) || sector.includes(tType) || (cRole && (tType.includes(cRole) || cRole.includes(tType)));
-          });
-        }).length;
-        return { sector, total, trained, pct: total > 0 ? Math.round((trained / total) * 100) : 0 };
+
+      const transversais: SectorStat[] = TRANSVERSAL_SECTORS.map(sector => {
+        const trained = collabs.filter(c =>
+          (trainingsByCollabUpper.get(c.id) || []).some(t => t.includes('ONBOARDING') && t.includes(sector))
+        ).length;
+        return { sector, total: totalCollabs, trained, pct: totalCollabs > 0 ? Math.round((trained / totalCollabs) * 100) : 0 };
       });
-      setSectorStats(sStats);
+
+      setSectorStats([
+        ...unit.byArea.map(a => ({ sector: a.area, total: a.total, trained: a.trained, pct: Math.round(a.pct) })),
+        ...transversais,
+      ]);
 
       // ── 10. Ranking de Saúde dos SOCs — TODAS as unidades aparecem;
       //       elegíveis (≥14 micros core) recebem posição, as demais ficam
@@ -246,11 +246,14 @@ export default function DashboardPage() {
 
   const level = getLevel(health.healthPct);
 
+  // O "hint" existe para deixar o denominador à mostra: a dúvida que gerou a
+  // padronização de 13/08/2026 foi justamente não dar para saber, olhando o
+  // card, sobre quantas pessoas o percentual estava sendo calculado.
   const cards = [
-    { label: 'Meu Time',    value: stats.collaborators,    icon: Users,        color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
-    { label: '% Treinados', value: `${stats.trainedPct}%`, icon: Percent,      color: 'text-emerald-600', iconBg: 'bg-emerald-50' },
-    { label: 'Materiais',   value: stats.materials,        icon: BarChart2,    color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
-    { label: 'Treinados',   value: stats.trainedCount,     icon: CheckCircle2, color: 'text-amber-500',   iconBg: 'bg-amber-50' },
+    { label: 'Meu Time',    value: stats.collaborators,    hint: 'pessoas na unidade',                                 icon: Users,        color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
+    { label: '% Treinados', value: `${stats.trainedPct}%`, hint: `${stats.trainedCount} de ${stats.collaborators}`,    icon: Percent,      color: 'text-emerald-600', iconBg: 'bg-emerald-50' },
+    { label: 'Materiais',   value: stats.materials,        hint: '',                                                   icon: BarChart2,    color: 'text-[#EE4D2D]',   iconBg: 'bg-[#FEF6F5]' },
+    { label: 'Treinados',   value: stats.trainedCount,     hint: 'todos os setores',                                   icon: CheckCircle2, color: 'text-amber-500',   iconBg: 'bg-amber-50' },
   ];
 
   const eligibleRanking = socRanking.filter(s => s.eligible);
@@ -363,7 +366,7 @@ export default function DashboardPage() {
 
       {/* ── Cards de estatísticas ────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map(({ label, value, icon: Icon, color, iconBg }) => (
+        {cards.map(({ label, value, hint, icon: Icon, color, iconBg }) => (
           <div key={label} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex items-center justify-between mb-3">
               <div className={`p-2.5 rounded-lg ${iconBg}`}>
@@ -372,6 +375,7 @@ export default function DashboardPage() {
               <span className="text-2xl font-black text-gray-900">{value}</span>
             </div>
             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
+            {hint && <p className="text-[9px] font-medium text-gray-300 mt-0.5">{hint}</p>}
           </div>
         ))}
       </div>
