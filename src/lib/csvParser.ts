@@ -119,6 +119,37 @@ export interface CollaboratorCsvRow {
   admission_date: string | null;
 }
 
+export interface LeaderCsvRow {
+  name: string;
+  email: string;
+  sector: string;
+  activity: string;
+  shift: string;
+  /** O gestor DO líder — grava na mesma coluna `leader`, que na linha de um líder significa "a quem ele responde". */
+  leader: string;
+  soc: string;
+}
+
+/**
+ * Mapeia uma linha da planilha de LÍDERES.
+ *
+ * O e-mail é o campo mais importante: é ele que liga o líder ao time, porque
+ * 411 dos 659 valores hoje em collaborators.leader já são e-mail. Sem ele o
+ * vínculo só acontece se o nome bater exatamente (ver resolve_leader_links()
+ * em supabase/migrations/20260814_01).
+ */
+export function mapLeaderRow(cells: string[], header: string[]): LeaderCsvRow {
+  return {
+    name: getField(cells, header, ['nome', 'lider', 'líder', 'name', 'leader', 'colaborador']),
+    email: getField(cells, header, ['e-mail', 'email', 'e mail', 'mail']).toLowerCase(),
+    sector: getField(cells, header, ['setor', 'sector', 'area', 'área']),
+    activity: getField(cells, header, ['atividade', 'activity', 'funcao real']),
+    shift: getField(cells, header, ['turno', 'shift', 'periodo']),
+    leader: getField(cells, header, ['gestor', 'manager', 'responsavel', 'responsável', 'lider direto']),
+    soc: getField(cells, header, ['soc', 'unidade', 'unit']).toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2'),
+  };
+}
+
 /** Mapeia uma linha de CSV para os campos de collaborators, usando os aliases de coluna conhecidos. */
 export function mapCollaboratorRow(cells: string[], header: string[]): CollaboratorCsvRow {
   return {

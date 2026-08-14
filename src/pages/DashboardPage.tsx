@@ -10,13 +10,18 @@ import {
   type MicroTraining,
   type SocHealthResult,
 } from '@/lib/trainingRules';
+import { filterTeamOfLeader } from '@/lib/leaderTeam';
 
 /** Onboardings administrativos: valem para o time inteiro, não por setor. */
 const TRANSVERSAL_SECTORS = ['HSE', 'PEOPLE'] as const;
 
 interface SectorStat { sector: string; total: number; trained: number; pct: number }
 interface SocRank extends SocHealthResult { soc: string; totalCollaborators: number }
-interface CollabRow { id: string; sector: string; leader: string; soc: string; role: string }
+interface CollabRow {
+  id: string; sector: string; leader: string; soc: string; role: string;
+  /** Usados para resolver "Meu Time" pelo vínculo de líder — ver src/lib/leaderTeam.ts. */
+  email?: string | null; is_leader?: boolean; leader_id?: string | null;
+}
 interface TrainingRow { collaborator_id: string; training_type: string }
 
 // ── Nível de saúde (cores SUTIS, sem glow/pulse) ───────────────
@@ -110,7 +115,7 @@ export default function DashboardPage() {
       const allCollabs: CollabRow[] = [];
       let page = 0; const limit = 1000; let hasMore = true;
       while (hasMore) {
-        const { data } = await supabase.from('collaborators').select('id, sector, leader, role, soc').range(page * limit, (page + 1) * limit - 1);
+        const { data } = await supabase.from('collaborators').select('id, sector, leader, role, soc, email, is_leader, leader_id').range(page * limit, (page + 1) * limit - 1);
         if (data && data.length > 0) { allCollabs.push(...data); if (data.length < limit) hasMore = false; else page++; }
         else hasMore = false;
       }
@@ -155,21 +160,11 @@ export default function DashboardPage() {
       });
 
       // ── 6. Filtro de colaboradores do usuário (Meu Time) ────
-      const matchLeader = (collabLeader: string): boolean => {
-        const cL = (collabLeader ?? '').trim().toUpperCase();
-        if (!cL) return false;
-        if (profile?.leader_key) return cL === profile.leader_key.trim().toUpperCase();
-        const pName = (profile?.full_name ?? '').trim().toUpperCase();
-        if (cL === pName) return true;
-        const nw = pName.split(/\s+/).filter(w => w.length > 2);
-        if (nw.length > 0 && nw.every(w => cL.includes(w))) return true;
-        const lw = cL.split(/\s+/).filter(w => w.length > 2);
-        if (lw.length > 0 && lw.every(w => pName.includes(w))) return true;
-        return false;
-      };
+      // O time do líder sai do vínculo já resolvido no banco (leader_id), com
+      // o casamento por texto só como rede — ver src/lib/leaderTeam.ts.
       const userSoc = effectiveSoc || '';
       const socCollabs = userSoc ? allCollabs.filter(c => c.soc === userSoc) : allCollabs;
-      const collabs    = isLider ? socCollabs.filter(c => matchLeader(c.leader)) : socCollabs;
+      const collabs    = isLider ? filterTeamOfLeader(socCollabs, profile) : socCollabs;
       const totalCollabs = collabs.length;
 
       // ── 7. Índice de Saúde do "Meu Time" (motor único — src/lib/trainingRules.ts) ──
@@ -242,7 +237,9 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, [isLider, profile?.full_name, profile?.leader_key, effectiveSoc, showAsm]);
+    // `profile` inteiro (e não só full_name/leader_key) porque filterTeamOfLeader
+    // também usa o e-mail para achar a linha do líder.
+  }, [isLider, profile, effectiveSoc, showAsm]);
 
   const level = getLevel(health.healthPct);
 

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
-import { parseDelimitedText, mapCollaboratorRow } from '@/lib/csvParser';
+import { parseDelimitedText, mapCollaboratorRow, mapLeaderRow } from '@/lib/csvParser';
 
 interface Collaborator {
   id: string;
@@ -21,14 +21,23 @@ interface Collaborator {
   is_onboarding?: boolean;
   admission_date?: string;
   activity?: string;
+  /** E-mail corporativo. Nos líderes é a chave que liga ao time. */
+  email?: string | null;
+  /** Marca líderes — substitui a antiga adivinhação pelo texto do cargo. */
+  is_leader?: boolean;
+  /** Vínculo resolvido com a linha do líder (ver resolve_leader_links no banco). */
+  leader_id?: string | null;
   /** Calculado no banco pela view collaborators_status. */
   is_trained: boolean;
   /** Tipos de treinamento de onboarding já assinados, em MAIÚSCULAS. */
   onboarding_modules: string[];
 }
 
-const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '' };
+const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '', email: '' };
 const EMPTY_COLLABS: Collaborator[] = [];
+
+/** Colunas da aba Líderes — as mesmas do modelo de importação, nesta ordem. */
+const LEADER_COLUMNS = ['Nome', 'E-mail', 'Setor', 'Atividade', 'Turno', 'Gestor', 'SOC', 'Status'] as const;
 // A busca da planilha do Google Sheets roda agora na Edge Function
 // sync-collaborators (server-side) — ver supabase/functions/sync-collaborators.
 
@@ -113,7 +122,7 @@ export default function CollaboratorsPage() {
       while (hasMore) {
         let q = supabase
           .from('collaborators_status')
-          .select('id, name, opsid, gender, soc, sector, shift, leader, role, bpo, is_onboarding, admission_date, activity, is_trained, onboarding_modules')
+          .select('id, name, opsid, gender, soc, sector, shift, leader, role, bpo, is_onboarding, admission_date, activity, email, is_leader, leader_id, is_trained, onboarding_modules')
           .order('name')
           .range(page * limit, (page + 1) * limit - 1);
         if (effectiveSoc) q = q.eq('soc', effectiveSoc);
@@ -220,11 +229,12 @@ export default function CollaboratorsPage() {
   // novo a cada tecla digitada na busca, cada clique de filtro e cada
   // re-render.
   const filtered = useMemo(() => collaborators.filter(c => {
-    // Current Tab filtering
+    // Aba atual. Líder é quem tem a flag is_leader — antes era adivinhado
+    // pelo texto do cargo ("contém LÍDER/GERENTE/..."), e como só 2 pessoas
+    // na base inteira tinham esse cargo, a aba Líderes vivia vazia.
     const isEmOnboarding = c.is_onboarding === true;
-    const roleName = c.role ? c.role.toUpperCase() : '';
-    const isLider = roleName.includes('LÍDER') || roleName.includes('LIDER') || roleName.includes('INSTRUTOR') || roleName.includes('GERENTE') || roleName.includes('COORDENADOR') || roleName.includes('SUPERVISOR');
-    
+    const isLider = c.is_leader === true;
+
     if (currentTab === 'lideres' && !isLider) return false;
     if (currentTab !== 'lideres' && isLider) return false;
 
@@ -235,9 +245,10 @@ export default function CollaboratorsPage() {
     const normSoc = (s: string) => s ? s.toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2') : '';
     
     const searchNormalized = norm(search);
-    const matchSearch = norm(c.name).includes(searchNormalized) || 
-      norm(c.opsid ?? '').includes(searchNormalized) || 
-      normSoc(c.soc).includes(searchNormalized) || 
+    const matchSearch = norm(c.name).includes(searchNormalized) ||
+      norm(c.opsid ?? '').includes(searchNormalized) ||
+      normSoc(c.soc).includes(searchNormalized) ||
+      norm(c.email ?? '').includes(searchNormalized) ||
       norm(c.sector || '').includes(searchNormalized);
     
     const userSoc = normSoc(c.soc);
@@ -291,22 +302,35 @@ export default function CollaboratorsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedList = useMemo(() => filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [filtered, page]);
 
-  const totalLeaders = useMemo(() => new Set(
-    filtered
-      .map(c => c.leader?.trim().toUpperCase())
-      .filter(l => l && l !== '-' && l !== 'N/A')
-  ).size, [filtered]);
+  // Líderes CADASTRADOS na unidade (flag is_leader), não nomes distintos
+  // digitados no campo "Líder" — este card contava texto livre, e como o
+  // mesmo líder aparece ora como e-mail ora como nome, o número não
+  // significava quantos líderes existem.
+  const totalLeaders = useMemo(
+    () => collaborators.filter(c => c.is_leader).length,
+    [collaborators]
+  );
 
   const uniqueTrained = useMemo(() => filtered.filter(c => isTrained(c)).length, [filtered]);
   const trainedPct = displayTotal > 0 ? Math.round((uniqueTrained / displayTotal) * 100) : 0;
 
   const handleSave = async () => {
-    const payload: Partial<typeof form> = { ...form };
+    const isLeaderForm = currentTab === 'lideres';
+    const payload: Record<string, unknown> = { ...form, is_leader: isLeaderForm };
     if (!payload.admission_date) {
       delete payload.admission_date;
     }
-    
-    if (form.is_onboarding) {
+    // O e-mail é a chave do vínculo com o time — guardar em minúsculo evita
+    // que "Maria.Souza@" e "maria.souza@" virem dois líderes diferentes.
+    payload.email = (form.email || '').trim().toLowerCase() || null;
+
+    if (isLeaderForm) {
+      // Um líder não tem cargo/turno obrigatórios no cadastro; o que não pode
+      // faltar é o e-mail, senão o time dele não é vinculado automaticamente.
+      if (!form.name || !form.soc || !form.email) {
+        toast.error('Preencha nome, e-mail e SOC do líder.'); return;
+      }
+    } else if (form.is_onboarding) {
        if (!form.name || !form.soc || !form.role) {
          toast.error('Preencha nome completo, cargo e SOC no Onboarding!'); return;
        }
@@ -347,7 +371,8 @@ export default function CollaboratorsPage() {
        bpo: c.bpo ?? '',
        is_onboarding: !!c.is_onboarding,
        admission_date: c.admission_date ?? '',
-       activity: c.activity ?? ''
+       activity: c.activity ?? '',
+       email: c.email ?? ''
     });
     setEditingId(c.id);
     setShowForm(true);
@@ -432,6 +457,71 @@ export default function CollaboratorsPage() {
         return;
       }
       console.log('[CSV] Cabeçalho detectado:', header);
+
+      // ── Importação de LÍDERES ────────────────────────────────
+      // Caminho próprio, porque as colunas são outras (E-mail e Gestor no
+      // lugar de OPSID/Gênero/BPO/Cargo) e porque, no fim, é preciso pedir
+      // ao banco para religar os times — resolve_leader_links() casa o texto
+      // livre de collaborators.leader com o e-mail (ou nome) dos líderes.
+      if (currentTab === 'lideres') {
+        const leaders = rawRows
+          .map(cells => mapLeaderRow(cells, header))
+          .filter(l => l.name && l.name.length > 1);
+
+        if (leaders.length === 0) {
+          toast.error('Nenhum líder válido encontrado. Verifique se o arquivo segue o modelo.');
+          e.target.value = '';
+          return;
+        }
+
+        const semEmail = leaders.filter(l => !l.email).length;
+        let inseridos = 0, atualizados = 0, ultimoErro = '';
+
+        for (const l of leaders) {
+          const payload = {
+            name: l.name,
+            email: l.email || null,
+            sector: l.sector,
+            activity: l.activity,
+            shift: l.shift,
+            leader: l.leader, // na linha de um líder, "leader" é o GESTOR dele
+            soc: l.soc,
+            is_leader: true,
+            is_onboarding: false,
+          };
+          // Já cadastrado? Casa por e-mail; sem e-mail, por nome + unidade.
+          const existente = collaborators.find(c =>
+            (l.email && (c.email ?? '').toLowerCase() === l.email) ||
+            (!l.email && c.name.trim().toUpperCase() === l.name.trim().toUpperCase() && c.soc === l.soc)
+          );
+          const { error } = existente
+            ? await supabase.from('collaborators').update(payload).eq('id', existente.id)
+            : await supabase.from('collaborators').insert(payload);
+
+          if (error) { ultimoErro = error.message; console.error('[CSV líderes]', error); }
+          else if (existente) atualizados++;
+          else inseridos++;
+        }
+
+        const { data: vinculados, error: rpcErr } = await supabase.rpc('resolve_leader_links');
+        if (rpcErr) console.error('[CSV líderes] resolve_leader_links falhou:', rpcErr);
+
+        let msg = '';
+        if (inseridos > 0) msg += `✓ ${inseridos} líder(es) cadastrado(s). `;
+        if (atualizados > 0) msg += `✓ ${atualizados} atualizado(s). `;
+        if (typeof vinculados === 'number') msg += `${vinculados} colaborador(es) vinculado(s) ao líder.`;
+        if (msg) toast.success(msg, { duration: 10000 });
+        if (semEmail > 0) {
+          toast.warning(
+            `${semEmail} líder(es) sem e-mail — o time deles só será vinculado se o nome bater exatamente com o que está no campo Líder dos colaboradores.`,
+            { duration: 12000 }
+          );
+        }
+        if (ultimoErro) toast.error(`Alguns registros falharam: ${ultimoErro}`);
+        fetchData();
+        e.target.value = '';
+        return;
+      }
 
       const isUploadingToOnboarding = currentTab === 'onboarding';
 
@@ -520,18 +610,45 @@ export default function CollaboratorsPage() {
 
   const downloadTemplate = () => {
     const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
-    const csv = currentTab === 'onboarding'
-      ? bom + 'Gênero;Colaborador;Data de Admissão;BPO;Cargo;SOC\nFEMININO;VIVIAN KAROLINE;27/04/2026;GI Group;AUXILIAR DE LOGISTICA;SP6'
-      : bom + 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;JOÃO SILVA;T1;RECEBIMENTO;CARLOS;OPERADOR LOGISTICO;SP6';
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // O modelo de líderes segue exatamente as colunas da aba. O E-MAIL é o
+    // campo que faz o vínculo com o time: ele casa com o que está escrito no
+    // campo "Líder" dos colaboradores (411 dos 659 valores de lá já são
+    // e-mail). Sem e-mail, o vínculo só sai se o NOME bater exatamente.
+    const modelos = {
+      lideres: {
+        csv: 'Nome;E-mail;Setor;Atividade;Turno;Gestor;SOC\nMARIA SOUZA;maria.souza@shopee.com;RECEBIMENTO;Inbound | Docas LH;T3;CARLOS LIMA;SP6',
+        arquivo: 'modelo_lideres.csv',
+      },
+      onboarding: {
+        csv: 'Gênero;Colaborador;Data de Admissão;BPO;Cargo;SOC\nFEMININO;VIVIAN KAROLINE;27/04/2026;GI Group;AUXILIAR DE LOGISTICA;SP6',
+        arquivo: 'modelo_onboarding.csv',
+      },
+      ativos: {
+        csv: 'OPSID;Gênero;Colaborador;Turno;Setor;Líder;Cargo;SOC\n001;MASCULINO;JOÃO SILVA;T1;RECEBIMENTO;CARLOS;OPERADOR LOGISTICO;SP6',
+        arquivo: 'modelo_colaboradores.csv',
+      },
+    } as const;
+
+    const modelo = modelos[currentTab];
+    const blob = new Blob([bom + modelo.csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = currentTab === 'onboarding' ? 'modelo_onboarding.csv' : 'modelo_colaboradores.csv';
+    a.download = modelo.arquivo;
 
     a.click();
   };
 
-  const fields: { key: Exclude<keyof typeof emptyForm, 'is_onboarding'>; label: string }[] = currentTab === 'onboarding'
+  const fields: { key: Exclude<keyof typeof emptyForm, 'is_onboarding'>; label: string }[] = currentTab === 'lideres'
+    ? [
+        { key: 'name', label: 'Nome' },
+        { key: 'email', label: 'E-mail' },
+        { key: 'sector', label: 'Setor' },
+        { key: 'activity', label: 'Atividade' },
+        { key: 'shift', label: 'Turno' },
+        { key: 'leader', label: 'Gestor' },
+        { key: 'soc', label: 'SOC' },
+      ]
+    : currentTab === 'onboarding'
     ? [
         { key: 'opsid', label: 'OPSID' },
         { key: 'gender', label: 'Gênero' },
@@ -888,25 +1005,37 @@ export default function CollaboratorsPage() {
                     </div>
                   </th>
                 )}
-                {['OPSID', 'Gênero', 'Colaborador', 'BPO'].map((h) => (
-                   <th key={h} className={`${h === 'Colaborador' ? 'text-left' : 'text-center'} p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap`}>{h}</th>
-                ))}
-                {currentTab === 'onboarding' ? (
-                  <>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Admissão</th>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Onboardings</th>
-                  </>
+                {currentTab === 'lideres' ? (
+                  // A aba Líderes deixou de ser um espelho da de Colaboradores:
+                  // um líder não tem OPSID, Gênero, BPO nem Cargo no cadastro. O
+                  // que interessa dele é o E-MAIL — a chave que liga ao time —
+                  // e o Gestor a quem ele responde.
+                  LEADER_COLUMNS.map((h) => (
+                    <th key={h} className={`${h === 'Nome' ? 'text-left' : 'text-center'} p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap`}>{h}</th>
+                  ))
                 ) : (
                   <>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Turno</th>
-                    <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Setor</th>
+                    {['OPSID', 'Gênero', 'Colaborador', 'BPO'].map((h) => (
+                      <th key={h} className={`${h === 'Colaborador' ? 'text-left' : 'text-center'} p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap`}>{h}</th>
+                    ))}
+                    {currentTab === 'onboarding' ? (
+                      <>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Admissão</th>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Onboardings</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Cargo</th>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Turno</th>
+                        <th className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">Setor</th>
+                      </>
+                    )}
+                    {['Atividade', 'Líder', 'SOC', 'Status'].map((h) => (
+                      <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    ))}
                   </>
                 )}
-                {['Atividade', 'Líder', 'SOC', 'Status'].map((h) => (
-                   <th key={h} className="text-center p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap">{h}</th>
-                ))}
                 {(isAdmin || isBpo) && <th className="text-right p-3 text-[9px] text-gray-400 font-black uppercase tracking-widest">Ações</th>}
               </tr>
             </thead>
@@ -925,11 +1054,33 @@ export default function CollaboratorsPage() {
                       </div>
                     </td>
                   )}
+                  {currentTab === 'lideres' ? (
+                    <>
+                      <td className="p-2.5 text-left font-black text-gray-900 whitespace-nowrap">{c.name}</td>
+                      <td className="p-2.5 text-center text-gray-600 text-[11px] font-medium whitespace-nowrap">
+                        {c.email ? c.email : <span className="text-red-400 font-bold" title="Sem e-mail o time não é vinculado automaticamente">— sem e-mail</span>}
+                      </td>
+                      <td className="p-2.5 text-center text-gray-700 font-medium whitespace-nowrap">
+                        {c.sector
+                          ? <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-tighter border border-blue-100">{c.sector}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.activity || '—'}</td>
+                      <td className="p-2.5 text-center">
+                        {c.shift
+                          ? <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full inline-block border border-gray-200">Turno {c.shift}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader || '—'}</td>
+                      <td className="p-2.5 text-center text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>
+                    </>
+                  ) : (
+                  <>
                   <td className="p-2.5 text-center text-gray-500 font-bold whitespace-nowrap">{c.opsid}</td>
                   <td className="p-2.5 text-center text-gray-400 text-[11px] font-medium whitespace-nowrap">{c.gender}</td>
                   <td className="p-2.5 text-left font-black text-gray-900 whitespace-nowrap">{c.name}</td>
                   <td className="p-2.5 text-center text-gray-500 font-bold whitespace-nowrap">{c.bpo || '-'}</td>
-                  
+
                   {currentTab === 'onboarding' ? (
                     <>
                       <td className="p-2.5 text-center">
@@ -973,6 +1124,8 @@ export default function CollaboratorsPage() {
                   <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.activity || '-'}</td>
                   <td className="p-2.5 text-center text-gray-500 text-[11px] font-bold whitespace-nowrap">{c.leader}</td>
                   <td className="p-2.5 text-center text-gray-900 font-black tracking-widest whitespace-nowrap">{c.soc}</td>
+                  </>
+                  )}
                   <td className="p-2.5 text-center whitespace-nowrap">
                     {isTrained(c) ? (
                       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200">

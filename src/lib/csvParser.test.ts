@@ -7,6 +7,7 @@ import {
   getField,
   parseBrDate,
   mapCollaboratorRow,
+  mapLeaderRow,
 } from './csvParser';
 
 describe('csvParser — splitDelimitedLine', () => {
@@ -169,5 +170,30 @@ describe('csvParser — mapCollaboratorRow', () => {
     expect(row.soc).toBe('');
     expect(row.opsid).toBe('');
     expect(row.admission_date).toBeNull();
+  });
+});
+
+describe('csvParser — mapLeaderRow', () => {
+  it('mapeia as colunas do modelo de líderes', () => {
+    const header = ['nome', 'e-mail', 'setor', 'atividade', 'turno', 'gestor', 'soc'];
+    const cells = ['Maria Souza', 'Maria.Souza@Shopee.com', 'RECEBIMENTO', 'Docas LH', 'T3', 'Carlos Lima', 'sp06'];
+    expect(mapLeaderRow(cells, header)).toEqual({
+      name: 'Maria Souza',
+      email: 'maria.souza@shopee.com', // e-mail sempre minúsculo: é a chave do vínculo com o time
+      sector: 'RECEBIMENTO',
+      activity: 'Docas LH',
+      shift: 'T3',
+      leader: 'Carlos Lima',
+      soc: 'SP6',
+    });
+  });
+
+  // O header chega aqui já normalizado por parseDelimitedText (sem acento,
+  // minúsculo) — por isso o alias é 'lider' e não 'líder'.
+  it('aceita "lider" como sinônimo de nome e campos ausentes viram vazio', () => {
+    const row = mapLeaderRow(['Ana Paula'], ['lider']);
+    expect(row.name).toBe('Ana Paula');
+    expect(row.email).toBe('');
+    expect(row.soc).toBe('');
   });
 });

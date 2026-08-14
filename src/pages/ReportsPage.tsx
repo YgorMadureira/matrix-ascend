@@ -14,6 +14,7 @@ import {
   OTHER_AREA,
   type MacroArea,
 } from '@/lib/trainingRules';
+import { filterTeamOfLeader } from '@/lib/leaderTeam';
 
 const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
 const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
@@ -35,6 +36,10 @@ interface Collaborator {
   shift: string;
   role: string;
   leader: string;
+  email?: string | null;
+  is_leader?: boolean;
+  /** Vínculo resolvido com a linha do líder — ver resolve_leader_links() no banco. */
+  leader_id?: string | null;
 }
 
 interface Training {
@@ -73,7 +78,11 @@ export default function ReportsPage() {
     : ALL_CORE_SECTORS.filter(s => s !== 'ASM');
 
 
-  const AREAS = ['Operacional', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
+  // "Líderes" é a mesma leitura da aba Operacional (as cinco macro-áreas),
+  // só que restrita a quem tem is_leader — assim a visão de líderes usa
+  // exatamente a mesma régua de treinamento do resto do sistema.
+  const AREAS = ['Operacional', 'Líderes', 'COP', 'HSE', 'Qualidade', 'Security', 'Inventario', 'People', 'Meio Ambiente'] as const;
+  const isAreaOperacional = (area: string) => area === 'Operacional' || area === 'Líderes';
   const [selectedArea, setSelectedArea] = useState<string>('Operacional');
   const [visibleCount, setVisibleCount] = useState(100);
   const [isExporting, setIsExporting] = useState(false);
@@ -208,7 +217,7 @@ export default function ReportsPage() {
     while (hasMore) {
       let collabQuery = supabase
         .from('collaborators')
-        .select('id, name, soc, sector, shift, role, leader')
+        .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id')
         .order('name')
         .range(page * limit, (page + 1) * limit - 1);
       // soc null = admin sem unidade restrita → vê todas. Filtrar por '' não
@@ -249,27 +258,16 @@ export default function ReportsPage() {
     if (effectiveSoc) microQuery = microQuery.eq('soc_name', effectiveSoc);
     const { data: microData } = await microQuery;
 
-    const matchLeader = (collaboratorLeader: string): boolean => {
-      const cLeader = (collaboratorLeader ?? '').trim().toUpperCase();
-      if (!cLeader) return false;
-      if (profile?.leader_key) {
-        return cLeader === profile.leader_key.trim().toUpperCase();
-      }
-      const profileName = (profile?.full_name ?? '').trim().toUpperCase();
-      if (cLeader === profileName) return true;
-      const nameWords = profileName.split(/\s+/).filter(w => w.length > 2);
-      if (nameWords.length > 0 && nameWords.every(w => cLeader.includes(w))) return true;
-      const leaderWords = cLeader.split(/\s+/).filter(w => w.length > 2);
-      if (leaderWords.length > 0 && leaderWords.every(w => profileName.includes(w))) return true;
-      return false;
-    };
-
-    const collabData = (isLider && !isAdmin) ? allCollabs.filter(x => matchLeader(x.leader)) : allCollabs;
+    // Time do líder pelo vínculo resolvido no banco (leader_id), com o
+    // casamento por texto só como rede — ver src/lib/leaderTeam.ts.
+    const collabData = (isLider && !isAdmin) ? filterTeamOfLeader(allCollabs, profile) : allCollabs;
     setCollaborators(collabData);
     setTrainings(allTrainings);
     setMicroTrainings(microData || []);
     setSectors([...new Set(allCollabs.map(x => (x.sector as string) || 'Sem Setor'))]);
-  }, [isLider, isAdmin, profile?.full_name, profile?.leader_key, effectiveSoc]);
+    // `profile` inteiro (e não só full_name/leader_key) porque filterTeamOfLeader
+    // também usa o e-mail para achar a linha do líder.
+  }, [isLider, isAdmin, profile, effectiveSoc]);
 
   useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
@@ -291,7 +289,12 @@ export default function ReportsPage() {
 
     // Filter by Area Tab
     const s = (c.sector || '').toUpperCase();
-    if (selectedArea === 'Operacional') {
+    if (selectedArea === 'Líderes') {
+      // Só quem está cadastrado como líder (flag is_leader). Nas demais abas
+      // os líderes continuam entrando junto com o time — decisão de 14/08:
+      // é um número só.
+      if (!c.is_leader) return false;
+    } else if (selectedArea === 'Operacional') {
       // Entra a unidade INTEIRA: as macro-áreas e também quem está em Apoio,
       // Almox ou sem setor (grupo OUTROS). Antes de 13/08/2026 esse pessoal
       // era descartado aqui — sumia do relatório mas aparecia como pendente
@@ -329,15 +332,16 @@ export default function ReportsPage() {
   const currentTrainingTypes = useMemo(() => {
     // OUTROS entra como um grupo próprio para que a soma dos cards feche com
     // o card GERAL — ninguém fica de fora da conta.
-    if (selectedArea === 'Operacional') return [...operationalAreas(showAsm), OTHER_AREA] as string[];
+    if (isAreaOperacional(selectedArea)) return [...operationalAreas(showAsm), OTHER_AREA] as string[];
     if (selectedArea === 'Inventario') return ['INVENTÁRIO'];
     return [selectedArea.toUpperCase()];
   }, [selectedArea, showAsm]);
 
   const sectorStats = useMemo(() => currentTrainingTypes.map(type => {
-    // Aba Operacional: cada pessoa cai em exatamente um grupo (a área dela,
-    // ou OUTROS) e é avaliada contra o próprio grupo, pela regra canônica.
-    if (selectedArea === 'Operacional') {
+    // Abas Operacional e Líderes: cada pessoa cai em exatamente um grupo (a
+    // área dela, ou OUTROS) e é avaliada contra o próprio grupo, pela regra
+    // canônica. A de Líderes é a mesma conta, só que sobre os líderes.
+    if (isAreaOperacional(selectedArea)) {
       const bucket = filtered.filter(c => collaboratorArea(c.sector, showAsm) === type);
       const completed = bucket.filter(c => isGenerallyTrained(c.id)).length;
       return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
@@ -355,6 +359,27 @@ export default function ReportsPage() {
     const pct = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
     return { generalTotal: total, generalCompleted: completed, generalPct: pct };
   }, [sectorStats]);
+
+  // ── Visão de Líderes ─────────────────────────────────────────
+  // Quantas pessoas cada líder tem sob ele, pelo vínculo já resolvido no
+  // banco (leader_id). É o que mostra se um líder pendente afeta 5 ou 120
+  // pessoas — e denuncia líderes cadastrados sem ninguém vinculado, sinal
+  // de que o e-mail dele não bate com o que está no cadastro do time.
+  const teamSizeByLeaderId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of collaborators) {
+      if (!c.leader_id) continue;
+      map.set(c.leader_id, (map.get(c.leader_id) ?? 0) + 1);
+    }
+    return map;
+  }, [collaborators]);
+
+  const leaderSummary = useMemo(() => {
+    const leaders = collaborators.filter(c => c.is_leader);
+    const semEmail = leaders.filter(c => !c.email).length;
+    const semTime = leaders.filter(c => !teamSizeByLeaderId.get(c.id)).length;
+    return { total: leaders.length, semEmail, semTime };
+  }, [collaborators, teamSizeByLeaderId]);
 
   // ============================================================
   // Gráfico "Desempenho por SOC" — a ÚNICA visão da tela que mostra
@@ -636,6 +661,33 @@ export default function ReportsPage() {
           </button>
         ))}
       </div>
+
+      {selectedArea === 'Líderes' && (
+        <div className="mt-4 bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div>
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Líderes cadastrados</p>
+            <p className="text-2xl font-black text-gray-900">{leaderSummary.total}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Certificados</p>
+            <p className="text-2xl font-black text-emerald-600">{generalCompleted}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Pendentes</p>
+            <p className="text-2xl font-black text-red-500">{generalTotal - generalCompleted}</p>
+          </div>
+          {(leaderSummary.semEmail > 0 || leaderSummary.semTime > 0) && (
+            <div className="flex items-start gap-2 ml-auto max-w-md bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <AlertCircle size={15} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-700 font-medium leading-snug">
+                {leaderSummary.semEmail > 0 && <>{leaderSummary.semEmail} líder(es) sem e-mail cadastrado. </>}
+                {leaderSummary.semTime > 0 && <>{leaderSummary.semTime} sem nenhum colaborador vinculado. </>}
+                O time é ligado pelo e-mail do líder — sem ele, o vínculo só sai se o nome bater exatamente com o campo "Líder" do colaborador.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
         <div onClick={() => setSelectedTrainingType('')}
