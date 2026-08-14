@@ -109,7 +109,25 @@ Deno.serve(async (req) => {
         if (!body.password || body.password.length < 6) {
           return json({ error: 'A senha deve ter no mínimo 6 caracteres.' }, 400);
         }
-        const { error } = await admin.auth.admin.updateUserById(body.id, { password: body.password });
+
+        // Lê o metadata atual e faz o merge na mão, em vez de confiar que o
+        // updateUserById mescla por conta própria — assim full_name/role que
+        // porventura estejam em user_metadata não somem na troca.
+        const { data: existing, error: getErr } = await admin.auth.admin.getUserById(body.id);
+        if (getErr || !existing?.user) {
+          return json({ error: getErr?.message ?? 'Usuário não encontrado.' }, 400);
+        }
+
+        // Este era o bug: a senha trocava, mas nada sinalizava que era uma
+        // senha provisória — a pessoa entrava direto, sem ser obrigada a
+        // trocar. must_change_password é o MESMO campo que já obriga a troca
+        // na criação de usuário novo (ver create_user acima) e que
+        // ProtectedRoute (src/App.tsx) verifica para redirecionar a
+        // ChangePasswordPage.
+        const { error } = await admin.auth.admin.updateUserById(body.id, {
+          password: body.password,
+          user_metadata: { ...existing.user.user_metadata, must_change_password: true },
+        });
         if (error) return json({ error: error.message }, 400);
         return json({ ok: true });
       }
