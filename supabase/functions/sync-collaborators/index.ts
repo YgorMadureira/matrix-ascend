@@ -238,17 +238,29 @@ Deno.serve(async (req) => {
 
     // Estado atual do banco — precisa vir ANTES de qualquer escrita, porque é
     // com ele que a remoção é calculada.
-    let current: { id: string; name: string; soc: string | null; role: string | null; is_onboarding: boolean | null }[] = [];
+    let current: { id: string; name: string; soc: string | null; role: string | null; is_onboarding: boolean | null; is_leader: boolean | null }[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await admin.from('collaborators').select('id, name, soc, role, is_onboarding').range(from, from + 999);
+      const { data, error } = await admin.from('collaborators').select('id, name, soc, role, is_onboarding, is_leader').range(from, from + 999);
       if (error) throw new Error('Erro ao ler a base atual: ' + error.message);
       current = current.concat(data ?? []);
       if (!data || data.length < 1000) break;
       from += 1000;
     }
 
-    const activeInDb = current.filter(c => !c.is_onboarding && !LEADER_ROLE_PATTERN.test((c.role || '').toUpperCase()));
+    // Quem esta função pode remover. Três grupos ficam de fora, porque não vêm
+    // da planilha e sumiriam a cada sincronização:
+    //   · quem está em onboarding (entra pela tela, não pela planilha);
+    //   · quem tem cargo de liderança no texto (regra antiga, mantida);
+    //   · quem está marcado como LÍDER (is_leader) — cadastro criado em
+    //     14/08/2026 pela aba Líderes. Sem esta linha, os líderes importados
+    //     seriam apagados na primeira sincronização, inclusive pelo cron das
+    //     05h, levando junto o vínculo leader_id de todo o time deles.
+    const activeInDb = current.filter(c =>
+      !c.is_onboarding &&
+      !c.is_leader &&
+      !LEADER_ROLE_PATTERN.test((c.role || '').toUpperCase())
+    );
     if (activeInDb.length > 0 && rows.length < activeInDb.length * MIN_PARSE_RATIO) {
       throw new Error(
         `Sincronização abortada por segurança: a planilha trouxe ${rows.length} colaboradores, ` +
@@ -298,12 +310,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Vínculo com os líderes ─────────────────────────────────
+    // A planilha reescreve o campo `leader` (texto livre) a cada sync, então
+    // o vínculo resolvido precisa ser refeito na sequência — senão alguém que
+    // mudou de líder na planilha continua pendurado no líder antigo.
+    // Não é motivo para falhar o sync: se der erro aqui, os colaboradores já
+    // foram atualizados e o vínculo pode ser refeito depois pela tela.
+    let leaderLinks: number | undefined;
+    const { data: linksData, error: linksErr } = await admin.rpc('resolve_leader_links');
+    if (linksErr) writeErrors.push('Vínculo de líderes: ' + linksErr.message);
+    else leaderLinks = linksData as number;
+
     return json({
       ok: true,
       sheetRows: parsed.length,
       uniqueRows: rows.length,
       upserted,
       removed,
+      leaderLinks,
       deletionSkipped,
       errors: writeErrors.length ? writeErrors.slice(0, 20) : undefined,
       finishedAt: new Date().toISOString(),

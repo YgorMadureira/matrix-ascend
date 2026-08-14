@@ -181,7 +181,23 @@ export default function CollaboratorsPage() {
     const toastId = toast.loading('Sincronizando com Google Sheets...');
     try {
       const { data, error } = await supabase.functions.invoke('sync-collaborators', { body: { source: 'manual' } });
-      if (error) throw error;
+      if (error) {
+        // O supabase-js transforma qualquer resposta não-2xx num FunctionsHttpError
+        // com a mensagem genérica "Edge Function returned a non-2xx status code",
+        // e guarda a resposta de verdade em `error.context`. Sem ler isso, a tela
+        // engolia o motivo — "sessão inválida", "apenas master pode sincronizar",
+        // "planilha vazia" — e todos apareciam como o mesmo erro sem sentido.
+        const ctx = (error as { context?: Response }).context;
+        let detalhe = '';
+        try {
+          const corpo = await ctx?.clone().json();
+          detalhe = corpo?.error ?? '';
+        } catch {
+          try { detalhe = (await ctx?.clone().text()) ?? ''; } catch { /* corpo ilegível */ }
+        }
+        const status = ctx?.status ? ` (HTTP ${ctx.status})` : '';
+        throw new Error((detalhe || error.message) + status);
+      }
       if (data?.error) throw new Error(data.error);
       if (data?.skipped) {
         // "desligada" é diferente de "já rodando": a primeira exige alguém
