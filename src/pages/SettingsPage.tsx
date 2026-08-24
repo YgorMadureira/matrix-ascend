@@ -80,9 +80,12 @@ export default function SettingsPage() {
   const [editUserRole, setEditUserRole] = useState('user');
   const [editUserSoc, setEditUserSoc] = useState('');
   const [editLeaderKey, setEditLeaderKey] = useState('');
-  // Unidades EXTRAS do usuário em edição (tabela user_soc_access). Só o
-  // master vê e mexe nisto — a RLS recusa a escrita de qualquer outro.
-  const [editExtraSocs, setEditExtraSocs] = useState<string[]>([]);
+  // TODAS as unidades que o usuário em edição acessa — a base
+  // (users_profiles.soc) e as concedidas (user_soc_access) numa lista só.
+  // Ficam juntas de propósito: enquanto a base era um campo travado, não
+  // havia como tirar a unidade original de alguém, só acrescentar outras.
+  // Só o master vê e mexe nisto; a RLS recusa a escrita de qualquer outro.
+  const [editSocs, setEditSocs] = useState<string[]>([]);
   const [savingUserEdit, setSavingUserEdit] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
@@ -249,7 +252,7 @@ export default function SettingsPage() {
     setShowPasswordReset(false);
     setResetPassword('');
     setResetPasswordConfirm('');
-    setEditExtraSocs([]);
+    setEditSocs(user.soc ? [user.soc] : []);
     setShowEditUser(true);
 
     if (isMaster) {
@@ -258,9 +261,10 @@ export default function SettingsPage() {
         .select('soc')
         .eq('user_id', user.id);
       // Migração ainda não aplicada não pode travar a edição do usuário:
-      // sem a tabela, o modal apenas não mostra unidades extras.
+      // sem a tabela, o modal mostra apenas a unidade base.
       if (error) { console.warn('[Config] Acesso multi-SOC indisponível:', error.message); return; }
-      setEditExtraSocs((data ?? []).map(r => r.soc).filter(Boolean));
+      const extras = (data ?? []).map(r => r.soc).filter(Boolean);
+      setEditSocs([...new Set([...(user.soc ? [user.soc] : []), ...extras])]);
     }
   };
 
@@ -279,11 +283,25 @@ export default function SettingsPage() {
         return;
       }
     }
+    // O master monta a lista de unidades livremente; uma delas continua sendo
+    // a "base" gravada em users_profiles.soc, porque current_user_soc() e
+    // várias telas ainda dependem dela. Mantemos a base atual se ela seguir
+    // marcada — assim marcar/desmarcar outra unidade não muda a base sem
+    // motivo — e, se ela for desmarcada, promovemos a primeira que sobrou.
+    const gerenciaUnidades = isMaster && editUserRole !== 'master';
+    if (gerenciaUnidades && editSocs.length === 0) {
+      toast.error('Selecione ao menos uma unidade para o usuário.');
+      return;
+    }
+    const socBase = gerenciaUnidades
+      ? (editSocs.includes(editUserSoc) ? editUserSoc : editSocs[0])
+      : managedSoc;
+
     setSavingUserEdit(true);
     const updatePayload: Record<string, unknown> = {
       full_name: editUserName.trim(),
       role: editUserRole,
-      soc: managedSoc,
+      soc: socBase,
     };
     // Salva leader_key apenas para líderes; limpa para outros perfis
     if (editUserRole === 'lider') {
@@ -307,11 +325,11 @@ export default function SettingsPage() {
       return;
     }
 
-    // ── Unidades extras (só o master) ────────────────────────
-    // Reconcilia a lista: apaga o que saiu, insere o que entrou. A RLS e o
-    // gatilho trg_guard_soc_access recusam isto para quem não é master, então
-    // o `if` abaixo é conveniência de interface, não a trava de segurança.
-    if (isMaster && editingUserId) {
+    // ── Unidades do usuário (só o master) ────────────────────
+    // Reconcilia user_soc_access: apaga o que saiu, insere o que entrou. A RLS
+    // e o gatilho trg_guard_soc_access recusam isto para quem não é master,
+    // então o `if` abaixo é conveniência de interface, não a trava.
+    if (gerenciaUnidades && editingUserId) {
       const { data: atuais, error: leituraErr } = await supabase
         .from('user_soc_access').select('soc').eq('user_id', editingUserId);
 
@@ -322,9 +340,11 @@ export default function SettingsPage() {
       }
 
       const antes = new Set((atuais ?? []).map(r => r.soc));
-      // A unidade base nunca vira concessão extra — seria uma linha duplicada
-      // dizendo o que users_profiles.soc já diz.
-      const depois = new Set(editExtraSocs.filter(s => s && s !== managedSoc));
+      // A base não vira concessão: seria uma linha duplicada dizendo o que
+      // users_profiles.soc já diz. Tudo que sobra da lista é concessão — e o
+      // que o master desmarcou some daqui, inclusive a base antiga quando ela
+      // deixa de estar na lista.
+      const depois = new Set(editSocs.filter(s => s && s !== socBase));
 
       const remover = [...antes].filter(s => !depois.has(s));
       const incluir = [...depois].filter(s => !antes.has(s));
@@ -825,29 +845,31 @@ export default function SettingsPage() {
                       {(isMaster || editUserRole === 'master') && <option value="master">Master (todas as unidades)</option>}
                     </select>
                  </div>
-                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
-                  <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
-                 </div>
-
-                 {/* Unidades extras — exclusivo do master.
-                     Quem não é master não vê este bloco, e mesmo que chamasse
-                     a API direto seria recusado pela política
-                     master_manages_soc_access e pelo gatilho
-                     trg_guard_soc_access. Perfil master não precisa: ele já
-                     alcança todas as unidades. */}
-                 {isMaster && editUserRole !== 'master' && (
-                   <div className="space-y-1 pt-1">
+                 {/* Unidades com acesso.
+                     Para o master é uma lista única e editável: a unidade
+                     original também pode ser desmarcada, o que antes era
+                     impossível — o campo "Unidade Base" era travado e só dava
+                     para ACRESCENTAR unidades. Uma das marcadas continua sendo
+                     gravada como base em users_profiles.soc (ver socBase em
+                     saveEditedUser), porque current_user_soc() e várias telas
+                     ainda dependem dela.
+                     Quem não é master vê a unidade travada, como antes; e nem
+                     adiantaria burlar pela API: a política
+                     master_manages_soc_access e o gatilho trg_guard_soc_access
+                     recusam. Perfil master não precisa da lista — já alcança
+                     todas as unidades. */}
+                 {isMaster && editUserRole !== 'master' ? (
+                   <div className="space-y-1">
                      <label className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-widest ml-1">
-                       Unidades adicionais
+                       Unidades com acesso
                      </label>
                      <p className="text-[9px] text-gray-400 font-medium ml-1">
-                       Além da unidade base. O usuário passa a alternar entre elas no seletor do topo,
-                       com o mesmo poder do cargo dele em cada uma.
+                       Marque todas as unidades que este usuário pode acessar. Ele alterna entre elas
+                       no seletor do topo, com o mesmo poder do cargo dele em cada uma.
                      </p>
                      <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2 grid grid-cols-2 gap-1 mt-1.5">
-                       {socs.filter(s => s.name !== managedSoc).map(s => {
-                         const marcada = editExtraSocs.includes(s.name);
+                       {socs.map(s => {
+                         const marcada = editSocs.includes(s.name);
                          return (
                            <label
                              key={s.id}
@@ -858,7 +880,7 @@ export default function SettingsPage() {
                              <input
                                type="checkbox"
                                checked={marcada}
-                               onChange={() => setEditExtraSocs(atual =>
+                               onChange={() => setEditSocs(atual =>
                                  atual.includes(s.name) ? atual.filter(x => x !== s.name) : [...atual, s.name]
                                )}
                                className="w-3.5 h-3.5 rounded accent-[#EE4D2D] cursor-pointer"
@@ -870,13 +892,23 @@ export default function SettingsPage() {
                          );
                        })}
                      </div>
-                     {editExtraSocs.length > 0 && (
+                     {editSocs.length === 0 ? (
+                       <p className="text-[9px] text-red-500 font-bold ml-1 mt-1">
+                         Selecione ao menos uma unidade — sem nenhuma, o usuário não enxerga dado algum.
+                       </p>
+                     ) : (
                        <p className="text-[9px] text-gray-500 font-bold ml-1 mt-1">
-                         Vai enxergar: {managedSoc} + {editExtraSocs.join(', ')}
+                         Vai enxergar: {[...editSocs].sort().join(', ')}
                        </p>
                      )}
                    </div>
+                 ) : (
+                   <div className="space-y-1">
+                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
+                     <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
+                   </div>
                  )}
+
 
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}
                  {editUserRole === 'lider' && (
