@@ -80,6 +80,9 @@ export default function SettingsPage() {
   const [editUserRole, setEditUserRole] = useState('user');
   const [editUserSoc, setEditUserSoc] = useState('');
   const [editLeaderKey, setEditLeaderKey] = useState('');
+  // Unidades EXTRAS do usuário em edição (tabela user_soc_access). Só o
+  // master vê e mexe nisto — a RLS recusa a escrita de qualquer outro.
+  const [editExtraSocs, setEditExtraSocs] = useState<string[]>([]);
   const [savingUserEdit, setSavingUserEdit] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
@@ -237,7 +240,7 @@ export default function SettingsPage() {
     }
   };
 
-  const openEditUser = (user: UserProfile) => {
+  const openEditUser = async (user: UserProfile) => {
     setEditingUserId(user.id);
     setEditUserName(user.full_name);
     setEditUserRole(user.role);
@@ -246,7 +249,19 @@ export default function SettingsPage() {
     setShowPasswordReset(false);
     setResetPassword('');
     setResetPasswordConfirm('');
+    setEditExtraSocs([]);
     setShowEditUser(true);
+
+    if (isMaster) {
+      const { data, error } = await supabase
+        .from('user_soc_access')
+        .select('soc')
+        .eq('user_id', user.id);
+      // Migração ainda não aplicada não pode travar a edição do usuário:
+      // sem a tabela, o modal apenas não mostra unidades extras.
+      if (error) { console.warn('[Config] Acesso multi-SOC indisponível:', error.message); return; }
+      setEditExtraSocs((data ?? []).map(r => r.soc).filter(Boolean));
+    }
   };
 
   const saveEditedUser = async () => {
@@ -290,6 +305,41 @@ export default function SettingsPage() {
       toast.error('Erro ao editar usuário: ' + error.message);
       setSavingUserEdit(false);
       return;
+    }
+
+    // ── Unidades extras (só o master) ────────────────────────
+    // Reconcilia a lista: apaga o que saiu, insere o que entrou. A RLS e o
+    // gatilho trg_guard_soc_access recusam isto para quem não é master, então
+    // o `if` abaixo é conveniência de interface, não a trava de segurança.
+    if (isMaster && editingUserId) {
+      const { data: atuais, error: leituraErr } = await supabase
+        .from('user_soc_access').select('soc').eq('user_id', editingUserId);
+
+      if (leituraErr) {
+        toast.error('Perfil salvo, mas não consegui ler as unidades extras: ' + leituraErr.message);
+        setSavingUserEdit(false);
+        return;
+      }
+
+      const antes = new Set((atuais ?? []).map(r => r.soc));
+      // A unidade base nunca vira concessão extra — seria uma linha duplicada
+      // dizendo o que users_profiles.soc já diz.
+      const depois = new Set(editExtraSocs.filter(s => s && s !== managedSoc));
+
+      const remover = [...antes].filter(s => !depois.has(s));
+      const incluir = [...depois].filter(s => !antes.has(s));
+
+      if (remover.length > 0) {
+        const { error } = await supabase
+          .from('user_soc_access').delete().eq('user_id', editingUserId).in('soc', remover);
+        if (error) { toast.error('Erro ao remover unidade: ' + error.message); setSavingUserEdit(false); return; }
+      }
+      if (incluir.length > 0) {
+        const { error } = await supabase.from('user_soc_access').insert(
+          incluir.map(soc => ({ user_id: editingUserId, soc, granted_by: profile?.id ?? null }))
+        );
+        if (error) { toast.error('Erro ao conceder unidade: ' + error.message); setSavingUserEdit(false); return; }
+      }
     }
 
     // Se tudo deu certo e o admin solicitou trocar senha
@@ -779,6 +829,55 @@ export default function SettingsPage() {
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Unidade Base (SOC)</label>
                   <input value={managedSoc ?? ''} disabled className="w-full px-4 py-3 rounded-xl bg-gray-100 border-transparent text-gray-500 text-sm font-bold outline-none cursor-not-allowed" />
                  </div>
+
+                 {/* Unidades extras — exclusivo do master.
+                     Quem não é master não vê este bloco, e mesmo que chamasse
+                     a API direto seria recusado pela política
+                     master_manages_soc_access e pelo gatilho
+                     trg_guard_soc_access. Perfil master não precisa: ele já
+                     alcança todas as unidades. */}
+                 {isMaster && editUserRole !== 'master' && (
+                   <div className="space-y-1 pt-1">
+                     <label className="text-[10px] font-black text-[#EE4D2D] uppercase tracking-widest ml-1">
+                       Unidades adicionais
+                     </label>
+                     <p className="text-[9px] text-gray-400 font-medium ml-1">
+                       Além da unidade base. O usuário passa a alternar entre elas no seletor do topo,
+                       com o mesmo poder do cargo dele em cada uma.
+                     </p>
+                     <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2 grid grid-cols-2 gap-1 mt-1.5">
+                       {socs.filter(s => s.name !== managedSoc).map(s => {
+                         const marcada = editExtraSocs.includes(s.name);
+                         return (
+                           <label
+                             key={s.id}
+                             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                               marcada ? 'bg-[#FEF6F5] border border-[#EE4D2D]/30' : 'bg-white border border-transparent hover:bg-gray-100'
+                             }`}
+                           >
+                             <input
+                               type="checkbox"
+                               checked={marcada}
+                               onChange={() => setEditExtraSocs(atual =>
+                                 atual.includes(s.name) ? atual.filter(x => x !== s.name) : [...atual, s.name]
+                               )}
+                               className="w-3.5 h-3.5 rounded accent-[#EE4D2D] cursor-pointer"
+                             />
+                             <span className={`text-[11px] font-black tracking-wider ${marcada ? 'text-[#EE4D2D]' : 'text-gray-600'}`}>
+                               {s.name}
+                             </span>
+                           </label>
+                         );
+                       })}
+                     </div>
+                     {editExtraSocs.length > 0 && (
+                       <p className="text-[9px] text-gray-500 font-bold ml-1 mt-1">
+                         Vai enxergar: {managedSoc} + {editExtraSocs.join(', ')}
+                       </p>
+                     )}
+                   </div>
+                 )}
+
                  {/* Campo de chave do líder — visível somente quando perfil = lider */}
                  {editUserRole === 'lider' && (
                    <div className="space-y-1">

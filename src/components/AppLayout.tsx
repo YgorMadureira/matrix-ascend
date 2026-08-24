@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function AppLayout() {
-  const { profile, isMaster, isAdmin, isLider, isBpo, isPcp, signOut, effectiveSoc, setScopeSoc, allSocs } = useAuth();
+  const { profile, isMaster, isAdmin, isLider, isBpo, isPcp, signOut, effectiveSoc, setScopeSoc, allSocs, allowedSocs } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -75,10 +75,12 @@ export default function AppLayout() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Seletor de unidade — exclusivo do master. Define o escopo de
-              TODAS as telas; quem não é master nem vê este controle e
-              continua preso à própria SOC. */}
-          {isMaster && (
+          {/* Seletor de unidade. Define o escopo de TODAS as telas.
+              · master  → todas as unidades, com a opção "Todas" agregada.
+              · demais  → só as unidades concedidas pelo master, uma por vez.
+              Quem tem uma unidade só não vê o controle: não há o que trocar.
+              Isto é interface — quem barra o acesso de verdade é a RLS. */}
+          {(isMaster || allowedSocs.length > 1) && (
             <label className="flex items-center gap-2 bg-white/15 border border-white/25 rounded-full pl-3 pr-1 py-1 hover:bg-white/20 transition-colors">
               <Globe size={14} className="text-white/80 shrink-0" />
               <span className="sr-only">Unidade em foco</span>
@@ -88,8 +90,9 @@ export default function AppLayout() {
                 className="bg-transparent text-white text-[11px] font-bold uppercase tracking-wider outline-none cursor-pointer pr-1 py-1 focus-visible:ring-2 focus-visible:ring-white/60 rounded"
                 title="Unidade em foco — vale para todas as telas"
               >
-                <option value="" className="text-gray-900">Todas as unidades</option>
-                {allSocs.map(s => (
+                {/* "Todas" agrega dados de unidades diferentes: só o master. */}
+                {isMaster && <option value="" className="text-gray-900">Todas as unidades</option>}
+                {(isMaster ? allSocs : allowedSocs).map(s => (
                   <option key={s} value={s} className="text-gray-900">{s}</option>
                 ))}
               </select>

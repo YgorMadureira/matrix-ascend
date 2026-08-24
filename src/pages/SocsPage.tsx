@@ -16,7 +16,7 @@ interface Soc {
 }
 
 export default function SocsPage() {
-  const { isAdmin, isMaster, profile, effectiveSoc } = useAuth();
+  const { isAdmin, isMaster, profile, effectiveSoc, allowedSocs } = useAuth();
   const [socs, setSocs] = useState<Soc[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [viewingSoc, setViewingSoc] = useState<Soc | null>(null);
@@ -36,12 +36,16 @@ export default function SocsPage() {
 
   useEffect(() => { fetchSocs(); }, []);
 
-  // Verifica se o usuário admin tem permissão para editar ESTA SOC específica
+  // Verifica se o usuário admin tem permissão para editar ESTA SOC específica.
+  // Desde 14/08/2026 olha TODAS as unidades que o usuário alcança (a do
+  // cadastro + as concedidas pelo master), e não só profile.soc — senão quem
+  // recebeu uma unidade extra seria barrado aqui mesmo com a RLS permitindo.
   const canEditSoc = (socName: string) => {
     if (!isAdmin) return false;
     if (isMaster) return true; // O master edita qualquer unidade, sempre
-    if (!profile?.soc) return true; // Admin sem SOC restrita no cadastro edita todas
-    return profile.soc.trim().toUpperCase() === socName.trim().toUpperCase();
+    if (allowedSocs.length === 0) return true; // Admin sem unidade no cadastro edita todas
+    const alvo = socName.trim().toUpperCase();
+    return allowedSocs.some(s => s.trim().toUpperCase() === alvo);
   };
 
   const handleAddPts = () => {
@@ -142,6 +146,10 @@ export default function SocsPage() {
             {isMaster ? (
               <span className="ml-2 font-bold text-[#EE4D2D]">
                 • Acesso global: você edita <span className="underline">todas</span> as unidades
+              </span>
+            ) : allowedSocs.length > 1 ? (
+              <span className="ml-2 font-bold text-[#EE4D2D]">
+                • Você edita: <span className="underline">{allowedSocs.join(', ')}</span>
               </span>
             ) : profile?.soc && (
               <span className="ml-2 font-bold text-[#EE4D2D]">

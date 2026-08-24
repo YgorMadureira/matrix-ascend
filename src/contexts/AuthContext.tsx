@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useMemo, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -25,18 +25,26 @@ interface AuthContextType {
   /**
    * A unidade que as telas devem usar como escopo.
    *
-   * Para todo mundo que não é master, é sempre a própria SOC do perfil —
-   * ninguém ganha nem perde acesso por causa deste campo. Só o master pode
-   * mudá-lo, pelo seletor no topo da tela; `null` significa "todas as
-   * unidades" e só acontece para ele.
+   * Para quem não é master, é uma das unidades que ele alcança (a do
+   * cadastro, ou uma das concedidas pelo master — ver allowedSocs).
+   * `null` significa "todas as unidades" e só acontece para o master.
+   *
+   * Este campo é conveniência de INTERFACE, não a trava de segurança: quem
+   * de fato barra o acesso é a RLS do banco, por current_user_socs().
    *
    * As telas devem ler ESTE valor, nunca profile.soc direto.
    */
   effectiveSoc: string | null;
-  /** Troca a unidade em foco. Ignorado para quem não é master. */
+  /** Troca a unidade em foco. Só aceita unidades que o usuário alcança. */
   setScopeSoc: (soc: string | null) => void;
-  /** Unidades disponíveis no seletor — só é carregada para o master. */
+  /** Todas as unidades do sistema — carregada só para o master. */
   allSocs: string[];
+  /**
+   * As unidades que ESTE usuário alcança: a do cadastro + as concedidas pelo
+   * master. Vazia para o master, que usa allSocs. O seletor de unidade só
+   * aparece para quem tem mais de uma.
+   */
+  allowedSocs: string[];
   /** true = SOC possui sorting (ASM visível); false = ASM oculto; null = ainda carregando */
   socHasSorting: boolean | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -56,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [socHasSorting, setSocHasSorting] = useState<boolean | null>(null);
   const [allSocs, setAllSocs] = useState<string[]>([]);
+  const [grantedSocs, setGrantedSocs] = useState<string[]>([]);
   const [scopeSoc, setScopeSocState] = useState<string | null>(() => {
     const guardado = localStorage.getItem(SCOPE_KEY);
     // Sem nada guardado, o master começa vendo todas as unidades — é o
@@ -190,16 +199,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentRole = profile?.role?.toLowerCase().trim();
   const isMaster = currentRole === 'master';
 
-  // Para quem não é master, o escopo é — e continua sendo — a própria SOC.
-  const effectiveSoc = isMaster ? scopeSoc : (profile?.soc?.trim() || null);
+  /**
+   * As unidades que este usuário alcança: a do cadastro + as concedidas pelo
+   * master (tabela user_soc_access). Espelha current_user_socs() do banco —
+   * mas é só conveniência de interface: quem de fato barra o acesso é a RLS,
+   * então mexer nesta lista pelo navegador não abre porta nenhuma.
+   * Para o master a lista fica vazia: ele usa allSocs, que é todas.
+   */
+  const allowedSocs = useMemo(() => {
+    const base = profile?.soc?.trim();
+    const todas = new Set<string>();
+    if (base) todas.add(base);
+    for (const s of grantedSocs) if (s?.trim()) todas.add(s.trim());
+    return [...todas].sort();
+  }, [profile?.soc, grantedSocs]);
+
+  /**
+   * A unidade em foco.
+   *  · master  → o que ele escolheu no seletor (null = todas).
+   *  · demais  → a escolhida entre as SUAS unidades; se a escolha guardada
+   *    não estiver mais liberada (o master revogou), cai para a unidade base.
+   *    Nunca vira null, porque null significa "todas as unidades".
+   */
+  const effectiveSoc = useMemo(() => {
+    if (isMaster) return scopeSoc;
+    const base = profile?.soc?.trim() || null;
+    if (scopeSoc && allowedSocs.includes(scopeSoc)) return scopeSoc;
+    return base;
+  }, [isMaster, scopeSoc, allowedSocs, profile?.soc]);
 
   const setScopeSoc = (soc: string | null) => {
-    if (!isMaster) return;
+    // Trocar de unidade agora vale para qualquer usuário — mas só entre as
+    // que ele realmente alcança. A RLS recusaria o resto de qualquer forma;
+    // esta checagem existe para a tela não entrar num estado sem dados.
+    if (!isMaster && !(soc && allowedSocs.includes(soc))) return;
     setScopeSocState(soc);
     localStorage.setItem(SCOPE_KEY, soc ?? TODAS);
   };
 
-  // Lista do seletor de unidades — só o master usa.
+  // Lista do seletor de unidades: todas, para o master; as concedidas, para
+  // os demais (o seletor só aparece quando há mais de uma).
   useEffect(() => {
     if (!isMaster) { setAllSocs([]); return; }
     let cancelado = false;
@@ -209,6 +248,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
     return () => { cancelado = true; };
   }, [isMaster]);
+
+  // Unidades extras concedidas pelo master. A política read_own_soc_access
+  // deixa cada um ler apenas as próprias linhas.
+  useEffect(() => {
+    if (!profile?.id) { setGrantedSocs([]); return; }
+    let cancelado = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('user_soc_access')
+        .select('soc')
+        .eq('user_id', profile.id);
+      // Erro aqui (migração ainda não aplicada, por exemplo) não pode
+      // derrubar o login: sem concessões, o usuário fica com a unidade base,
+      // que é exatamente o comportamento anterior.
+      if (error) { console.warn('[Auth] Sem acesso multi-SOC:', error.message); return; }
+      if (!cancelado) setGrantedSocs((data ?? []).map(r => r.soc).filter(Boolean));
+    })();
+    return () => { cancelado = true; };
+  }, [profile?.id]);
 
   // ASM aparece conforme a unidade EM FOCO — não a do cadastro. Vendo todas
   // as unidades, ASM aparece (algumas têm sorting).
@@ -271,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       effectiveSoc,
       setScopeSoc,
       allSocs,
+      allowedSocs,
       socHasSorting,
       signIn,
       signOut
