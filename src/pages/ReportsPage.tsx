@@ -10,6 +10,7 @@ import {
   isCollaboratorTrained,
   isMicroCompletedBy,
   collaboratorArea,
+  normalizeMacroArea,
   operationalAreas,
   OTHER_AREA,
   type MacroArea,
@@ -324,6 +325,33 @@ export default function ReportsPage() {
     const searchLower = search.toLowerCase();
     return filtered.filter(c => c.name.toLowerCase().includes(searchLower));
   }, [filtered, search]);
+
+  /**
+   * Micro-processos na ordem em que a matriz os exibe: agrupados por
+   * macro-área e, dentro dela, pelo order_num do cadastro.
+   *
+   * O cadastro (Configuracoes -> Processos Micros) guarda só order_num, e nada
+   * obriga as áreas a virem em blocos — em 8 das 13 unidades elas vêm
+   * intercaladas. Em RS2, por exemplo, "RECEITA FEDERAL" e "SALVADOS"
+   * (Tratativas) ocupam as posições 8 e 9, entre itens de Processamento.
+   * O cabeçalho de grupo emite um colSpan do tamanho TOTAL de cada área, o que
+   * só se alinha se as colunas já estiverem agrupadas; sem isto as faixas
+   * saíam deslocadas e um micro de Tratativas aparecia sob Processamento.
+   * Ordenar aqui conserta os dois lados de uma vez, porque o cabeçalho e as
+   * células passam a sair da MESMA lista.
+   */
+  const orderedMicros = useMemo(() => {
+    const ordem = operationalAreas(showAsm) as string[];
+    const peso = (m: SocMicroTraining) => {
+      const i = ordem.indexOf(normalizeMacroArea(m.macro_area) as string);
+      return i === -1 ? ordem.length : i; // área desconhecida vai para o fim
+    };
+    return [...microTrainings].sort((a, b) =>
+      peso(a) - peso(b) ||
+      (a.order_num ?? 0) - (b.order_num ?? 0) ||
+      (a.name || '').localeCompare(b.name || '')
+    );
+  }, [microTrainings, showAsm]);
 
   useEffect(() => {
     setVisibleCount(100);
@@ -910,12 +938,15 @@ export default function ReportsPage() {
         ) : (() => {
           const macroAreasOrder: string[] = [];
           const macroAreasCount: Record<string, number> = {};
-          microTrainings.forEach(t => {
-            if (!macroAreasCount[t.macro_area]) {
-              macroAreasCount[t.macro_area] = 0;
-              macroAreasOrder.push(t.macro_area);
+          orderedMicros.forEach(t => {
+            // Chave normalizada: sem isto, "EXPEDICAO" e "EXPEDIÇÃO" viravam
+            // duas faixas separadas para a mesma área.
+            const area = (normalizeMacroArea(t.macro_area) as string) || t.macro_area;
+            if (!macroAreasCount[area]) {
+              macroAreasCount[area] = 0;
+              macroAreasOrder.push(area);
             }
-            macroAreasCount[t.macro_area]++;
+            macroAreasCount[area]++;
           });
 
           const getMacroConfig = (macro: string) => {
@@ -964,7 +995,7 @@ export default function ReportsPage() {
               </tr>
               {/* Sub-headers row */}
               <tr className="bg-white border-b border-gray-200">
-                {microTrainings.map((t, i) => (
+                {orderedMicros.map((t) => (
                   <th key={t.id} className="text-center px-2 py-3 text-[11px] text-gray-600 font-bold whitespace-nowrap">
                     {t.name}
                   </th>
@@ -982,7 +1013,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                   </td>
-                  {microTrainings.map((t) => {
+                  {orderedMicros.map((t) => {
                     const done = hasMicroTraining(c.id, t.name, t.macro_area);
                     const training = (allTrainingsByCollabId.get(c.id) || []).find(tr => tr.training_type === t.name);
 
