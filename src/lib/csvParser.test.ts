@@ -8,7 +8,17 @@ import {
   parseBrDate,
   mapCollaboratorRow,
   mapLeaderRow,
+  parseSpreadsheet,
 } from './csvParser';
+import * as XLSX from 'xlsx';
+
+/** Monta um .xlsx em memória, como o que sai do Excel. */
+function planilhaFake(matriz: unknown[][]): ArrayBuffer {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(matriz), 'Plan1');
+  const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+  return buf;
+}
 
 describe('csvParser — splitDelimitedLine', () => {
   it('separa por vírgula respeitando aspas', () => {
@@ -195,5 +205,68 @@ describe('csvParser — mapLeaderRow', () => {
     expect(row.name).toBe('Ana Paula');
     expect(row.email).toBe('');
     expect(row.soc).toBe('');
+  });
+});
+
+// A importação só aceitava CSV. Quem baixava o modelo, abria no Excel e
+// salvava (Excel salva .xlsx por padrão) recebia "arquivo não segue o
+// modelo" — o arquivo seguia, o formato é que era outro.
+describe('csvParser — parseSpreadsheet (Excel)', () => {
+  it('lê cabeçalho e linhas de um .xlsx igual ao CSV', () => {
+    const buf = planilhaFake([
+      ['Gênero', 'Colaborador', 'Data de Admissão', 'BPO', 'Cargo', 'SOC'],
+      ['FEMININO', 'ADRIANA ERICA SILVA', new Date(2026, 7, 25), 'GI Group', 'AUXILIAR DE LOGISTICA', 'SP2'],
+    ]);
+    const { header, rows } = parseSpreadsheet(buf);
+    expect(header).toEqual(['genero', 'colaborador', 'data de admissao', 'bpo', 'cargo', 'soc']);
+    expect(rows).toHaveLength(1);
+
+    const linha = mapCollaboratorRow(rows[0], header);
+    expect(linha.name).toBe('ADRIANA ERICA SILVA');
+    expect(linha.soc).toBe('SP2');
+    // Data do Excel chega como Date; sem a conversão para dd/mm/aaaa o
+    // parseBrDate devolveria null e a admissão se perderia.
+    expect(linha.admission_date).toBe('2026-08-25');
+  });
+
+  it('funciona também para a planilha de líderes', () => {
+    const buf = planilhaFake([
+      ['Nome', 'E-mail', 'Setor', 'Atividade', 'Turno', 'Gestor', 'SOC'],
+      ['MARIA SOUZA', 'Maria.Souza@Shopee.com', 'RECEBIMENTO', 'Docas LH', 'T3', 'CARLOS LIMA', 'sp06'],
+    ]);
+    const { header, rows } = parseSpreadsheet(buf);
+    const lider = mapLeaderRow(rows[0], header);
+    expect(lider.email).toBe('maria.souza@shopee.com');
+    expect(lider.soc).toBe('SP6');
+  });
+
+  // A biblioteca reconstrói a data em hora local e erra por milissegundos: uma
+  // célula com 25/08 volta como 24/08 23:59:59.999. Sem o ajuste, o colaborador
+  // entrava no sistema com a admissão um dia antes da real.
+  it('não perde um dia quando a data volta com deriva de milissegundos', () => {
+    for (const dia of [1, 15, 25, 28]) {
+      const buf = planilhaFake([['Data de Admissão'], [new Date(2026, 7, dia)]]);
+      const { header, rows } = parseSpreadsheet(buf);
+      const esperado = '2026-08-' + String(dia).padStart(2, '0');
+      expect(mapCollaboratorRow(rows[0], header).admission_date).toBe(esperado);
+    }
+  });
+
+  // O ajuste é de 1 segundo de propósito: célula com hora de verdade mantém o dia.
+  it('não arredonda células que têm hora real', () => {
+    const buf = planilhaFake([['Data de Admissão'], [new Date(2026, 7, 25, 18, 30)]]);
+    const { header, rows } = parseSpreadsheet(buf);
+    expect(mapCollaboratorRow(rows[0], header).admission_date).toBe('2026-08-25');
+  });
+  it('planilha só com cabeçalho não devolve linha nenhuma', () => {
+    const { header, rows } = parseSpreadsheet(planilhaFake([['Nome', 'SOC']]));
+    expect(header).toEqual(['nome', 'soc']);
+    expect(rows).toEqual([]);
+  });
+
+  it('célula vazia vira string vazia, não "undefined"', () => {
+    const buf = planilhaFake([['Nome', 'SOC'], ['JOÃO', '']]);
+    const { rows } = parseSpreadsheet(buf);
+    expect(rows[0][1]).toBe('');
   });
 });

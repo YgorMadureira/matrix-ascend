@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 // ============================================================
 // Parser de CSV/planilha compartilhado — usado pelo upload manual em
 // CollaboratorsPage (handleCSVUpload). A sincronização automática com
@@ -87,6 +88,73 @@ export function parseDelimitedText(rawText: string): ParsedCsv {
 }
 
 /** Busca o valor de uma célula pelo nome da coluna, tentando cada alias na ordem informada. */
+/**
+ * Lê uma planilha do Excel (.xlsx/.xls) e devolve no MESMO formato de
+ * parseDelimitedText, para os dois caminhos de importação seguirem iguais
+ * daí para a frente.
+ *
+ * Existe porque a importação só aceitava CSV: quem baixava o modelo, abria
+ * no Excel e salvava (o Excel salva .xlsx por padrão) recebia "arquivo não
+ * segue o modelo" — o arquivo seguia, o formato é que era outro. O
+ * file.text() de um .xlsx devolve o binário do ZIP, então o parser de texto
+ * não encontrava coluna nenhuma.
+ */
+export function parseSpreadsheet(buffer: ArrayBuffer): ParsedCsv {
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) return { header: [], rows: [] };
+
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', blankrows: false });
+  if (matriz.length === 0) return { header: [], rows: [] };
+
+  return {
+    header: (matriz[0] ?? []).map(c => normalizeHeaderText(String(c ?? ''))),
+    rows: matriz.slice(1).map(linha => (linha ?? []).map(cellToText)),
+  };
+}
+
+/** Célula do Excel -> texto, no mesmo formato que sairia num CSV. */
+function cellToText(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  // Data vira dd/mm/aaaa: é o que parseBrDate entende e o que o Excel
+  // escreveria ao exportar como CSV. Sem isto, "Data de Admissão" chegaria
+  // como "Mon Aug 25 2026 00:00:00 GMT-0300" e seria descartada.
+  if (v instanceof Date) {
+    return formatarDataCelula(v);
+  }
+  return String(v).trim();
+}
+
+const UM_SEGUNDO = 1000;
+const UM_DIA = 24 * 60 * 60 * 1000;
+
+/**
+ * Data de célula do Excel -> dd/mm/aaaa.
+ *
+ * O Excel guarda data como número serial, sem fuso, e a biblioteca
+ * reconstrói um Date em hora LOCAL. Essa conversão erra por milissegundos:
+ * uma célula com 25/08 pode voltar como 24/08 às 23:59:59.999, e ler o dia
+ * direto devolveria 24 — a pessoa entraria no sistema com a admissão um dia
+ * antes da real. Por isso, quando o horário está a menos de um segundo da
+ * meia-noite seguinte, empurramos para o dia certo.
+ *
+ * O ajuste é deliberadamente estreito (1 segundo): células que tenham hora
+ * de verdade continuam com o dia delas, sem arredondamento.
+ */
+function formatarDataCelula(v: Date): string {
+  const d = new Date(v.getTime());
+  const horaDoDia =
+    d.getHours() * 60 * 60 * 1000 +
+    d.getMinutes() * 60 * 1000 +
+    d.getSeconds() * 1000 +
+    d.getMilliseconds();
+  if (horaDoDia >= UM_DIA - UM_SEGUNDO) d.setTime(d.getTime() + UM_SEGUNDO);
+
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  return dia + '/' + mes + '/' + d.getFullYear();
+}
+
 export function getField(cells: string[], header: string[], names: string[]): string {
   for (const n of names) {
     const i = header.indexOf(normalizeHeaderText(n));

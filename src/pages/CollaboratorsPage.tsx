@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Upload, Download, Trash2, Search, Edit2, Users, UserCheck, Crown, Percent, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
-import { parseDelimitedText, mapCollaboratorRow, mapLeaderRow } from '@/lib/csvParser';
+import { parseDelimitedText, parseSpreadsheet, mapCollaboratorRow, mapLeaderRow } from '@/lib/csvParser';
 
 interface Collaborator {
   id: string;
@@ -464,11 +464,19 @@ export default function CollaboratorsPage() {
     if (!file) return;
 
     try {
-      const text = await file.text();
-      const { header, rows: rawRows } = parseDelimitedText(text);
+      // Aceita CSV e Excel. Antes só havia o caminho do CSV: um .xlsx passava
+      // por file.text(), que devolve o binário do ZIP, o parser de texto não
+      // achava coluna nenhuma e a tela dizia "não segue o modelo" — sendo que
+      // o arquivo seguia, só estava em outro formato. Como o modelo é baixado
+      // em .csv e o Excel salva em .xlsx por padrão, cair nisso era o caminho
+      // natural de quem editava o modelo antes de importar.
+      const ehExcel = /\.xlsx?$/i.test(file.name);
+      const { header, rows: rawRows } = ehExcel
+        ? parseSpreadsheet(await file.arrayBuffer())
+        : parseDelimitedText(await file.text());
 
       if (rawRows.length === 0) {
-        toast.error('CSV vazio ou sem dados além do cabeçalho.');
+        toast.error('Arquivo vazio ou sem dados além do cabeçalho.');
         e.target.value = '';
         return;
       }
@@ -614,7 +622,15 @@ export default function CollaboratorsPage() {
         fetchData();
       }
       if (lastError) {
-        toast.error(`Alguns registros falharam: ${lastError}`);
+        // A recusa mais comum aqui é do RLS: a planilha traz uma unidade que o
+        // usuário não alcança. A mensagem crua do Postgres não diz isso.
+        const ehRls = /row-level security|violates row-level/i.test(lastError);
+        toast.error(
+          ehRls
+            ? 'Sem permissão para gravar nesta unidade. Confira a coluna SOC da planilha: ela precisa ser uma das unidades a que você tem acesso.'
+            : `Alguns registros falharam: ${lastError}`,
+          { duration: 12000 }
+        );
       }
     } catch (err: any) {
       toast.error('Erro ao ler arquivo: ' + (err?.message ?? String(err)));
@@ -732,7 +748,7 @@ export default function CollaboratorsPage() {
             </button>
             <label className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer">
               <Upload size={14} /> Importar
-              <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+              <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCSVUpload} className="hidden" />
             </label>
             {/* Só o master. A sincronização atinge TODAS as unidades de uma
                 vez, então nunca foi uma ação de escopo local. */}

@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { BarChart2, Users, CheckCircle2, Percent, Trophy, Medal, Award, AlertCircle } from 'lucide-react';
@@ -11,6 +12,9 @@ import {
   type SocHealthResult,
 } from '@/lib/trainingRules';
 import { filterTeamOfLeader } from '@/lib/leaderTeam';
+
+/** Estado inicial da saúde, enquanto os dados não chegaram. Fora do componente para ter identidade estável entre renders. */
+const VAZIO_SAUDE: SocHealthResult = { eligible: false, microCount: 0, minRequired: 14, missing: 14, evaluatedCollaborators: 0, healthPct: 0 };
 
 /** Onboardings administrativos: valem para o time inteiro, não por setor. */
 const TRANSVERSAL_SECTORS = ['HSE', 'PEOPLE'] as const;
@@ -102,144 +106,171 @@ export default function DashboardPage() {
   // Filtra ASM quando a SOC não possui sorting
   const showAsm = socHasSorting !== false;
 
-  const [stats,      setStats]      = useState({ collaborators: 0, materials: 0, trainings: 0, trainedPct: 0, trainedCount: 0 });
-  const [health,     setHealth]     = useState<SocHealthResult>({ eligible: false, microCount: 0, minRequired: 14, missing: 14, evaluatedCollaborators: 0, healthPct: 0 });
-  const [sectorStats,setSectorStats]= useState<SectorStat[]>([]);
-  const [socRanking, setSocRanking] = useState<SocRank[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  // ============================================================
+  // Busca dos dados brutos — separada do cálculo de propósito.
+  //
+  // Antes isto era um useEffect que baixava tudo em DUAS paginações
+  // sequenciais: 21 requisições de colaboradores + 31 de treinamentos, cada
+  // uma esperando a anterior. São ~56 idas e voltas em fila; numa conexão
+  // com 150ms de latência isso sozinho passa de 8 segundos, mesmo o banco
+  // respondendo rápido. Pior: o efeito dependia de effectiveSoc, então cada
+  // troca de unidade no seletor do topo refazia as 56 requisições, e nada
+  // era reaproveitado ao voltar para a tela.
+  //
+  // Agora as páginas saem TODAS em paralelo (duas ondas, não 56 esperas) e o
+  // resultado fica no cache do React Query. Trocar de unidade ou revisitar a
+  // tela passa a recalcular em memória, sem tocar na rede.
+  // ============================================================
+  const { data: bruto, isLoading } = useQuery({
+    queryKey: ['dashboard-base'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const LIMITE = 1000;
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      setLoading(true);
-      // ── 1. Colaboradores (todas as SOCs — necessário para o ranking) ──
-      const allCollabs: CollabRow[] = [];
-      let page = 0; const limit = 1000; let hasMore = true;
-      while (hasMore) {
-        const { data } = await supabase.from('collaborators').select('id, sector, leader, role, soc, email, is_leader, leader_id').range(page * limit, (page + 1) * limit - 1);
-        if (data && data.length > 0) { allCollabs.push(...data); if (data.length < limit) hasMore = false; else page++; }
-        else hasMore = false;
-      }
-
-      // ── 2. Contagens rápidas ────────────────────────────────
-      const [mCount, tCount] = await Promise.all([
-        supabase.from('materials').select('id', { count: 'exact', head: true }),
+      // Contagens primeiro, para saber quantas páginas pedir de uma vez.
+      const [cCollabs, cTrainings, cMaterials] = await Promise.all([
+        supabase.from('collaborators').select('id', { count: 'exact', head: true }),
         supabase.from('trainings_completed').select('id', { count: 'exact', head: true }),
+        supabase.from('materials').select('id', { count: 'exact', head: true }),
       ]);
 
-      // ── 3. Treinamentos concluídos (todas as SOCs) ───────────
-      const allTrainings: TrainingRow[] = [];
-      let tPage = 0; let tHasMore = true;
-      while (tHasMore) {
-        const { data, error } = await supabase.from('trainings_completed').select('collaborator_id, training_type').range(tPage * limit, (tPage + 1) * limit - 1);
-        if (error) break;
-        if (data) { allTrainings.push(...data); if (data.length < limit) tHasMore = false; else tPage++; }
-        else tHasMore = false;
-      }
+      // +1 página de margem: entre a contagem e a busca alguém pode ter
+      // inserido linhas. A página extra volta vazia quando não há nada.
+      // O .order('id') não é enfeite: sem ordenação estável, chamadas range()
+      // concorrentes podem repetir ou pular linhas.
+      const paginas = (total: number | null) => Math.ceil((total ?? 0) / LIMITE) + 1;
 
-      // ── 4. Micro-processos de TODAS as SOCs (necessário para o ranking) + tabela socs (has_sorting) ──
-      const [{ data: allMicros }, { data: socsData }] = await Promise.all([
+      const [porCollab, porTraining, micros, socsData] = await Promise.all([
+        Promise.all(Array.from({ length: paginas(cCollabs.count) }, (_, i) =>
+          supabase.from('collaborators')
+            .select('id, sector, leader, role, soc, email, is_leader, leader_id')
+            .order('id').range(i * LIMITE, (i + 1) * LIMITE - 1)
+        )),
+        Promise.all(Array.from({ length: paginas(cTrainings.count) }, (_, i) =>
+          supabase.from('trainings_completed')
+            .select('collaborator_id, training_type')
+            .order('id').range(i * LIMITE, (i + 1) * LIMITE - 1)
+        )),
         supabase.from('soc_micro_trainings').select('soc_name, macro_area, name'),
         supabase.from('socs').select('name, has_sorting'),
       ]);
-      const microsBySoc = new Map<string, MicroTraining[]>();
-      (allMicros ?? []).forEach((m: { soc_name: string; macro_area: string; name: string }) => {
-        const arr = microsBySoc.get(m.soc_name) || [];
-        arr.push({ name: m.name, macro_area: m.macro_area });
-        microsBySoc.set(m.soc_name, arr);
-      });
-      const sortingBySoc = new Map<string, boolean>(
-        (socsData ?? []).map((s: { name: string; has_sorting: boolean | null }) => [s.name, !!s.has_sorting])
+
+      return {
+        allCollabs:     porCollab.flatMap(r => (r.data ?? []) as CollabRow[]),
+        allTrainings:   porTraining.flatMap(r => (r.data ?? []) as TrainingRow[]),
+        allMicros:      (micros.data ?? []) as { soc_name: string; macro_area: string; name: string }[],
+        socsData:       (socsData.data ?? []) as { name: string; has_sorting: boolean | null }[],
+        materialsCount: cMaterials.count ?? 0,
+        trainingsCount: cTrainings.count ?? 0,
+      };
+    },
+  });
+
+  // ============================================================
+  // Cálculo — puro, em memória. Depende do usuário e da unidade em foco,
+  // então roda de novo ao trocar de unidade, mas sem tocar na rede.
+  // ============================================================
+  const { stats, health, sectorStats, socRanking } = useMemo(() => {
+    if (!bruto) {
+      return {
+        stats: { collaborators: 0, materials: 0, trainings: 0, trainedPct: 0, trainedCount: 0 },
+        health: VAZIO_SAUDE,
+        sectorStats: [] as SectorStat[],
+        socRanking: [] as SocRank[],
+      };
+    }
+
+    const { allCollabs, allTrainings, allMicros, socsData, materialsCount, trainingsCount } = bruto;
+
+    const microsBySoc = new Map<string, MicroTraining[]>();
+    allMicros.forEach(m => {
+      const arr = microsBySoc.get(m.soc_name) || [];
+      arr.push({ name: m.name, macro_area: m.macro_area });
+      microsBySoc.set(m.soc_name, arr);
+    });
+    const sortingBySoc = new Map<string, boolean>(socsData.map(s => [s.name, !!s.has_sorting]));
+
+    const trainingsByCollabId = new Map<string, string[]>();
+    allTrainings.forEach(t => {
+      const arr = trainingsByCollabId.get(t.collaborator_id) || [];
+      arr.push(t.training_type || '');
+      trainingsByCollabId.set(t.collaborator_id, arr);
+    });
+
+    // ── Meu Time ────────────────────────────────────────────
+    // O time do líder sai do vínculo já resolvido no banco (leader_id), com
+    // o casamento por texto só como rede — ver src/lib/leaderTeam.ts.
+    const userSoc = effectiveSoc || '';
+    const socCollabs = userSoc ? allCollabs.filter(c => c.soc === userSoc) : allCollabs;
+    const collabs    = isLider ? filterTeamOfLeader(socCollabs, profile) : socCollabs;
+    const totalCollabs = collabs.length;
+
+    const socHealth = calculateSocHealth(
+      microsBySoc.get(userSoc) || [], collabs as CollaboratorLite[], trainingsByCollabId, showAsm
+    );
+
+    // O mesmo unitStats alimenta o card "% Treinados" E os quadros de
+    // macro-setor logo abaixo. Antes eram duas contas diferentes na mesma
+    // tela: o card dizia 460 treinados e os quadros somavam 466.
+    const unit = calculateUnitStats(collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
+
+    // HSE e PEOPLE são onboardings administrativos: transversais, avaliados
+    // sobre o time inteiro, não por setor.
+    const trainingsByCollabUpper = new Map<string, string[]>();
+    trainingsByCollabId.forEach((types, id) => trainingsByCollabUpper.set(id, types.map(t => t.toUpperCase())));
+
+    const transversais: SectorStat[] = TRANSVERSAL_SECTORS.map(sector => {
+      const trained = collabs.filter(c =>
+        (trainingsByCollabUpper.get(c.id) || []).some(t => t.includes('ONBOARDING') && t.includes(sector))
+      ).length;
+      return { sector, total: totalCollabs, trained, pct: totalCollabs > 0 ? Math.round((trained / totalCollabs) * 100) : 0 };
+    });
+
+    // ── Ranking de saúde: todas as unidades ─────────────────
+    const socGroups = new Map<string, CollabRow[]>();
+    allCollabs.forEach(c => { if (!c.soc) return; const a = socGroups.get(c.soc) || []; a.push(c); socGroups.set(c.soc, a); });
+
+    const ranking: SocRank[] = [];
+    socGroups.forEach((list, soc) => {
+      const result = calculateSocHealth(
+        microsBySoc.get(soc) || [], list as CollaboratorLite[], trainingsByCollabId, sortingBySoc.get(soc) ?? false
       );
+      ranking.push({ soc, totalCollaborators: list.length, ...result });
+    });
 
-      // ── 5. Mapa de treinamentos por colaborador (O(1) lookup) ──
-      const trainingsByCollabId = new Map<string, string[]>();
-      allTrainings.forEach(t => {
-        const arr = trainingsByCollabId.get(t.collaborator_id) || [];
-        arr.push(t.training_type || '');
-        trainingsByCollabId.set(t.collaborator_id, arr);
-      });
+    // Desempate: 1º saúde desc, 2º nº de colaboradores desc, 3º sigla (estável).
+    ranking.sort((a, b) => {
+      if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
+      if (a.eligible && b.eligible) {
+        if (b.healthPct !== a.healthPct) return b.healthPct - a.healthPct;
+        if (b.totalCollaborators !== a.totalCollaborators) return b.totalCollaborators - a.totalCollaborators;
+        return a.soc.localeCompare(b.soc);
+      }
+      // Entre as não elegíveis: quem está mais perto de qualificar aparece primeiro.
+      if (a.missing !== b.missing) return a.missing - b.missing;
+      return b.totalCollaborators - a.totalCollaborators;
+    });
 
-      // ── 6. Filtro de colaboradores do usuário (Meu Time) ────
-      // O time do líder sai do vínculo já resolvido no banco (leader_id), com
-      // o casamento por texto só como rede — ver src/lib/leaderTeam.ts.
-      const userSoc = effectiveSoc || '';
-      const socCollabs = userSoc ? allCollabs.filter(c => c.soc === userSoc) : allCollabs;
-      const collabs    = isLider ? filterTeamOfLeader(socCollabs, profile) : socCollabs;
-      const totalCollabs = collabs.length;
-
-      // ── 7. Índice de Saúde do "Meu Time" (motor único — src/lib/trainingRules.ts) ──
-      const userMicros = microsBySoc.get(userSoc) || [];
-      const socHealth = calculateSocHealth(userMicros, collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
-      setHealth(socHealth);
-
-      // ── 8. Cards gerais — número OFICIAL da unidade (motor único) ──
-      // O mesmo unitStats alimenta o card "% Treinados" E os quadros de
-      // macro-setor logo abaixo. Antes eram duas contas diferentes na mesma
-      // tela: o card dizia 460 treinados e os quadros somavam 466.
-      const unit = calculateUnitStats(collabs as CollaboratorLite[], trainingsByCollabId, showAsm);
-
-      setStats({
+    return {
+      stats: {
         collaborators: totalCollabs,
-        materials:     mCount.count ?? 0,
-        trainings:     isLider ? unit.trained : (tCount.count ?? 0),
+        materials:     materialsCount,
+        trainings:     isLider ? unit.trained : trainingsCount,
         trainedPct:    unit.pct,
         trainedCount:  unit.trained,
-      });
-
-      // ── 9. Desempenho por Macro-Setor ───────────────────────
-      // As áreas operacionais (+ o grupo OUTROS, que reúne Apoio/Almox/sem
-      // setor) vêm direto do unitStats acima, então a soma dos quadros fecha
-      // com o card. HSE e PEOPLE são onboardings administrativos: continuam
-      // transversais, avaliados sobre o time inteiro.
-      const trainingsByCollabUpper = new Map<string, string[]>();
-      trainingsByCollabId.forEach((types, id) => trainingsByCollabUpper.set(id, types.map(t => t.toUpperCase())));
-
-      const transversais: SectorStat[] = TRANSVERSAL_SECTORS.map(sector => {
-        const trained = collabs.filter(c =>
-          (trainingsByCollabUpper.get(c.id) || []).some(t => t.includes('ONBOARDING') && t.includes(sector))
-        ).length;
-        return { sector, total: totalCollabs, trained, pct: totalCollabs > 0 ? Math.round((trained / totalCollabs) * 100) : 0 };
-      });
-
-      setSectorStats([
+      },
+      health: socHealth,
+      sectorStats: [
         ...unit.byArea.map(a => ({ sector: a.area, total: a.total, trained: a.trained, pct: Math.round(a.pct) })),
         ...transversais,
-      ]);
-
-      // ── 10. Ranking de Saúde dos SOCs — TODAS as unidades aparecem;
-      //       elegíveis (≥14 micros core) recebem posição, as demais ficam
-      //       marcadas como "matriz incompleta" com quantos micros faltam. ──
-      const socGroups = new Map<string, CollabRow[]>();
-      allCollabs.forEach(c => { if (!c.soc) return; const a = socGroups.get(c.soc) || []; a.push(c); socGroups.set(c.soc, a); });
-
-      const ranking: SocRank[] = [];
-      socGroups.forEach((list, soc) => {
-        const hasSorting = sortingBySoc.get(soc) ?? false;
-        const socMicros = microsBySoc.get(soc) || [];
-        const result = calculateSocHealth(socMicros, list as CollaboratorLite[], trainingsByCollabId, hasSorting);
-        ranking.push({ soc, totalCollaborators: list.length, ...result });
-      });
-
-      // Desempate: 1º saúde desc, 2º nº de colaboradores desc, 3º sigla (estável).
-      ranking.sort((a, b) => {
-        if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
-        if (a.eligible && b.eligible) {
-          if (b.healthPct !== a.healthPct) return b.healthPct - a.healthPct;
-          if (b.totalCollaborators !== a.totalCollaborators) return b.totalCollaborators - a.totalCollaborators;
-          return a.soc.localeCompare(b.soc);
-        }
-        // Entre as não elegíveis: quem está mais perto de qualificar aparece primeiro.
-        if (a.missing !== b.missing) return a.missing - b.missing;
-        return b.totalCollaborators - a.totalCollaborators;
-      });
-      setSocRanking(ranking);
-      setLoading(false);
+      ],
+      socRanking: ranking,
     };
-
-    fetchStats();
     // `profile` inteiro (e não só full_name/leader_key) porque filterTeamOfLeader
     // também usa o e-mail para achar a linha do líder.
-  }, [isLider, profile, effectiveSoc, showAsm]);
+  }, [bruto, effectiveSoc, isLider, profile, showAsm]);
+
+  const loading = isLoading;
 
   const level = getLevel(health.healthPct);
 
