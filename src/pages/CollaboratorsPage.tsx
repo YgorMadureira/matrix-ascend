@@ -681,12 +681,14 @@ export default function CollaboratorsPage() {
         { key: 'soc', label: 'SOC' },
       ]
     : currentTab === 'onboarding'
+    // Esta lista É o formulário de onboarding, na ordem em que aparece. A
+    // data de admissão não entra aqui: é desenhada logo abaixo como seletor
+    // de data, não como campo de texto.
     ? [
-        { key: 'opsid', label: 'OPSID' },
-        { key: 'gender', label: 'Gênero' },
         { key: 'name', label: 'Colaborador' },
-        { key: 'admission_date', label: 'Data de Admissão' },
+        { key: 'gender', label: 'Gênero' },
         { key: 'role', label: 'Cargo' },
+        { key: 'bpo', label: 'BPO' },
         { key: 'soc', label: 'SOC' },
       ]
     : [
@@ -969,7 +971,7 @@ export default function CollaboratorsPage() {
             
             {currentTab === 'onboarding' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fields.filter(f => ['name', 'role', 'soc', 'bpo'].includes(f.key)).map(({ key, label }) => (
+                {fields.map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 px-1">{label}</label>
                     <input 
