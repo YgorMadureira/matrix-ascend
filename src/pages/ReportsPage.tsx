@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle, Download, FileDown } from 'lucide-react';
+import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle, Download, FileDown, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -94,8 +94,6 @@ export default function ReportsPage() {
       setVisibleCount(prev => prev + 100);
     }
   }, []);
-
-  const lastLoadRef = useRef(0);
 
   // Debounce do campo de busca (300ms)
   useEffect(() => {
@@ -208,8 +206,6 @@ export default function ReportsPage() {
   }, [collaboratorMap, typesOf, showAsm]);
 
   const loadData = useCallback(async () => {
-    lastLoadRef.current = Date.now();
-
     const allCollabs: any[] = [];
     let hasMore = true;
     let page = 0;
@@ -219,7 +215,14 @@ export default function ReportsPage() {
       let collabQuery = supabase
         .from('collaborators')
         .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id')
+        // Ordenar por nome NÃO basta para paginar: nomes se repetem (25 casos
+        // em SP8), e com empate o Postgres pode devolver a mesma linha em duas
+        // páginas e pular outra. Duas linhas com o mesmo id viram chaves React
+        // repetidas na matriz, e daí sai o erro "removeChild: o nó a ser
+        // removido não é filho deste nó". O id desempata e torna a paginação
+        // determinística, sem mudar a ordem de exibição.
         .order('name')
+        .order('id')
         .range(page * limit, (page + 1) * limit - 1);
       // soc null = admin sem unidade restrita → vê todas. Filtrar por '' não
       // casaria com nenhum colaborador e mostraria a tela vazia sem aviso.
@@ -243,6 +246,11 @@ export default function ReportsPage() {
       const { data, error } = await supabase
         .from('trainings_completed')
         .select('id, collaborator_id, training_type, completed_at, created_at, signature_pdf_url, instructor_name')
+        // Sem ordenação, cada página é uma consulta independente e o banco não
+        // promete a mesma ordem entre elas — dá para receber a mesma assinatura
+        // duas vezes e perder outra. São 31 páginas aqui, então a chance não é
+        // teórica.
+        .order('id')
         .range(tPage * limit, (tPage + 1) * limit - 1);
       
       if (error) break;
@@ -272,16 +280,14 @@ export default function ReportsPage() {
 
   useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
 
-  useEffect(() => {
-    const onFocus = () => {
-      // Só recarrega se passou mais de 5 minutos desde o último load
-      if (!authLoading && Date.now() - lastLoadRef.current > 5 * 60 * 1000) {
-        loadData();
-      }
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [loadData, authLoading]);
+  // Antes disto, voltar de outra aba depois de 5 minutos recarregava a
+  // página sozinha — 50 mil linhas e os dois gráficos de Recharts
+  // reanimando no meio de qualquer coisa que a pessoa estivesse fazendo.
+  // Era o gatilho mais provável do erro "Failed to execute 'removeChild'"
+  // relatado em 01/09/2026: a tela "quebrava do nada" justamente ao trocar
+  // de aba e voltar. Trocado pelo botão "Atualizar" — handleRefresh, logo
+  // abaixo de fetchSocPerformance, já que chama as duas fontes de dado.
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filtered = useMemo(() => collaborators.filter(c => {
     const matchSector = !selectedSector || c.sector === selectedSector;
@@ -419,25 +425,31 @@ export default function ReportsPage() {
   const [socChartData, setSocChartData] = useState<{ soc: string; 'Treinados': number; 'Nº HCs': number }[]>([]);
   const [socChartError, setSocChartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchSocPerformance = async () => {
-      const { data, error } = await supabase
-        .from('soc_performance_view')
-        .select('soc, total_hc, trained_hc, pct')
-        .order('pct', { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
-        setSocChartError(error.message);
-        return;
-      }
-      setSocChartError(null);
-      setSocChartData((data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc })));
-    };
-    fetchSocPerformance();
-    return () => { cancelled = true; };
+  const fetchSocPerformance = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('soc_performance_view')
+      .select('soc, total_hc, trained_hc, pct')
+      .order('pct', { ascending: false });
+    if (error) {
+      console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
+      setSocChartError(error.message);
+      return;
+    }
+    setSocChartError(null);
+    setSocChartData((data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc })));
   }, []);
+
+  useEffect(() => { fetchSocPerformance(); }, [fetchSocPerformance]);
+
+  // Atualiza as duas fontes por trás desta tela: colaboradores/treinamentos
+  // (loadData, cru em memória) e o gráfico comparativo entre unidades
+  // (fetchSocPerformance, agregado no banco). Substitui o recarregamento
+  // automático ao focar a janela — ver o comentário acima de isRefreshing.
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try { await Promise.all([loadData(), fetchSocPerformance()]); } finally { setIsRefreshing(false); }
+  };
 
   const chartData = socChartData;
 
@@ -610,6 +622,15 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap ml-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Recarrega colaboradores, treinamentos e o gráfico comparativo desta tela"
+            className="h-8 px-3 flex items-center gap-1.5 text-[11px] font-black text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm disabled:opacity-60 transition-colors"
+          >
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            Atualizar
+          </button>
           <select className="h-8 px-3 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
             <option value="">Todos os Setores</option>
             {sectors.map(s => <option key={s} value={s}>{s}</option>)}
@@ -770,13 +791,13 @@ export default function ReportsPage() {
               <YAxis yAxisId="right" orientation="right" stroke="#1e3a8a" fontSize={10} tickLine={false} axisLine={false} />
               <Tooltip cursor={{ fill: '#FEF6F5' }} contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', fontSize: '12px' }} />
               <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-              <Bar yAxisId="left" dataKey="Treinados" radius={[4, 4, 0, 0]} barSize={28}>
+              <Bar yAxisId="left" dataKey="Treinados" radius={[4, 4, 0, 0]} barSize={28} isAnimationActive={false}>
                  <LabelList dataKey="Treinados" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" formatter={(val: any) => `${val}%`} />
                  {chartData.map(d => (
                    <Cell key={d.soc} fill={d.soc === effectiveSoc ? '#EE4D2D' : '#cbd5e1'} />
                  ))}
               </Bar>
-              <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }} />
+              <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
@@ -1121,7 +1142,7 @@ export default function ReportsPage() {
               />
               <YAxis fontSize={10} />
               <Tooltip cursor={{ fill: '#FEF6F5' }} />
-              <Bar dataKey="Pessoas Treinadas" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36}>
+              <Bar dataKey="Pessoas Treinadas" fill="#EE4D2D" radius={[4, 4, 0, 0]} barSize={36} isAnimationActive={false}>
                 <LabelList dataKey="Pessoas Treinadas" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" />
               </Bar>
             </BarChart>

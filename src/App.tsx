@@ -80,18 +80,46 @@ class ErrorBoundary extends React.Component<
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error: error.message };
   }
+
+  // Sem isto, a única pista que sobrava de um erro era a frase na tela — o que
+  // não basta para achar a origem de falhas de renderização (o clássico
+  // "Failed to execute 'removeChild' on 'Node'", que aponta para o React ter
+  // perdido a sincronia com o DOM, mas não diz onde). O componentStack diz
+  // exatamente qual componente estava sendo desmontado.
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[ErroBoundary]', error);
+    console.error('[ErroBoundary] Componente:', info.componentStack);
+    console.error('[ErroBoundary] Rota:', window.location.pathname);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
         <div style={{ background: '#0d1117', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', padding: '2rem' }}>
           <h1 style={{ color: '#e5534b', fontSize: '1.5rem', marginBottom: '1rem' }}>Algo deu errado</h1>
-          <p style={{ color: '#8b949e', marginBottom: '1.5rem', textAlign: 'center' }}>{this.state.error}</p>
-          <button
-            onClick={() => { this.setState({ hasError: false, error: '' }); window.location.href = '/login'; }}
-            style={{ background: '#e5534b', color: '#fff', border: 'none', padding: '0.75rem 2rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Voltar ao Login
-          </button>
+          <p style={{ color: '#8b949e', marginBottom: '0.5rem', textAlign: 'center' }}>{this.state.error}</p>
+          <p style={{ color: '#586069', marginBottom: '1.5rem', textAlign: 'center', fontSize: '0.8rem', maxWidth: '32rem' }}>
+            Se acontecer de novo, abra o console do navegador (F12) e envie o que aparece em vermelho —
+            é lá que fica o detalhe de onde a falha ocorreu.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            {/* Recarregar a própria rota resolve falha de renderização sem
+                custar a sessão. Mandar para o login era desproporcional: o
+                usuário perdia o que estava fazendo por causa de um erro de
+                tela. */}
+            <button
+              onClick={() => window.location.reload()}
+              style={{ background: '#e5534b', color: '#fff', border: 'none', padding: '0.75rem 2rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              Tentar de novo
+            </button>
+            <button
+              onClick={() => { this.setState({ hasError: false, error: '' }); window.location.href = '/login'; }}
+              style={{ background: 'transparent', color: '#8b949e', border: '1px solid #30363d', padding: '0.75rem 2rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              Voltar ao Login
+            </button>
+          </div>
         </div>
       );
     }

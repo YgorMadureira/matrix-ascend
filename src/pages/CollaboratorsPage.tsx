@@ -36,6 +36,21 @@ interface Collaborator {
 const emptyForm = { name: '', opsid: '', gender: '', soc: '', sector: '', shift: '', leader: '', role: '', bpo: '', is_onboarding: false, admission_date: '', activity: '', email: '' };
 const EMPTY_COLLABS: Collaborator[] = [];
 
+/**
+ * Rótulo de uma execução da sincronização: data/hora em Brasília, com aviso
+ * quando terminou com erro — "rodou" e "rodou e deu certo" são coisas
+ * diferentes, e o objetivo deste campo é justamente validar o acionador.
+ */
+function rotuloExecucao(quando?: string | null, ok?: boolean | null): string {
+  if (!quando) return 'nunca';
+  const data = new Date(quando).toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+  return ok === false ? data + ' (com erro)' : data;
+}
+
 /** Colunas da aba Líderes — as mesmas do modelo de importação, nesta ordem. */
 const LEADER_COLUMNS = ['Nome', 'E-mail', 'Setor', 'Atividade', 'Turno', 'Gestor', 'SOC', 'Status'] as const;
 // A busca da planilha do Google Sheets roda agora na Edge Function
@@ -54,6 +69,14 @@ export default function CollaboratorsPage() {
   const [selectedShift, setSelectedShift] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'trained' | 'pending'>('all');
   const [currentTab, setCurrentTab] = useState<'ativos' | 'onboarding' | 'lideres'>(isBpo ? 'onboarding' : 'ativos');
+  // Última execução da sincronização, vinda do BANCO (sync_locks). A data da
+  // manual era lida do localStorage, ou seja, valia só para o navegador que
+  // clicou no botão — e a automática, que é a que confirma se o agendamento
+  // das 05h está vivo, não aparecia em lugar nenhum.
+  const [syncInfo, setSyncInfo] = useState<{
+    last_auto_run_at: string | null; last_auto_ok: boolean | null; last_auto_summary: string | null;
+    last_manual_run_at: string | null; last_manual_ok: boolean | null;
+  } | null>(null);
   const isSyncing = useRef(false); // Guard against concurrent syncs
 
   // Onboarding extra filters
@@ -165,6 +188,20 @@ export default function CollaboratorsPage() {
   // Este botão só dispara a MESMA função sob demanda; a trava de concorrência
   // agora é uma linha na tabela sync_locks, então funciona certo mesmo com
   // vários admins clicando ao mesmo tempo em navegadores diferentes.
+  const carregarSyncInfo = async () => {
+    const { data, error } = await supabase
+      .from('sync_locks')
+      .select('last_auto_run_at, last_auto_ok, last_auto_summary, last_manual_run_at, last_manual_ok')
+      .eq('id', 'gsheet_collaborators')
+      .maybeSingle();
+    // Migração ainda não aplicada: a tela cai no aviso de "sem registro",
+    // em vez de quebrar.
+    if (error) { console.warn('[Sync] registro de execuções indisponível:', error.message); return; }
+    if (data) setSyncInfo(data);
+  };
+
+  useEffect(() => { if (isMaster) carregarSyncInfo(); }, [isMaster]);
+
   const handleGSheetSync = async () => {
     // Exclusivo do master, e não por preferência de interface: a
     // sincronização é GLOBAL — lê a planilha inteira e escreve e remove em
@@ -226,6 +263,7 @@ export default function CollaboratorsPage() {
         toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
       }
       localStorage.setItem('last_gsheet_sync', new Date().toISOString());
+      carregarSyncInfo();
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
     } catch (err: any) {
       toast.error('Erro na sincronização: ' + (err?.message || 'Erro desconhecido'), { id: toastId });
@@ -765,10 +803,21 @@ export default function CollaboratorsPage() {
                     <RefreshCw size={14} /> Sincronizar Sheets
                   </button>
                 </div>
-                <span className="text-[7px] font-bold text-gray-400 uppercase mr-2">
-                  Todas as unidades • diária às 05h
-                  {localStorage.getItem('last_gsheet_sync') && ` • Última manual: ${new Date(localStorage.getItem('last_gsheet_sync')!).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`}
-                </span>
+                {/* Duas linhas: numa só, o texto empurrava a largura do bloco
+                    e desalinhava os botões vizinhos. */}
+                <div className="flex flex-col items-end gap-0.5 mr-2 leading-tight">
+                  <span className="text-[7px] font-bold text-gray-400 uppercase">
+                    Todas as unidades • diária às 05h
+                  </span>
+                  <span className="text-[7px] font-bold text-gray-400 uppercase">
+                    Auto: {rotuloExecucao(syncInfo?.last_auto_run_at, syncInfo?.last_auto_ok)}
+                    {' · '}
+                    Manual: {rotuloExecucao(
+                      syncInfo?.last_manual_run_at ?? localStorage.getItem('last_gsheet_sync'),
+                      syncInfo?.last_manual_ok,
+                    )}
+                  </span>
+                </div>
               </div>
             )}
             <button 

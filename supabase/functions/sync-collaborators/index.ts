@@ -321,6 +321,14 @@ Deno.serve(async (req) => {
     if (linksErr) writeErrors.push('Vínculo de líderes: ' + linksErr.message);
     else leaderLinks = linksData as number;
 
+    // Carimbo da execução. É por ele que a tela confirma que o agendamento
+    // das 05h está vivo — antes disso, a única pista era o localStorage do
+    // navegador de quem tinha clicado no botão.
+    const resumo = writeErrors.length
+      ? `${upserted} atualizados, ${writeErrors.length} lote(s) com erro`
+      : `${upserted} atualizados, ${removed} removidos`;
+    await registrarExecucao(admin, ehCron, writeErrors.length === 0, resumo);
+
     return json({
       ok: true,
       sheetRows: parsed.length,
@@ -333,8 +341,35 @@ Deno.serve(async (req) => {
       finishedAt: new Date().toISOString(),
     });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'Erro inesperado.' }, 500);
+    const motivo = err instanceof Error ? err.message : 'Erro inesperado.';
+    // Registrar a falha é tão importante quanto o sucesso: sem isto, um cron
+    // que dispara todo dia e quebra todo dia parece um cron que nunca rodou.
+    await registrarExecucao(admin, ehCron, false, motivo);
+    return json({ error: motivo }, 500);
   } finally {
     await admin.from('sync_locks').update({ locked: false }).eq('id', LOCK_ID);
   }
 });
+
+/**
+ * Guarda quando a sincronização terminou, separando execução automática
+ * (cron, que se autentica com a service_role key) de manual (botão da tela).
+ *
+ * Nunca derruba a sincronização: se a migração 20260901_01 ainda não tiver
+ * rodado, as colunas não existem e o update falha — o que não pode custar o
+ * resultado de um sync que já foi concluído.
+ */
+async function registrarExecucao(
+  admin: ReturnType<typeof createClient>,
+  ehCron: boolean,
+  ok: boolean,
+  resumo: string,
+) {
+  const agora = new Date().toISOString();
+  const campos = ehCron
+    ? { last_auto_run_at: agora, last_auto_ok: ok, last_auto_summary: resumo }
+    : { last_manual_run_at: agora, last_manual_ok: ok, last_manual_summary: resumo };
+
+  const { error } = await admin.from('sync_locks').update(campos).eq('id', LOCK_ID);
+  if (error) console.error('[sync] não consegui registrar a execução:', error.message);
+}
