@@ -333,6 +333,45 @@ describe('trainingRules — isCollaboratorTrained', () => {
     expect(collaboratorArea('Apoio', true)).toBe(OTHER_AREA);
     expect(collaboratorArea('Expedicao', false)).toBe('EXPEDIÇÃO');
   });
+
+  // Achado em RJ2 em 02/09/2026: o card "ASM" mostrava 0/0 mesmo com 392
+  // pessoas de Processamento fazendo Sorter — porque NENHUM colaborador tem
+  // sector literalmente "ASM" nos dados reais (RH usa "Processamento" para
+  // todo mundo do setor, Sorter incluso). A matriz de certificação, que
+  // decide por treinamento e não por setor, mostrava os ticks acesos
+  // certinho — só o card de cima estava errado.
+  describe('exceção do Sorter também move a pessoa para o grupo ASM (não só treina)', () => {
+    it.each([
+      ['ASM | Chutes', 'RJ2'],
+      ['ASM - Looping C (Zona 1)', 'SP8'],
+      ['ASM Nível 1', 'SP2'],
+    ])('activity "%s" (padrão de %s) bota a pessoa no grupo ASM, não Processamento', (activity) => {
+      expect(collaboratorArea('PROCESSAMENTO', true, activity)).toBe('ASM');
+    });
+
+    it('sem sorting na SOC, continua Processamento mesmo com activity de Sorter', () => {
+      expect(collaboratorArea('PROCESSAMENTO', false, 'ASM | Chutes')).toBe('PROCESSAMENTO');
+    });
+
+    it('Processamento comum (sem activity de Sorter) continua Processamento', () => {
+      expect(collaboratorArea('PROCESSAMENTO', true, 'Esteira | Processamento')).toBe('PROCESSAMENTO');
+      expect(collaboratorArea('PROCESSAMENTO', true, null)).toBe('PROCESSAMENTO');
+    });
+
+    it('MG2 não marca activity de Sorter — continua Processamento, e está certo: não há como saber quem é Sorter sem essa marcação', () => {
+      expect(collaboratorArea('PROCESSAMENTO', true, 'Esteira | Processamento')).toBe('PROCESSAMENTO');
+    });
+
+    it('isCollaboratorTrained: a pessoa do Sorter conta como treinada E cai no grupo certo', () => {
+      const trained = isCollaboratorTrained('PROCESSAMENTO', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true, 'ASM | Chutes');
+      expect(trained).toBe(true);
+      expect(collaboratorArea('PROCESSAMENTO', true, 'ASM | Chutes')).toBe('ASM');
+    });
+
+    it('não confunde "ASM" no meio do texto com o prefixo — só conta se começar com ASM', () => {
+      expect(collaboratorArea('PROCESSAMENTO', true, 'Apoio ASM')).toBe('PROCESSAMENTO');
+    });
+  });
 });
 
 describe('trainingRules — calculateUnitStats (o número oficial da unidade)', () => {

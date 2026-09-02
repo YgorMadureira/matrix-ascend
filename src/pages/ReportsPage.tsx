@@ -41,6 +41,8 @@ interface Collaborator {
   is_leader?: boolean;
   /** Vínculo resolvido com a linha do líder — ver resolve_leader_links() no banco. */
   leader_id?: string | null;
+  /** Identifica quem faz Sorter dentro do setor Processamento — ver collaboratorArea() em trainingRules.ts. */
+  activity?: string | null;
 }
 
 interface Training {
@@ -177,8 +179,8 @@ export default function ReportsPage() {
     // Quem está na própria área é avaliado pela regra canônica (que carrega a
     // exceção do Sorter); para as demais colunas da matriz vale a área pedida.
     const area = (reqType === 'EXPEDICAO' ? 'EXPEDIÇÃO' : reqType) as MacroArea;
-    if (collab && collaboratorArea(collab.sector, showAsm) === area) {
-      return isCollaboratorTrained(collab.sector, types, showAsm);
+    if (collab && collaboratorArea(collab.sector, showAsm, collab.activity) === area) {
+      return isCollaboratorTrained(collab.sector, types, showAsm, collab.activity);
     }
     return isAreaTrained(types, area);
   }, [typesOf, collaboratorMap, showAsm]);
@@ -202,7 +204,7 @@ export default function ReportsPage() {
    */
   const isGenerallyTrained = useCallback((collabId: string) => {
     const collab = collaboratorMap.get(collabId);
-    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm);
+    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm, collab?.activity);
   }, [collaboratorMap, typesOf, showAsm]);
 
   const loadData = useCallback(async () => {
@@ -214,7 +216,7 @@ export default function ReportsPage() {
     while (hasMore) {
       let collabQuery = supabase
         .from('collaborators')
-        .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id')
+        .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id, activity')
         // Ordenar por nome NÃO basta para paginar: nomes se repetem (25 casos
         // em SP8), e com empate o Postgres pode devolver a mesma linha em duas
         // páginas e pular outra. Duas linhas com o mesmo id viram chaves React
@@ -376,7 +378,7 @@ export default function ReportsPage() {
     // área dela, ou OUTROS) e é avaliada contra o próprio grupo, pela regra
     // canônica. A de Líderes é a mesma conta, só que sobre os líderes.
     if (isAreaOperacional(selectedArea)) {
-      const bucket = filtered.filter(c => collaboratorArea(c.sector, showAsm) === type);
+      const bucket = filtered.filter(c => collaboratorArea(c.sector, showAsm, c.activity) === type);
       const completed = bucket.filter(c => isGenerallyTrained(c.id)).length;
       return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
     }
@@ -510,7 +512,7 @@ export default function ReportsPage() {
       while (hasMore) {
         let q = supabase
           .from('collaborators')
-          .select('id, name, sector, shift, role, leader, soc, bpo')
+          .select('id, name, sector, shift, role, leader, soc, bpo, activity')
           .order('sector')
           .order('shift')
           .order('name')
@@ -554,7 +556,7 @@ export default function ReportsPage() {
       // isso a tela de Colaboradores listava 17 pendentes em SC1 e este
       // arquivo trazia 2.
       const pending = allCollabsForExport.filter(c =>
-        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm)
+        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity)
       );
 
       if (pending.length === 0) {

@@ -143,7 +143,7 @@ export default function DashboardPage() {
       const [porCollab, porTraining, micros, socsData] = await Promise.all([
         Promise.all(Array.from({ length: paginas(cCollabs.count) }, (_, i) =>
           supabase.from('collaborators')
-            .select('id, sector, leader, role, soc, email, is_leader, leader_id')
+            .select('id, sector, leader, role, soc, email, is_leader, leader_id, activity')
             .order('id').range(i * LIMITE, (i + 1) * LIMITE - 1)
         )),
         Promise.all(Array.from({ length: paginas(cTrainings.count) }, (_, i) =>

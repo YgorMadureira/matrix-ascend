@@ -44,6 +44,8 @@ export interface CollaboratorLite {
   id: string;
   sector?: string | null;
   role?: string | null;
+  /** Usado só para achar quem faz Sorter dentro do setor Processamento — ver collaboratorArea(). */
+  activity?: string | null;
 }
 
 /** Remove acentos, caixa e pontuação — base de toda comparação de texto aqui. */
@@ -176,11 +178,42 @@ export function operationalAreas(hasSorting: boolean): MacroArea[] {
 export const OTHER_AREA = 'OUTROS' as const;
 export type StatArea = MacroArea | typeof OTHER_AREA;
 
-/** Em que grupo do relatório este colaborador cai — cada pessoa cai em exatamente um. */
-export function collaboratorArea(sector: string | null | undefined, hasSorting: boolean): StatArea {
+/**
+ * activity começa identificando o Sorter? Formatos vistos nos dados reais:
+ * "ASM | Chutes" (RJ2), "ASM - Looping C (Zona 1)" (SP8), "ASM Nível 1"
+ * (SP2) — por isso a checagem é só o prefixo "ASM" seguido de fronteira de
+ * palavra, tolerante ao separador que vier depois.
+ */
+function isAsmActivity(activity: string | null | undefined): boolean {
+  return /^ASM\b/i.test((activity || '').trim());
+}
+
+/**
+ * Em que grupo do relatório este colaborador cai — cada pessoa cai em
+ * exatamente um.
+ *
+ * A exceção do Sorter (ver isCollaboratorTrained) resolve "está treinado?"
+ * mesmo sem isto — mas sem olhar activity, todo mundo do Sorter cai no
+ * grupo PROCESSAMENTO pelo setor, e o card de ASM fica sempre 0/0, porque
+ * NENHUM colaborador tem sector literalmente "ASM" nos dados reais (RH usa
+ * "Processamento" mesmo para quem faz Sorter). Descoberto em RJ2 em
+ * 02/09/2026: a matriz de certificação (que decide por treinamento, não por
+ * setor) mostrava os ticks de ASM acesos para centenas de pessoas, e o card
+ * de cima mostrava "ASM 0/0" — o card e a matriz respondiam perguntas
+ * diferentes sem ninguém perceber. RJ2 tinha 392 pessoas assim, SP8 771,
+ * SP2 331 (MG2 não tem essa distinção nos dados — activity é sempre
+ * "Esteira | Processamento" lá, então continua 0/0, e está correto: não há
+ * como saber quem é Sorter sem essa marcação).
+ */
+export function collaboratorArea(
+  sector: string | null | undefined,
+  hasSorting: boolean,
+  activity?: string | null
+): StatArea {
   const area = normalizeMacroArea(sector);
   if (!area) return OTHER_AREA;
-  if (area === 'ASM' && !hasSorting) return OTHER_AREA;
+  if (area === 'ASM') return hasSorting ? 'ASM' : OTHER_AREA;
+  if (hasSorting && area === 'PROCESSAMENTO' && isAsmActivity(activity)) return 'ASM';
   return area;
 }
 
@@ -202,17 +235,20 @@ export function collaboratorArea(sector: string | null | undefined, hasSorting: 
 export function isCollaboratorTrained(
   sector: string | null | undefined,
   trainingTypes: string[],
-  hasSorting: boolean
+  hasSorting: boolean,
+  activity?: string | null
 ): boolean {
-  const area = collaboratorArea(sector, hasSorting);
+  const area = collaboratorArea(sector, hasSorting, activity);
 
   if (area !== OTHER_AREA) {
     if (isAreaTrained(trainingTypes, area)) return true;
-    // Exceção do Sorter: nas SOCs com ASM, quem trabalha no Sorter continua
-    // cadastrado com setor "Processamento", e o treinamento dele chama-se
-    // "Treinamento Padrão SOC - Sorter (ASM)". Sem esta linha, 968 pessoas de
-    // SP8/SP2 apareciam como pendentes tendo assinado o treinamento certo.
-    // Espelhado no SQL em supabase/migrations/20260813_05.
+    // Exceção do Sorter, para quando activity não identificou a pessoa como
+    // Sorter (área ficou PROCESSAMENTO mesmo assim — ex: MG2, que não marca
+    // activity, ou um caso de digitação diferente). Nas SOCs com ASM, quem
+    // trabalha no Sorter continua cadastrado com setor "Processamento", e o
+    // treinamento dele chama-se "Treinamento Padrão SOC - Sorter (ASM)".
+    // Sem esta linha, 968 pessoas de SP8/SP2 apareciam como pendentes tendo
+    // assinado o treinamento certo. Espelhado no SQL em 20260813_05.
     if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM')) return true;
     return false;
   }
@@ -295,10 +331,10 @@ export function calculateAreaStats(
 ): AreaTrainingStat[] {
   const areas = operationalAreas(hasSorting);
   return areas.map(area => {
-    const areaCollabs = collaborators.filter(c => collaboratorArea(c.sector, hasSorting) === area);
+    const areaCollabs = collaborators.filter(c => collaboratorArea(c.sector, hasSorting, c.activity) === area);
     const total = areaCollabs.length;
     const trained = areaCollabs.filter(c =>
-      isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting)
+      isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity)
     ).length;
     return { area, total, trained, pct: total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0 };
   });
@@ -337,10 +373,10 @@ export function calculateUnitStats(
   );
 
   for (const c of collaborators) {
-    const bucket = buckets.get(collaboratorArea(c.sector, hasSorting));
+    const bucket = buckets.get(collaboratorArea(c.sector, hasSorting, c.activity));
     if (!bucket) continue;
     bucket.total++;
-    if (isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting)) bucket.trained++;
+    if (isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity)) bucket.trained++;
   }
 
   const byArea = areas.map(area => {
