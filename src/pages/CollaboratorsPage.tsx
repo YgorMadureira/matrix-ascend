@@ -458,7 +458,12 @@ export default function CollaboratorsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este colaborador?')) return;
-    await supabase.from('collaborators').delete().eq('id', id);
+    const { error } = await supabase.from('collaborators').delete().eq('id', id);
+    // O erro era ignorado — desde a trava de 02/09/2026 (trg_guard_leader_deletion,
+    // que impede um LÍDER de ser apagado sem sessão de usuário) um DELETE pode
+    // falhar de propósito, e a pessoa precisa saber por quê em vez de a linha
+    // simplesmente continuar na tela sem explicação.
+    if (error) { toast.error('Erro ao excluir: ' + error.message); return; }
     fetchData();
     toast.success('Colaborador removido');
     setSelectedIds(prev => {
@@ -476,6 +481,7 @@ export default function CollaboratorsPage() {
     const idsArray = Array.from(selectedIds);
     let deletedCount = 0;
     let hasError = false;
+    let leaderBlockMessage: string | null = null;
 
     // Show loading toast
     const toastId = toast.loading(`Excluindo ${idsArray.length} colaboradores...`);
@@ -488,6 +494,13 @@ export default function CollaboratorsPage() {
         if (error) {
           console.error('[Bulk Delete Error]', error);
           hasError = true;
+          // Desde 02/09/2026, um líder no meio do lote (trg_guard_leader_deletion)
+          // aborta o LOTE INTEIRO de até 100 pessoas, não só aquela linha — é
+          // assim que um erro de gatilho dentro de um DELETE em lote funciona no
+          // Postgres. Sem isto, a mensagem genérica ("ocorreram alguns erros")
+          // não deixaria claro que um líder no meio da seleção travou o lote
+          // todo, inclusive gente que seria excluída sem problema.
+          if (error.code === '42501') leaderBlockMessage = error.message;
         } else {
           deletedCount += chunk.length;
         }
@@ -496,7 +509,13 @@ export default function CollaboratorsPage() {
       fetchData();
       setSelectedIds(new Set());
       
-      if (hasError) {
+      if (leaderBlockMessage) {
+        toast.error(
+          `${deletedCount} excluídos. Um ou mais lotes de até 100 pessoas foram BLOQUEADOS INTEIROS porque ` +
+          `incluíam um líder: ${leaderBlockMessage} Selecione sem líderes e tente de novo.`,
+          { id: toastId, duration: 15000 }
+        );
+      } else if (hasError) {
         toast.error(`Foram excluídos ${deletedCount} colaboradores, mas ocorreram alguns erros.`, { id: toastId });
       } else {
         toast.success(`${deletedCount} colaboradores excluídos com sucesso.`, { id: toastId });
