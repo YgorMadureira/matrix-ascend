@@ -42,6 +42,24 @@ const LOCK_STALE_MINUTES = 20;
 // ou no formato da planilha. Rotatividade real nunca chega perto disso.
 const MIN_PARSE_RATIO = 0.5;
 
+// ── Trava por unidade ──────────────────────────────────────────
+// Incidente de 02/09/2026: a fonte de RJ2 dentro da planilha (uma aba
+// ligada por IMPORRANGE) perdeu acesso e passou a vir vazia, enquanto as
+// outras ~20 unidades continuaram chegando normalmente. Isso não deixa o
+// total geral cair o suficiente para acionar o MIN_PARSE_RATIO acima — ele
+// olha a planilha INTEIRA, não uma unidade isolada — então a sincronização
+// seguiu em frente e apagou os ~1.900 colaboradores de RJ2, um por um,
+// "legitimamente" (não estavam mais na planilha). As assinaturas deles só
+// não se perderam porque o snapshot em trainings_completed (20260812_02) as
+// preservou órfãs, religadas depois por scripts/revincular_orfas.mjs.
+//
+// Esta trava olha CADA SOC separadamente: se uma unidade sozinha perder
+// PER_SOC_DELETE_LIMIT colaboradores ou mais numa única rodada, a remoção
+// só DAQUELA unidade é pulada (ela fica intocada até a próxima rodada) — as
+// outras unidades, upsert incluído, seguem normalmente. Ver o bloco de
+// remoção mais abaixo.
+const PER_SOC_DELETE_LIMIT = 300;
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -293,14 +311,33 @@ Deno.serve(async (req) => {
     const sheetKeys = new Set(rows.map(r => identityKey(r.name, r.soc)));
     let removed = 0;
     let deletionSkipped: string | undefined;
+    // Unidades cuja remoção foi pulada pela trava acima — cada uma continua
+    // com os colaboradores antigos intactos, só não recebeu quem porventura
+    // saiu de verdade da planilha nesta rodada.
+    const blockedSocs: { soc: string; wouldRemove: number }[] = [];
 
     if (writeErrors.length > 0) {
       deletionSkipped = `Remoção cancelada: ${writeErrors.length} lote(s) falharam na gravação. ` +
         `Nenhum colaborador foi removido. Corrija os erros e rode de novo.`;
     } else {
-      const toDelete = activeInDb
-        .filter(c => !sheetKeys.has(identityKey(c.name, c.soc || '')))
-        .map(c => c.id);
+      const candidatosRemocao = activeInDb.filter(c => !sheetKeys.has(identityKey(c.name, c.soc || '')));
+
+      const porSoc = new Map<string, typeof candidatosRemocao>();
+      for (const c of candidatosRemocao) {
+        const soc = c.soc || '(sem SOC)';
+        const arr = porSoc.get(soc) ?? [];
+        arr.push(c);
+        porSoc.set(soc, arr);
+      }
+
+      const toDelete: string[] = [];
+      for (const [soc, lista] of porSoc) {
+        if (lista.length >= PER_SOC_DELETE_LIMIT) {
+          blockedSocs.push({ soc, wouldRemove: lista.length });
+        } else {
+          toDelete.push(...lista.map(c => c.id));
+        }
+      }
 
       for (let i = 0; i < toDelete.length; i += 200) {
         const chunk = toDelete.slice(i, i + 200);
@@ -326,7 +363,10 @@ Deno.serve(async (req) => {
     // navegador de quem tinha clicado no botão.
     const resumo = writeErrors.length
       ? `${upserted} atualizados, ${writeErrors.length} lote(s) com erro`
-      : `${upserted} atualizados, ${removed} removidos`;
+      : `${upserted} atualizados, ${removed} removidos` +
+        (blockedSocs.length
+          ? `, ${blockedSocs.length} unidade(s) travada(s) por segurança (${blockedSocs.map(b => b.soc).join(', ')})`
+          : '');
     await registrarExecucao(admin, ehCron, writeErrors.length === 0, resumo);
 
     return json({
@@ -337,6 +377,7 @@ Deno.serve(async (req) => {
       removed,
       leaderLinks,
       deletionSkipped,
+      blockedSocs: blockedSocs.length ? blockedSocs : undefined,
       errors: writeErrors.length ? writeErrors.slice(0, 20) : undefined,
       finishedAt: new Date().toISOString(),
     });

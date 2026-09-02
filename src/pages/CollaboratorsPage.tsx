@@ -75,7 +75,7 @@ export default function CollaboratorsPage() {
   // das 05h está vivo, não aparecia em lugar nenhum.
   const [syncInfo, setSyncInfo] = useState<{
     last_auto_run_at: string | null; last_auto_ok: boolean | null; last_auto_summary: string | null;
-    last_manual_run_at: string | null; last_manual_ok: boolean | null;
+    last_manual_run_at: string | null; last_manual_ok: boolean | null; last_manual_summary: string | null;
   } | null>(null);
   const isSyncing = useRef(false); // Guard against concurrent syncs
 
@@ -191,7 +191,7 @@ export default function CollaboratorsPage() {
   const carregarSyncInfo = async () => {
     const { data, error } = await supabase
       .from('sync_locks')
-      .select('last_auto_run_at, last_auto_ok, last_auto_summary, last_manual_run_at, last_manual_ok')
+      .select('last_auto_run_at, last_auto_ok, last_auto_summary, last_manual_run_at, last_manual_ok, last_manual_summary')
       .eq('id', 'gsheet_collaborators')
       .maybeSingle();
     // Migração ainda não aplicada: a tela cai no aviso de "sem registro",
@@ -262,6 +262,30 @@ export default function CollaboratorsPage() {
       } else {
         toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
       }
+
+      // ── Trava por unidade ──────────────────────────────────
+      // Incidente de RJ2 em 02/09/2026: a fonte de uma unidade dentro da
+      // planilha parou de trazer dados (sem que o total geral caísse o
+      // suficiente para o alerta de cima disparar), e a sincronização
+      // apagou ~1.900 colaboradores de lá, um por um, porque de fato não
+      // estavam mais na planilha. A Edge Function agora trava a remoção de
+      // qualquer unidade que sozinha for perder 300 colaboradores ou mais
+      // numa rodada — isto aqui é o aviso disso acontecendo. Toast à parte
+      // e sem sumir sozinho: é uma pendência (corrigir a fonte daquela
+      // unidade), não um status que passa.
+      if (data?.blockedSocs?.length) {
+        const detalhe = (data.blockedSocs as { soc: string; wouldRemove: number }[])
+          .map(b => `${b.soc} (perderia ${b.wouldRemove})`)
+          .join(', ');
+        toast.warning(
+          `🔒 ${data.blockedSocs.length} unidade(s) travada(s) por segurança: ${detalhe}. ` +
+          'Isso costuma acontecer quando a fonte da planilha para aquela unidade parou de trazer dados ' +
+          '(ex: perda de acesso a uma aba ligada por IMPORRANGE). Nada foi excluído lá — corrija o acesso ' +
+          'e sincronize de novo.',
+          { duration: Infinity }
+        );
+      }
+
       localStorage.setItem('last_gsheet_sync', new Date().toISOString());
       carregarSyncInfo();
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
@@ -809,7 +833,20 @@ export default function CollaboratorsPage() {
                   <span className="text-[7px] font-bold text-gray-400 uppercase">
                     Todas as unidades • diária às 05h
                   </span>
-                  <span className="text-[7px] font-bold text-gray-400 uppercase">
+                  {/* Continua numa linha só (o container é flex-col — cada
+                      span vira uma linha própria; separar Auto/Manual criaria
+                      uma 3ª linha e desalinharia os botões de novo). O title
+                      combinado leva o resumo completo (atualizados/removidos,
+                      unidades travadas) para o hover, já que não cabe aqui. */}
+                  <span
+                    className="text-[7px] font-bold text-gray-400 uppercase cursor-help"
+                    title={
+                      [
+                        syncInfo?.last_auto_summary && `Automática: ${syncInfo.last_auto_summary}`,
+                        syncInfo?.last_manual_summary && `Manual: ${syncInfo.last_manual_summary}`,
+                      ].filter(Boolean).join('\n') || undefined
+                    }
+                  >
                     Auto: {rotuloExecucao(syncInfo?.last_auto_run_at, syncInfo?.last_auto_ok)}
                     {' · '}
                     Manual: {rotuloExecucao(
