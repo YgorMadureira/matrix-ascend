@@ -63,26 +63,36 @@ for (const t of assinaturas as any[]) {
 }
 
 console.log(`\n── 1. ${nomes.length} nomes de treinamento em uso ──\n`);
-for (const nome of nomes.sort((a, b) => (usos.get(b) || 0) - (usos.get(a) || 0))) {
-  const ts: string[] = [];
-  const sql: string[] = [];
-  for (const area of AREAS) {
-    if (isAreaTrained([nome], area)) ts.push(area);
-    const { data, error } = await db.rpc('training_unlocks_area', { training_type: nome, area });
-    if (error) {
-      console.error(`  ✗ erro ao chamar training_unlocks_area: ${error.message}`);
-      process.exit(1);
+// Os dois cenários: o que um nome credencia depende da unidade desde
+// 03/09/2026 ("Onboarding Novos Colaboradores PTS" acende ASM só com Sorter).
+for (const comSorter of [false, true]) {
+  for (const nome of nomes.sort((a, b) => (usos.get(b) || 0) - (usos.get(a) || 0))) {
+    const ts: string[] = [];
+    const sql: string[] = [];
+    for (const area of AREAS) {
+      if (isAreaTrained([nome], area, comSorter)) ts.push(area);
+      const { data, error } = await db.rpc('training_unlocks_area', {
+        training_type: nome,
+        area,
+        has_sorting: comSorter,
+      });
+      if (error) {
+        console.error(`\n  ✗ não consegui chamar training_unlocks_area: ${error.message}`);
+        console.error('    Se a mensagem fala em função inexistente, falta rodar a migração');
+        console.error('    supabase/migrations/20260903_01_alinha_espelho_sql.sql.\n');
+        process.exit(1);
+      }
+      if (data === true) sql.push(area);
     }
-    if (data === true) sql.push(area);
-  }
-  if (ts.sort().join() !== sql.sort().join()) {
-    problemas++;
-    console.log(`  ✗ "${nome}" (${usos.get(nome)} assinaturas)`);
-    console.log(`      TypeScript acende: ${ts.length ? ts.join(', ') : '(nada)'}`);
-    console.log(`      SQL        acende: ${sql.length ? sql.join(', ') : '(nada)'}`);
+    if (ts.sort().join() !== sql.sort().join()) {
+      problemas++;
+      console.log(`  ✗ "${nome}" (${usos.get(nome)} assinaturas) — SOC ${comSorter ? 'COM' : 'SEM'} Sorter`);
+      console.log(`      TypeScript acende: ${ts.length ? ts.join(', ') : '(nada)'}`);
+      console.log(`      SQL        acende: ${sql.length ? sql.join(', ') : '(nada)'}`);
+    }
   }
 }
-if (problemas === 0) console.log('  ✅ todos classificados igual pelos dois lados');
+if (problemas === 0) console.log('  ✅ todos classificados igual pelos dois lados, com e sem Sorter');
 
 // ── 2. Pessoa por pessoa: o veredito final bate? ─────────────
 console.log(`\n── 2. ${collabs.length} colaboradores ──\n`);

@@ -182,7 +182,7 @@ export default function ReportsPage() {
     if (collab && collaboratorArea(collab.sector, showAsm, collab.activity) === area) {
       return isCollaboratorTrained(collab.sector, types, showAsm, collab.activity, collab.is_leader);
     }
-    return isAreaTrained(types, area);
+    return isAreaTrained(types, area, showAsm);
   }, [typesOf, collaboratorMap, showAsm]);
 
   /**
@@ -193,8 +193,8 @@ export default function ReportsPage() {
    * acendia na matriz desta tela.
    */
   const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) =>
-    typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea)),
-  [typesOf]);
+    typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea, showAsm)),
+  [typesOf, showAsm]);
 
   /**
    * "Esta pessoa está pendente?" — a MESMA pergunta que a tela de

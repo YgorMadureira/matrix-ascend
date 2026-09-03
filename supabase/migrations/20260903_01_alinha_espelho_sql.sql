@@ -41,6 +41,16 @@
 -- código (stripVersionAndCode); este lado não. Nenhum nome assim existe
 -- hoje entre os 45 em uso — é uma bomba armada, e agora está desarmada.
 --
+-- ── A REGRA DO SORTER (mesma data) ──────────────────────────
+-- Segunda decisão do Ygor: nas SOCs COM Sorter, "Onboarding Novos
+-- Colaboradores PTS" acende o ASM também — é o nome que SP2 usa para o
+-- onboarding completo. Isso torna o "o que este nome credencia?" dependente
+-- da UNIDADE, e não só do texto: por isso training_unlocks_area e
+-- training_matches_collaborator ganharam has_sorting, e as duas views
+-- passaram a fazer join em socs para informá-lo.
+-- Efeito medido: SP2 vai de 77,9% para 89,9% (199 pessoas do grupo ASM);
+-- SP8, RJ2 e MG2 não mudam nada.
+--
 -- Idempotente: seguro rodar mais de uma vez.
 -- ============================================================
 
@@ -65,9 +75,17 @@ comment on function public.strip_training_code(text) is
   'Remove o código do documento (SPX_BR_PTS_SOC_NNN) antes de comparar nomes de treinamento. Espelha stripVersionAndCode() de src/lib/trainingRules.ts — o "PTS" do código não pode ser confundido com o treinamento PTS.';
 
 -- ── 2. Que áreas um treinamento credencia ────────────────────
--- Mesma regra de antes, com uma diferença: compara sobre o nome JÁ SEM o
--- código do documento.
-create or replace function public.training_unlocks_area(training_type text, area text)
+-- Duas diferenças em relação à versão antiga:
+--   · compara sobre o nome JÁ SEM o código do documento;
+--   · ganhou has_sorting, porque o que um nome credencia passou a depender
+--     da unidade (ver a regra do "Novos Colaboradores" abaixo). A versão de
+--     2 argumentos é removida no fim deste arquivo — deixá-la viva seria
+--     deixar a regra antiga acessível para quem chamasse sem o parâmetro.
+create or replace function public.training_unlocks_area(
+  training_type text,
+  area          text,
+  has_sorting   boolean
+)
 returns boolean
 language sql
 immutable
@@ -77,6 +95,18 @@ as $$
      and public.strip_training_code(training_type) ilike '%pts%' then
       area in ('RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO')
       or (area = 'ASM' and training_type ilike '%com sorter%')
+      -- "Onboarding Novos Colaboradores PTS" é o nome que SP2 usa para o
+      -- onboarding completo (1.197 assinaturas de lá). Nas SOCs COM Sorter
+      -- ele cobre o ASM também — decisão de 03/09/2026.
+      --
+      -- Só este nome, e só com Sorter: generalizar para qualquer Onboarding
+      -- PTS acenderia ASM para as 986 assinaturas de "Onboarding PTS V3" de
+      -- RJ2, que usa "Com Sorter" explicitamente para quem fez o Sorter.
+      or (
+        area = 'ASM'
+        and coalesce(has_sorting, false)
+        and training_type ilike '%novos colaboradores%'
+      )
     when training_type ilike '%onboarding%' then false
     when training_type ilike '%padr%o soc%' then
       (area = 'RECEBIMENTO'   and training_type ilike '%recebimento%')
@@ -88,8 +118,8 @@ as $$
   end;
 $$;
 
-comment on function public.training_unlocks_area(text, text) is
-  'Espelha areasUnlockedBy() de src/lib/trainingRules.ts. "Onboarding" + "PTS" contam em qualquer posição do nome, depois de descartado o código do documento.';
+comment on function public.training_unlocks_area(text, text, boolean) is
+  'Espelha areasUnlockedBy() de src/lib/trainingRules.ts. "Onboarding" + "PTS" contam em qualquer posição do nome, depois de descartado o código do documento; "Novos Colaboradores" credencia ASM nas SOCs com Sorter.';
 
 -- ── 3. O setor efetivo da pessoa ─────────────────────────────
 -- Espelha collaboratorArea() do TypeScript, que este lado nunca teve: até
@@ -137,12 +167,16 @@ comment on function public.collaborator_effective_sector(text, boolean, text) is
 -- treinamento com o CARGO por substring, o que fazia "AUXILIAR DE
 -- LOGISTICA" casar com quase tudo. Mantidos na assinatura para não quebrar
 -- chamadas existentes.
+-- Sem defaults, de propósito: com default, uma chamada com menos argumentos
+-- ficaria ambígua entre esta e a versão antiga ("function is not unique").
+-- As versões de 4 e 5 argumentos são removidas no fim deste arquivo.
 create or replace function public.training_matches_collaborator(
   p_training_type text,
   p_sector        text,
   p_role          text,
   p_is_onboarding boolean,
-  p_is_leader     boolean default false
+  p_is_leader     boolean,
+  p_has_sorting   boolean
 )
 returns boolean
 language sql
@@ -154,23 +188,23 @@ as $$
     when p_is_leader and p_training_type ilike '%onboarding l%deres%' then true
 
     when public.collaborator_macro_area(p_sector) is not null then
-      public.training_unlocks_area(p_training_type, public.collaborator_macro_area(p_sector))
+      public.training_unlocks_area(p_training_type, public.collaborator_macro_area(p_sector), p_has_sorting)
       -- Exceção do Sorter: nas SOCs com ASM quem trabalha no Sorter continua
       -- cadastrado em "Processamento", e o treinamento dele é o Sorter (ASM).
       or (
         public.collaborator_macro_area(p_sector) = 'PROCESSAMENTO'
-        and public.training_unlocks_area(p_training_type, 'ASM')
+        and public.training_unlocks_area(p_training_type, 'ASM', p_has_sorting)
       )
     else
-      public.training_unlocks_area(p_training_type, 'RECEBIMENTO')
-      or public.training_unlocks_area(p_training_type, 'PROCESSAMENTO')
-      or public.training_unlocks_area(p_training_type, 'EXPEDIÇÃO')
-      or public.training_unlocks_area(p_training_type, 'TRATATIVAS')
-      or public.training_unlocks_area(p_training_type, 'ASM')
+      public.training_unlocks_area(p_training_type, 'RECEBIMENTO', p_has_sorting)
+      or public.training_unlocks_area(p_training_type, 'PROCESSAMENTO', p_has_sorting)
+      or public.training_unlocks_area(p_training_type, 'EXPEDIÇÃO', p_has_sorting)
+      or public.training_unlocks_area(p_training_type, 'TRATATIVAS', p_has_sorting)
+      or public.training_unlocks_area(p_training_type, 'ASM', p_has_sorting)
   end;
 $$;
 
-comment on function public.training_matches_collaborator(text, text, text, boolean, boolean) is
+comment on function public.training_matches_collaborator(text, text, text, boolean, boolean, boolean) is
   'Espelha isCollaboratorTrained() de src/lib/trainingRules.ts. A regra mora lá — mude lá primeiro, depois aqui. Receba o setor EFETIVO (ver collaborator_effective_sector), não o setor cru.';
 
 -- ── 5. socs.name passa a ser único ───────────────────────────
@@ -219,7 +253,8 @@ left join lateral (
         public.collaborator_effective_sector(c.sector, s.has_sorting, c.activity),
         c.role,
         c.is_onboarding,
-        c.is_leader
+        c.is_leader,
+        coalesce(s.has_sorting, false)
       )
     ) as is_trained,
     array_agg(upper(tc.training_type))
@@ -254,7 +289,8 @@ left join lateral (
       public.collaborator_effective_sector(c.sector, s.has_sorting, c.activity),
       c.role,
       false,
-      c.is_leader
+      c.is_leader,
+      coalesce(s.has_sorting, false)
     )
   ) as is_trained
   from public.trainings_completed tc
@@ -272,18 +308,25 @@ grant select on public.soc_performance_view to authenticated;
 -- (ver 20260812_04) — mantendo o padrão para não depender do default.
 grant execute on function public.strip_training_code(text) to authenticated;
 grant execute on function public.collaborator_effective_sector(text, boolean, text) to authenticated;
-grant execute on function public.training_matches_collaborator(text, text, text, boolean, boolean) to authenticated;
+grant execute on function public.training_unlocks_area(text, text, boolean) to authenticated;
+grant execute on function public.training_matches_collaborator(text, text, text, boolean, boolean, boolean) to authenticated;
 
--- ── 9. A versão antiga de 4 argumentos sai de cena ───────────
--- As duas views acima já não a usam. Deixá-la viva criaria ambiguidade com
--- a de 5 argumentos (a de 5 tem default no último), e uma chamada com 4
--- argumentos passaria a dar erro "function is not unique".
+-- ── 9. As versões antigas saem de cena ───────────────────────
+-- As views acima já não as usam (foram recriadas logo antes). Deixá-las
+-- vivas seria manter a regra ANTIGA acessível para qualquer chamada que
+-- esquecesse os parâmetros novos — exatamente o tipo de porta lateral que
+-- fez as duas metades do sistema divergirem em primeiro lugar.
 drop function if exists public.training_matches_collaborator(text, text, text, boolean);
+drop function if exists public.training_matches_collaborator(text, text, text, boolean, boolean);
+drop function if exists public.training_unlocks_area(text, text);
 
 -- ── Conferência ──────────────────────────────────────────────
 -- Os percentuais abaixo devem bater com o Dashboard/Relatórios depois do
--- deploy do frontend. Valores esperados (medidos em 03/09/2026):
---   SP2 77,9% · CE3 76,4% · PR1 78,3% · PR4 76,2%
+-- deploy do frontend. Valores esperados (medidos em 03/09/2026, já com a
+-- regra do Sorter):
+--   SP2 89,9% · CE3 76,4% · PR1 78,3% · PR4 76,2%
+-- Se SP2 vier 77,9%, o has_sorting não chegou na função — confira o join
+-- com socs nas views.
 select
   '✅ Espelho SQL alinhado ao TypeScript.' as status,
   (select count(*) from public.trainings_completed

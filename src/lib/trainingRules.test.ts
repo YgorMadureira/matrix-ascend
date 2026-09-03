@@ -48,8 +48,9 @@ const TRAT: MicroTraining[] = [
 ];
 const SP6_MICROS = [...RECEB, ...PROC, ...EXPED, ...TRAT];
 
+// SP6 não tem Sorter — daí o hasSorting = false em toda esta tabela.
 function countHits(trainingType: string, micros: MicroTraining[]): number {
-  return micros.filter(m => isMicroCompletedBy(trainingType, m.name, m.macro_area)).length;
+  return micros.filter(m => isMicroCompletedBy(trainingType, m.name, m.macro_area, false)).length;
 }
 
 describe('trainingRules — matriz de referência SP6 (tabela validada)', () => {
@@ -115,15 +116,15 @@ describe('trainingRules — matriz de referência SP6 (tabela validada)', () => 
       { name: 'Sorter Avançado', macro_area: 'ASM' },
     ];
     expect(countHits('06. Treinamento Padrão SOC - Sorter (ASM)', asm)).toBe(2);
-    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'ASM')).toBe(true);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'ASM', false)).toBe(true);
   });
 
   it('o sufixo com nome de área não vaza para as outras áreas', () => {
-    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'RECEBIMENTO')).toBe(false);
-    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'PROCESSAMENTO')).toBe(false);
-    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'EXPEDIÇÃO')).toBe(false);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'RECEBIMENTO', false)).toBe(false);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'PROCESSAMENTO', false)).toBe(false);
+    expect(isAreaTrained(['06. Treinamento Padrão SOC - Sorter (ASM)'], 'EXPEDIÇÃO', false)).toBe(false);
     // "PROCESSAMENTO" contém "SAM", não "ASM" — não pode acender ASM
-    expect(isAreaTrained(['02. Treinamento Padrão SOC - Processamento'], 'ASM')).toBe(false);
+    expect(isAreaTrained(['02. Treinamento Padrão SOC - Processamento'], 'ASM', false)).toBe(false);
   });
 
   it.each([
@@ -138,16 +139,16 @@ describe('trainingRules — matriz de referência SP6 (tabela validada)', () => 
 
   it('05. Treinamento Padrão SOC - Returns acende só o micro Returns (1/9 em Tratativas)', () => {
     expect(countHits('05. Treinamento Padrão SOC - Returns', TRAT)).toBe(1);
-    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Returns', 'TRATATIVAS')).toBe(true);
-    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Tratativas', 'TRATATIVAS')).toBe(false);
+    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Returns', 'TRATATIVAS', false)).toBe(true);
+    expect(isMicroCompletedBy('05. Treinamento Padrão SOC - Returns', 'Tratativas', 'TRATATIVAS', false)).toBe(false);
   });
 
   it('treinamento com código de documento e versão casa com o micro por nome, tolerando mudança de versão', () => {
     expect(
-      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.11', 'Receita Federal', 'TRATATIVAS')
+      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.11', 'Receita Federal', 'TRATATIVAS', false)
     ).toBe(true);
     expect(
-      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.12', 'Receita Federal', 'TRATATIVAS')
+      isMicroCompletedBy('SPX_BR_PTS_SOC_031 - Interceptações Receita Federal - V.12', 'Receita Federal', 'TRATATIVAS', false)
     ).toBe(true);
   });
 
@@ -168,25 +169,25 @@ describe('trainingRules — normalizeMacroArea', () => {
 
 describe('trainingRules — isAreaTrained (card % Treinados / Matriz / gráfico)', () => {
   it('Onboarding PTS treina as 3 áreas core, mas não Tratativas', () => {
-    expect(isAreaTrained(['ONBOARDING PTS V3'], 'RECEBIMENTO')).toBe(true);
-    expect(isAreaTrained(['ONBOARDING PTS V3'], 'PROCESSAMENTO')).toBe(true);
-    expect(isAreaTrained(['ONBOARDING PTS V3'], 'EXPEDIÇÃO')).toBe(true);
-    expect(isAreaTrained(['ONBOARDING PTS V3'], 'TRATATIVAS')).toBe(false);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'RECEBIMENTO', false)).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'PROCESSAMENTO', false)).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'EXPEDIÇÃO', false)).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'TRATATIVAS', false)).toBe(false);
   });
 
   it('onboarding administrativo isolado não treina nenhuma área operacional (fix R2)', () => {
-    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'RECEBIMENTO')).toBe(false);
-    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'PROCESSAMENTO')).toBe(false);
+    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'RECEBIMENTO', false)).toBe(false);
+    expect(isAreaTrained(['ONBOARDING PEOPLE', 'ONBOARDING MEIO AMBIENTE'], 'PROCESSAMENTO', false)).toBe(false);
   });
 
   it('Padrão SOC de uma área treina só aquela área', () => {
-    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'TRATATIVAS')).toBe(true);
-    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'RECEBIMENTO')).toBe(false);
+    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'TRATATIVAS', false)).toBe(true);
+    expect(isAreaTrained(['04. TREINAMENTO PADRÃO SOC - TRATATIVAS'], 'RECEBIMENTO', false)).toBe(false);
   });
 
   it('Com Sorter treina ASM', () => {
-    expect(isAreaTrained(['ONBOARDING PTS - COM SORTER'], 'ASM')).toBe(true);
-    expect(isAreaTrained(['ONBOARDING PTS V3'], 'ASM')).toBe(false);
+    expect(isAreaTrained(['ONBOARDING PTS - COM SORTER'], 'ASM', true)).toBe(true);
+    expect(isAreaTrained(['ONBOARDING PTS V3'], 'ASM', true)).toBe(false);
   });
 });
 
@@ -418,13 +419,13 @@ describe('trainingRules — isCollaboratorTrained', () => {
   describe('"Onboarding" + "PTS" contam em qualquer posição do nome', () => {
     it('"Onboarding Novos Colaboradores PTS" credencia Recebimento, Processamento e Expedição', () => {
       for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'] as const) {
-        expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], area)).toBe(true);
+        expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], area, false)).toBe(true);
       }
     });
 
-    it('não credencia Tratativas (nenhum onboarding credencia) nem ASM (o nome não diz "Com Sorter")', () => {
-      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'TRATATIVAS')).toBe(false);
-      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'ASM')).toBe(false);
+    it('não credencia Tratativas — nenhum onboarding credencia', () => {
+      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'TRATATIVAS', false)).toBe(false);
+      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'TRATATIVAS', true)).toBe(false);
     });
 
     it('o caso relatado: sem setor cadastrado, esse onboarding basta para estar treinado', () => {
@@ -436,12 +437,12 @@ describe('trainingRules — isCollaboratorTrained', () => {
       'Onboarding PTS V3',
       'Onboarding PTS - Sem Sorter',
       'Onboarding Novos Colaboradores PTS',
-    ])('"%s" não credencia ASM', (treinamento) => {
-      expect(isAreaTrained([treinamento], 'ASM')).toBe(false);
+    ])('"%s" não credencia ASM numa SOC sem Sorter', (treinamento) => {
+      expect(isAreaTrained([treinamento], 'ASM', false)).toBe(false);
     });
 
-    it('"Onboarding PTS - Com Sorter" continua sendo o único que credencia ASM', () => {
-      expect(isAreaTrained(['Onboarding PTS - Com Sorter'], 'ASM')).toBe(true);
+    it('"Onboarding PTS - Com Sorter" credencia ASM', () => {
+      expect(isAreaTrained(['Onboarding PTS - Com Sorter'], 'ASM', true)).toBe(true);
     });
 
     // A contrapartida de afrouxar a posição das palavras: o código do
@@ -454,7 +455,8 @@ describe('trainingRules — isCollaboratorTrained', () => {
       'Onboarding HSE SPX_BR_PTS_SOC_031 - V.12',
     ])('"%s" NÃO credencia nada — o "PTS" ali é código de documento, não o treinamento', (treinamento) => {
       for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const) {
-        expect(isAreaTrained([treinamento], area)).toBe(false);
+        expect(isAreaTrained([treinamento], area, false)).toBe(false);
+        expect(isAreaTrained([treinamento], area, true)).toBe(false);
       }
     });
 
@@ -467,6 +469,44 @@ describe('trainingRules — isCollaboratorTrained', () => {
     ])('"%s" continua sendo onboarding administrativo — não credencia nada (regra 3)', (treinamento) => {
       expect(isCollaboratorTrained(null, [treinamento], false)).toBe(false);
       expect(isCollaboratorTrained('RECEBIMENTO', [treinamento], false)).toBe(false);
+    });
+  });
+
+  // 03/09/2026 — segunda decisão do Ygor: nas SOCs COM Sorter, o
+  // "Onboarding Novos Colaboradores PTS" acende o tick de ASM também. É o
+  // nome que SP2 usa para o onboarding completo (1.197 assinaturas de lá).
+  describe('"Onboarding Novos Colaboradores PTS" acende ASM só onde há Sorter', () => {
+    it('numa SOC COM Sorter, credencia as 3 áreas core E o ASM', () => {
+      for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'ASM'] as const) {
+        expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], area, true)).toBe(true);
+      }
+    });
+
+    it('numa SOC SEM Sorter, o ASM continua apagado', () => {
+      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'ASM', false)).toBe(false);
+    });
+
+    // O contrário disto seria acender ASM para as 986 assinaturas de
+    // "Onboarding PTS V3" de RJ2 — que usa "Com Sorter" explicitamente
+    // para quem fez o treinamento do Sorter.
+    it.each([
+      'Onboarding PTS V3',
+      'Onboarding PTS - Sem Sorter',
+    ])('"%s" NÃO acende ASM nem numa SOC com Sorter — a regra é só do nome "Novos Colaboradores"', (treinamento) => {
+      expect(isAreaTrained([treinamento], 'ASM', true)).toBe(false);
+    });
+
+    it('quem faz Sorter em SOC com Sorter fica treinado com esse onboarding', () => {
+      // setor Processamento + activity de Sorter → área ASM
+      expect(collaboratorArea('PROCESSAMENTO', true, 'ASM | Chutes')).toBe('ASM');
+      expect(
+        isCollaboratorTrained('PROCESSAMENTO', ['Onboarding Novos Colaboradores PTS'], true, 'ASM | Chutes')
+      ).toBe(true);
+    });
+
+    it('e o tick da Matriz de Certificação acende junto (mesma regra, mesmo motor)', () => {
+      expect(isMicroCompletedBy('Onboarding Novos Colaboradores PTS', 'Sorter Base', 'ASM', true)).toBe(true);
+      expect(isMicroCompletedBy('Onboarding Novos Colaboradores PTS', 'Sorter Base', 'ASM', false)).toBe(false);
     });
   });
 

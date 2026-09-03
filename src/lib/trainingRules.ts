@@ -18,6 +18,9 @@
 //      → acende Receb+Proc+Exped. As duas palavras contam em qualquer
 //      posição do nome, e o código do documento é descartado antes da
 //      comparação (senão o "PTS" de SPX_BR_PTS_SOC_031 acenderia áreas).
+//      Exceção: "Onboarding Novos Colaboradores PTS" acende ASM TAMBÉM,
+//      mas só nas SOCs com Sorter — por isso as funções daqui precisam
+//      receber hasSorting: o que um nome credencia depende da unidade.
 //   3. Qualquer outro "Onboarding ..." (People/HSE/Security/Qualidade/
 //      Meio Ambiente) → treinamento administrativo, NÃO acende nada
 //   4. "Treinamento Padrão SOC - <ÁREA>" onde <ÁREA> é exatamente uma
@@ -96,7 +99,7 @@ export function normalizeMacroArea(raw: string | null | undefined): MacroArea | 
  * `null` = treinamento específico — cai no match por nome de micro (regra 5).
  * `[]`   = onboarding administrativo — não acende nada (regra 3).
  */
-function areasUnlockedBy(trainingType: string): MacroArea[] | null {
+function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[] | null {
   const t = stripVersionAndCode(normalizeText(trainingType));
 
   // "ONBOARDING" e "PTS" em QUALQUER posição, não a frase colada. O nome
@@ -113,6 +116,17 @@ function areasUnlockedBy(trainingType: string): MacroArea[] | null {
   // a remover o código pelo mesmo motivo — ver strip_training_code.
   if (t.includes('ONBOARDING') && t.includes('PTS')) {
     if (t.includes('COM SORTER')) return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'ASM'];
+    // "Onboarding Novos Colaboradores PTS" é o nome que SP2 usa para o
+    // onboarding completo (1.197 das 1.200 assinaturas de lá). Numa SOC com
+    // Sorter ele cobre o ASM também — decisão de 03/09/2026.
+    //
+    // Só ESTE nome, e só com sorter. Generalizar para "qualquer Onboarding
+    // PTS numa SOC com Sorter" acenderia ASM para as 986 assinaturas de
+    // "Onboarding PTS V3" de RJ2, que usa "Com Sorter" explicitamente para
+    // quem fez o treinamento do Sorter — seriam 986 ticks errados.
+    if (hasSorting && t.includes('NOVOS COLABORADORES')) {
+      return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'ASM'];
+    }
     return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'];
   }
   if (t.includes('ONBOARDING')) return [];
@@ -152,9 +166,17 @@ function matchesMicroByName(trainingType: string, microName: string): boolean {
   return t.includes(m) || m.includes(t);
 }
 
-/** Um treinamento específico conclui um micro-processo de uma macro-área? */
-export function isMicroCompletedBy(trainingType: string, microName: string, macroArea: string): boolean {
-  const areas = areasUnlockedBy(trainingType);
+/**
+ * Um treinamento específico conclui um micro-processo de uma macro-área?
+ * hasSorting é da SOC do colaborador — ver areasUnlockedBy.
+ */
+export function isMicroCompletedBy(
+  trainingType: string,
+  microName: string,
+  macroArea: string,
+  hasSorting: boolean
+): boolean {
+  const areas = areasUnlockedBy(trainingType, hasSorting);
   if (areas !== null) {
     return areas.includes(normalizeMacroArea(macroArea) as MacroArea);
   }
@@ -162,10 +184,14 @@ export function isMicroCompletedBy(trainingType: string, microName: string, macr
 }
 
 /** Quantos dos micros informados um colaborador concluiu, dado seu histórico de treinamentos. */
-export function countCompletedMicros(trainingTypes: string[], micros: MicroTraining[]): number {
+export function countCompletedMicros(
+  trainingTypes: string[],
+  micros: MicroTraining[],
+  hasSorting: boolean
+): number {
   let count = 0;
   for (const micro of micros) {
-    if (trainingTypes.some(t => isMicroCompletedBy(t, micro.name, micro.macro_area))) count++;
+    if (trainingTypes.some(t => isMicroCompletedBy(t, micro.name, micro.macro_area, hasSorting))) count++;
   }
   return count;
 }
@@ -176,8 +202,8 @@ export function countCompletedMicros(trainingTypes: string[], micros: MicroTrain
  * treinamentos que acendem a área INTEIRA (Onboarding PTS / Padrão SOC),
  * não certificados de micro-processo específico.
  */
-export function isAreaTrained(trainingTypes: string[], area: MacroArea): boolean {
-  return trainingTypes.some(t => (areasUnlockedBy(t) ?? []).includes(area));
+export function isAreaTrained(trainingTypes: string[], area: MacroArea, hasSorting: boolean): boolean {
+  return trainingTypes.some(t => (areasUnlockedBy(t, hasSorting) ?? []).includes(area));
 }
 
 /** Áreas relevantes para o card "% Treinados" / Matriz / gráfico — ASM só entra se a SOC tem sorting. */
@@ -286,7 +312,7 @@ export function isCollaboratorTrained(
   const area = collaboratorArea(sector, hasSorting, activity);
 
   if (area !== OTHER_AREA) {
-    if (isAreaTrained(trainingTypes, area)) return true;
+    if (isAreaTrained(trainingTypes, area, hasSorting)) return true;
     // Exceção do Sorter, para quando activity não identificou a pessoa como
     // Sorter (área ficou PROCESSAMENTO mesmo assim — ex: MG2, que não marca
     // activity, ou um caso de digitação diferente). Nas SOCs com ASM, quem
@@ -294,11 +320,11 @@ export function isCollaboratorTrained(
     // treinamento dele chama-se "Treinamento Padrão SOC - Sorter (ASM)".
     // Sem esta linha, 968 pessoas de SP8/SP2 apareciam como pendentes tendo
     // assinado o treinamento certo. Espelhado no SQL em 20260813_05.
-    if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM')) return true;
+    if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM', hasSorting)) return true;
     return false;
   }
 
-  return trainingTypes.some(t => (areasUnlockedBy(t) ?? []).length > 0);
+  return trainingTypes.some(t => (areasUnlockedBy(t, hasSorting) ?? []).length > 0);
 }
 
 /** Áreas relevantes para o Índice de Saúde — ASM só entra se a SOC tem sorting. */
@@ -343,7 +369,7 @@ export function calculateSocHealth(
   let sum = 0;
   for (const c of eligibleCollabs) {
     const types = trainingsByCollabId.get(c.id) || [];
-    sum += (countCompletedMicros(types, micros) / N) * 100;
+    sum += (countCompletedMicros(types, micros, hasSorting) / N) * 100;
   }
 
   return {
