@@ -327,9 +327,12 @@ describe('trainingRules — isCollaboratorTrained', () => {
     expect(isCollaboratorTrained('PROCESSAMENTO', ['Onboarding HSE'], false)).toBe(false);
   });
 
+  // Mudou em 03/09/2026: sem sorting a pessoa ia para OUTROS. Agora vai
+  // para PROCESSAMENTO — ver o describe "setor ASM numa SOC sem sorter"
+  // mais abaixo para o porquê.
   it('ASM só é uma área própria quando a SOC tem sorting', () => {
     expect(collaboratorArea('ASM', true)).toBe('ASM');
-    expect(collaboratorArea('ASM', false)).toBe(OTHER_AREA);
+    expect(collaboratorArea('ASM', false)).toBe('PROCESSAMENTO');
     expect(collaboratorArea('Apoio', true)).toBe(OTHER_AREA);
     expect(collaboratorArea('Expedicao', false)).toBe('EXPEDIÇÃO');
   });
@@ -370,6 +373,122 @@ describe('trainingRules — isCollaboratorTrained', () => {
 
     it('não confunde "ASM" no meio do texto com o prefixo — só conta se começar com ASM', () => {
       expect(collaboratorArea('PROCESSAMENTO', true, 'Apoio ASM')).toBe('PROCESSAMENTO');
+    });
+  });
+
+  // Pedido de 02/09/2026: líder (is_leader) com "Onboarding Líderes" ou
+  // "Onboarding Líderes 2.0" conta como treinado, mesmo sem setor
+  // operacional — hoje "Onboarding Lideres" já existe no banco (93 líderes
+  // cadastrados, a maioria sem essa assinatura ainda).
+  describe('Onboarding Líderes credencia quem é líder (is_leader)', () => {
+    it.each([
+      'Onboarding Lideres',       // exato, como está gravado no banco hoje
+      'Onboarding Líderes',       // com acento
+      'Onboarding Líderes 2.0',   // com sufixo de versão
+      'ONBOARDING LIDERES',       // maiúsculas
+    ])('"%s" treina um líder, mesmo sem setor operacional', (treinamento) => {
+      expect(isCollaboratorTrained(null, [treinamento], false, null, true)).toBe(true);
+      expect(isCollaboratorTrained('Gestão', [treinamento], false, null, true)).toBe(true);
+    });
+
+    it('sem is_leader, o mesmo treinamento NÃO credencia ninguém — é onboarding administrativo (regra 3)', () => {
+      expect(isCollaboratorTrained('Gestão', ['Onboarding Lideres'], false, null, false)).toBe(false);
+      expect(isCollaboratorTrained(null, ['Onboarding Lideres'], false)).toBe(false); // isLeader nem informado
+    });
+
+    it('líder sem essa assinatura continua pendente — o treinamento não é automático', () => {
+      expect(isCollaboratorTrained('Gestão', [], false, null, true)).toBe(false);
+      expect(isCollaboratorTrained('Gestão', ['Onboarding HSE'], false, null, true)).toBe(false);
+    });
+
+    it('é um OU a mais: líder com Onboarding PTS (veio da operação) continua treinado sem precisar do Onboarding Líderes', () => {
+      expect(isCollaboratorTrained('RECEBIMENTO', ['Onboarding PTS V3'], false, null, true)).toBe(true);
+    });
+
+    it('"Onboarding Liderança 2.0" (nome diferente, já existe no banco) NÃO bate — só "Líderes"', () => {
+      expect(isCollaboratorTrained('Gestão', ['Onboarding Liderança 2.0'], false, null, true)).toBe(false);
+    });
+  });
+
+  // 03/09/2026 — o bug do Aderson: ele aparecia CERTIFICADO na tela de
+  // Colaboradores (que lê o espelho SQL, sempre frouxo aqui) e PENDENTE na
+  // exportação de Relatórios (que lê este arquivo, que exigia a frase
+  // "ONBOARDING PTS" colada). 852 pessoas em 5 SOCs, todas por causa deste
+  // único nome. SP2 mostrava 32,5% num lado e 77,9% no outro.
+  describe('"Onboarding" + "PTS" contam em qualquer posição do nome', () => {
+    it('"Onboarding Novos Colaboradores PTS" credencia Recebimento, Processamento e Expedição', () => {
+      for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'] as const) {
+        expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], area)).toBe(true);
+      }
+    });
+
+    it('não credencia Tratativas (nenhum onboarding credencia) nem ASM (o nome não diz "Com Sorter")', () => {
+      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'TRATATIVAS')).toBe(false);
+      expect(isAreaTrained(['Onboarding Novos Colaboradores PTS'], 'ASM')).toBe(false);
+    });
+
+    it('o caso relatado: sem setor cadastrado, esse onboarding basta para estar treinado', () => {
+      expect(isCollaboratorTrained('', ['Onboarding Novos Colaboradores PTS'], false)).toBe(true);
+      expect(isCollaboratorTrained(null, ['Onboarding Novos Colaboradores PTS'], false)).toBe(true);
+    });
+
+    it.each([
+      'Onboarding PTS V3',
+      'Onboarding PTS - Sem Sorter',
+      'Onboarding Novos Colaboradores PTS',
+    ])('"%s" não credencia ASM', (treinamento) => {
+      expect(isAreaTrained([treinamento], 'ASM')).toBe(false);
+    });
+
+    it('"Onboarding PTS - Com Sorter" continua sendo o único que credencia ASM', () => {
+      expect(isAreaTrained(['Onboarding PTS - Com Sorter'], 'ASM')).toBe(true);
+    });
+
+    // A contrapartida de afrouxar a posição das palavras: o código do
+    // documento contém "PTS" ("SPX_BR_PTS_SOC_031"). Sem descartá-lo antes
+    // da comparação, QUALQUER onboarding com código no nome credenciaria
+    // três áreas. Não existe nome assim hoje — este teste é o que impede
+    // que passe a existir sem ninguém perceber.
+    it.each([
+      'Onboarding SPX_BR_PTS_SOC_062',
+      'Onboarding HSE SPX_BR_PTS_SOC_031 - V.12',
+    ])('"%s" NÃO credencia nada — o "PTS" ali é código de documento, não o treinamento', (treinamento) => {
+      for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const) {
+        expect(isAreaTrained([treinamento], area)).toBe(false);
+      }
+    });
+
+    it.each([
+      'Onboarding People',
+      'Onboarding HSE',
+      'Onboarding Meio Ambiente',
+      'Onboarding Qualidade',
+      'Onboarding Security',
+    ])('"%s" continua sendo onboarding administrativo — não credencia nada (regra 3)', (treinamento) => {
+      expect(isCollaboratorTrained(null, [treinamento], false)).toBe(false);
+      expect(isCollaboratorTrained('RECEBIMENTO', [treinamento], false)).toBe(false);
+    });
+  });
+
+  // 03/09/2026 — decisão do Ygor: setor "ASM" numa SOC que não tem Sorter é
+  // contradição no dado; a pessoa entra em Processamento em todas as telas.
+  // Antes caía em OUTROS, onde a régua é "qualquer treinamento de área
+  // serve" — diferente da do banco, que a cobrava como ASM. Era o caso da
+  // Kayane (CE3), a única pessoa nessa situação hoje.
+  describe('setor ASM numa SOC sem sorter cai em Processamento', () => {
+    it('sem sorter na SOC, o grupo é Processamento; com sorter, continua ASM', () => {
+      expect(collaboratorArea('ASM', false)).toBe('PROCESSAMENTO');
+      expect(collaboratorArea('ASM', true)).toBe('ASM');
+    });
+
+    it('e passa a ser cobrada pela régua de Processamento', () => {
+      expect(isCollaboratorTrained('ASM', ['Onboarding PTS V3'], false)).toBe(true);
+      expect(isCollaboratorTrained('ASM', ['02. Treinamento Padrão SOC - Processamento'], false)).toBe(true);
+    });
+
+    it('numa SOC COM sorter, setor ASM continua exigindo o treinamento de ASM', () => {
+      expect(isCollaboratorTrained('ASM', ['02. Treinamento Padrão SOC - Processamento'], true)).toBe(false);
+      expect(isCollaboratorTrained('ASM', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true)).toBe(true);
     });
   });
 });

@@ -817,22 +817,30 @@ export default function CollaboratorsPage() {
           <p className="text-xs text-gray-500 font-medium mt-0.5">{displayTotal} funcionários nesta aba</p>
         </div>
         {(isAdmin || isBpo) && (
-          <div className="flex gap-2 flex-wrap items-center">
+          <div className={`flex gap-2 flex-wrap items-center ${currentTab === 'ativos' ? 'flex-1 justify-center' : ''}`}>
             {selectedIds.size > 0 && isAdmin && (
-              <button 
-                onClick={handleBulkDelete} 
+              <button
+                onClick={handleBulkDelete}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all shadow-sm"
               >
                 <Trash2 size={14} /> Excluir {selectedIds.size}
               </button>
             )}
-            <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200">
-              <Download size={14} /> Modelo
-            </button>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer">
-              <Upload size={14} /> Importar
-              <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCSVUpload} className="hidden" />
-            </label>
+            {/* Base Ativa só entra por sincronização com o Sheets — sem
+                cadastro manual, então nem modelo/importar nem novo registro
+                fazem sentido nessa aba. Onboarding e Líderes continuam como
+                estavam. */}
+            {currentTab !== 'ativos' && (
+              <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200">
+                <Download size={14} /> Modelo
+              </button>
+            )}
+            {currentTab !== 'ativos' && (
+              <label className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-gray-700 text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer">
+                <Upload size={14} /> Importar
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCSVUpload} className="hidden" />
+              </label>
+            )}
             {/* Só o master. A sincronização atinge TODAS as unidades de uma
                 vez, então nunca foi uma ação de escopo local. */}
             {isMaster && (
@@ -876,12 +884,14 @@ export default function CollaboratorsPage() {
                 </div>
               </div>
             )}
-            <button 
-              onClick={() => { setForm({ ...emptyForm, is_onboarding: currentTab === 'onboarding' }); setEditingId(null); setShowForm(true); }} 
-              className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md active:scale-95 transition-all"
-            >
-              <Plus size={16} /> Novo Registro
-            </button>
+            {currentTab !== 'ativos' && (
+              <button
+                onClick={() => { setForm({ ...emptyForm, is_onboarding: currentTab === 'onboarding' }); setEditingId(null); setShowForm(true); }}
+                className="flex items-center gap-2 px-5 py-2 rounded-full shopee-gradient-bg text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-md active:scale-95 transition-all"
+              >
+                <Plus size={16} /> Novo Registro
+              </button>
+            )}
           </div>
         )}
       </div>

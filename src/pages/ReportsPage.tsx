@@ -180,7 +180,7 @@ export default function ReportsPage() {
     // exceção do Sorter); para as demais colunas da matriz vale a área pedida.
     const area = (reqType === 'EXPEDICAO' ? 'EXPEDIÇÃO' : reqType) as MacroArea;
     if (collab && collaboratorArea(collab.sector, showAsm, collab.activity) === area) {
-      return isCollaboratorTrained(collab.sector, types, showAsm, collab.activity);
+      return isCollaboratorTrained(collab.sector, types, showAsm, collab.activity, collab.is_leader);
     }
     return isAreaTrained(types, area);
   }, [typesOf, collaboratorMap, showAsm]);
@@ -204,7 +204,7 @@ export default function ReportsPage() {
    */
   const isGenerallyTrained = useCallback((collabId: string) => {
     const collab = collaboratorMap.get(collabId);
-    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm, collab?.activity);
+    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm, collab?.activity, collab?.is_leader);
   }, [collaboratorMap, typesOf, showAsm]);
 
   const loadData = useCallback(async () => {
@@ -512,7 +512,7 @@ export default function ReportsPage() {
       while (hasMore) {
         let q = supabase
           .from('collaborators')
-          .select('id, name, sector, shift, role, leader, soc, bpo, activity')
+          .select('id, name, sector, shift, role, leader, soc, bpo, activity, is_leader')
           .order('sector')
           .order('shift')
           .order('name')
@@ -556,7 +556,7 @@ export default function ReportsPage() {
       // isso a tela de Colaboradores listava 17 pendentes em SC1 e este
       // arquivo trazia 2.
       const pending = allCollabsForExport.filter(c =>
-        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity)
+        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity, c.is_leader)
       );
 
       if (pending.length === 0) {

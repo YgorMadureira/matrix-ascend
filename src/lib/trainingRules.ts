@@ -13,8 +13,11 @@
 // supabase/migrations) — nunca dentro de uma tela.
 //
 // Regras (definidas e validadas com o time de operações):
-//   1. "Onboarding PTS ... Com Sorter"   → acende Receb+Proc+Exped+ASM
-//   2. "Onboarding PTS ..." (V3, Sem Sorter, etc.) → acende Receb+Proc+Exped
+//   1. "Onboarding" + "PTS" + "Com Sorter" → acende Receb+Proc+Exped+ASM
+//   2. "Onboarding" + "PTS" (V3, Sem Sorter, "Novos Colaboradores PTS"...)
+//      → acende Receb+Proc+Exped. As duas palavras contam em qualquer
+//      posição do nome, e o código do documento é descartado antes da
+//      comparação (senão o "PTS" de SPX_BR_PTS_SOC_031 acenderia áreas).
 //   3. Qualquer outro "Onboarding ..." (People/HSE/Security/Qualidade/
 //      Meio Ambiente) → treinamento administrativo, NÃO acende nada
 //   4. "Treinamento Padrão SOC - <ÁREA>" onde <ÁREA> é exatamente uma
@@ -46,6 +49,8 @@ export interface CollaboratorLite {
   role?: string | null;
   /** Usado só para achar quem faz Sorter dentro do setor Processamento — ver collaboratorArea(). */
   activity?: string | null;
+  /** Líder tem o próprio caminho para "treinado" — ver isCollaboratorTrained(). */
+  is_leader?: boolean;
 }
 
 /** Remove acentos, caixa e pontuação — base de toda comparação de texto aqui. */
@@ -94,7 +99,19 @@ export function normalizeMacroArea(raw: string | null | undefined): MacroArea | 
 function areasUnlockedBy(trainingType: string): MacroArea[] | null {
   const t = stripVersionAndCode(normalizeText(trainingType));
 
-  if (t.includes('ONBOARDING PTS')) {
+  // "ONBOARDING" e "PTS" em QUALQUER posição, não a frase colada. O nome
+  // real usado na operação é "Onboarding Novos Colaboradores PTS" (1.314
+  // assinaturas) — com a exigência da frase contígua ele caía na regra 3
+  // ("onboarding administrativo, não acende nada") e 852 pessoas apareciam
+  // CERTIFICADO na tela de Colaboradores (que usa o espelho SQL, sempre
+  // frouxo aqui) e PENDENTE nos Relatórios. SP2 mostrava 32,5% de um lado e
+  // 77,9% do outro. Descoberto em 03/09/2026.
+  //
+  // A ordem importa: stripVersionAndCode já removeu o código do documento
+  // acima, então o "PTS" de "SPX_BR_PTS_SOC_031" não chega aqui e um
+  // "Onboarding <código>" continua não acendendo nada. O espelho SQL passou
+  // a remover o código pelo mesmo motivo — ver strip_training_code.
+  if (t.includes('ONBOARDING') && t.includes('PTS')) {
     if (t.includes('COM SORTER')) return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'ASM'];
     return ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'];
   }
@@ -192,18 +209,25 @@ function isAsmActivity(activity: string | null | undefined): boolean {
  * Em que grupo do relatório este colaborador cai — cada pessoa cai em
  * exatamente um.
  *
- * A exceção do Sorter (ver isCollaboratorTrained) resolve "está treinado?"
- * mesmo sem isto — mas sem olhar activity, todo mundo do Sorter cai no
- * grupo PROCESSAMENTO pelo setor, e o card de ASM fica sempre 0/0, porque
- * NENHUM colaborador tem sector literalmente "ASM" nos dados reais (RH usa
- * "Processamento" mesmo para quem faz Sorter). Descoberto em RJ2 em
- * 02/09/2026: a matriz de certificação (que decide por treinamento, não por
- * setor) mostrava os ticks de ASM acesos para centenas de pessoas, e o card
- * de cima mostrava "ASM 0/0" — o card e a matriz respondiam perguntas
- * diferentes sem ninguém perceber. RJ2 tinha 392 pessoas assim, SP8 771,
- * SP2 331 (MG2 não tem essa distinção nos dados — activity é sempre
- * "Esteira | Processamento" lá, então continua 0/0, e está correto: não há
- * como saber quem é Sorter sem essa marcação).
+ * Duas coisas apontam alguém para ASM, e as duas são necessárias:
+ *
+ *  · o setor, quando o RH escreve "ASM" mesmo (1.494 pessoas em 03/09/2026,
+ *    todas em SP2/SP8/RJ2). ⚠️ Até 02/09 NENHUMA linha tinha esse setor e
+ *    este comentário dizia isso — o dado mudou desde então. Não confie na
+ *    ausência dele;
+ *  · a activity, para quem o RH deixou em "Processamento" mas trabalha no
+ *    Sorter. Sem ela, essas pessoas caíam todas em PROCESSAMENTO e o card de
+ *    ASM ficava 0/0 enquanto a matriz de certificação (que decide por
+ *    treinamento, não por setor) mostrava os ticks acesos — o card e a matriz
+ *    respondendo perguntas diferentes sem ninguém perceber (RJ2, 02/09/2026).
+ *    Formatos reais: "ASM | Chutes" (RJ2), "ASM - Looping C" (SP8), "ASM
+ *    Nível 1" (SP2). MG2 não marca activity, então lá não há como separar.
+ *
+ * Setor ASM numa SOC SEM sorter é contradição no dado (a unidade não tem
+ * Sorter). Nesses casos a pessoa entra em PROCESSAMENTO — decisão de
+ * 03/09/2026; antes caía em OUTROS, o que a tirava da área operacional e a
+ * fazia ser cobrada por uma régua diferente da do banco. Hoje é 1 pessoa
+ * (CE3), mas a regra vale para qualquer unidade nova sem sorter.
  */
 export function collaboratorArea(
   sector: string | null | undefined,
@@ -212,9 +236,19 @@ export function collaboratorArea(
 ): StatArea {
   const area = normalizeMacroArea(sector);
   if (!area) return OTHER_AREA;
-  if (area === 'ASM') return hasSorting ? 'ASM' : OTHER_AREA;
+  if (area === 'ASM') return hasSorting ? 'ASM' : 'PROCESSAMENTO';
   if (hasSorting && area === 'PROCESSAMENTO' && isAsmActivity(activity)) return 'ASM';
   return area;
+}
+
+/**
+ * Onboarding específico de líder: "Onboarding Líderes", "Onboarding
+ * Líderes 2.0" (ou qualquer versão futura — é um "contém", não exige o
+ * nome exato). normalizeText já cuida de acento/caixa/pontuação, então
+ * "Líderes" e "Lideres" batem igual.
+ */
+function isLeaderOnboarding(trainingType: string): boolean {
+  return normalizeText(trainingType).includes('ONBOARDING LIDERES');
 }
 
 /**
@@ -224,20 +258,31 @@ export function collaboratorArea(
  * status em Colaboradores, filtro e exportação de pendentes em
  * Relatórios — precisa chamar esta função, e nenhuma outra.
  *
+ *  · Líder (is_leader) com "Onboarding Líderes"/"Onboarding Líderes 2.0"
+ *    → treinado, ponto — não depende de setor. Decisão de 02/09/2026: o
+ *    onboarding de líder é um trilho próprio, separado do sistema de áreas
+ *    operacionais. É um OU a mais, não troca nada: um líder que já esteja
+ *    treinado por outra via (veio da operação, tem Onboarding PTS) continua
+ *    contando também.
  *  · Quem está numa macro-área operacional → precisa de um treinamento
  *    que acenda A ÁREA DELE. Ter feito o treinamento de outra área não
  *    conta (era o furo da exportação de pendentes: alguém do Recebimento
  *    que só fez o de Processamento saía como treinado).
  *  · Quem NÃO está numa macro-área operacional (Apoio, Almox, sem setor)
  *    → basta ter um treinamento que acenda qualquer área, porque o
- *    Onboarding PTS cobre todas elas (decisão de 13/08/2026).
+ *    Onboarding PTS cobre todas elas (decisão de 13/08/2026). Onboarding
+ *    Líderes NÃO entra aqui — é onboarding administrativo, sem is_leader
+ *    ele não credencia ninguém (mesma regra 3 do motor).
  */
 export function isCollaboratorTrained(
   sector: string | null | undefined,
   trainingTypes: string[],
   hasSorting: boolean,
-  activity?: string | null
+  activity?: string | null,
+  isLeader?: boolean
 ): boolean {
+  if (isLeader && trainingTypes.some(isLeaderOnboarding)) return true;
+
   const area = collaboratorArea(sector, hasSorting, activity);
 
   if (area !== OTHER_AREA) {
@@ -334,7 +379,7 @@ export function calculateAreaStats(
     const areaCollabs = collaborators.filter(c => collaboratorArea(c.sector, hasSorting, c.activity) === area);
     const total = areaCollabs.length;
     const trained = areaCollabs.filter(c =>
-      isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity)
+      isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity, c.is_leader)
     ).length;
     return { area, total, trained, pct: total > 0 ? Number(((trained / total) * 100).toFixed(1)) : 0 };
   });
@@ -376,7 +421,7 @@ export function calculateUnitStats(
     const bucket = buckets.get(collaboratorArea(c.sector, hasSorting, c.activity));
     if (!bucket) continue;
     bucket.total++;
-    if (isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity)) bucket.trained++;
+    if (isCollaboratorTrained(c.sector, trainingsByCollabId.get(c.id) || [], hasSorting, c.activity, c.is_leader)) bucket.trained++;
   }
 
   const byArea = areas.map(area => {
