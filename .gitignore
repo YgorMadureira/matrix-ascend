@@ -35,4 +35,5 @@ BLOCO *.csv
 modelo_assinaturas.xlsx
 pendentes_treinamento.xlsx
 pendentes_*.xlsx
+mesclagem_duplicados_*.xlsx
 ~$*.xlsx

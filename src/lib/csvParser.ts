@@ -163,6 +163,17 @@ export function getField(cells: string[], header: string[], names: string[]): st
   return '';
 }
 
+/**
+ * Mesmo `getField`, mas em MAIÚSCULO — usado nos campos de conteúdo
+ * (nome, setor, cargo, líder...) importados por CSV/XLSX. O banco também
+ * normaliza isso via trigger (ver supabase/migrations/20260903_02_normaliza_maiusculo.sql),
+ * então isto aqui é redundante para a correção final, mas evita que o
+ * usuário veja o dado em caixa mista entre o upload e o próximo refetch.
+ */
+function getFieldUpper(cells: string[], header: string[], names: string[]): string {
+  return getField(cells, header, names).toUpperCase();
+}
+
 /** dd/mm/yyyy → yyyy-mm-dd, validando a data resultante. Retorna null se o formato não bater. */
 export function parseBrDate(raw: string): string | null {
   if (!raw || !raw.includes('/')) return null;
@@ -208,12 +219,12 @@ export interface LeaderCsvRow {
  */
 export function mapLeaderRow(cells: string[], header: string[]): LeaderCsvRow {
   return {
-    name: getField(cells, header, ['nome', 'lider', 'líder', 'name', 'leader', 'colaborador']),
+    name: getFieldUpper(cells, header, ['nome', 'lider', 'líder', 'name', 'leader', 'colaborador']),
     email: getField(cells, header, ['e-mail', 'email', 'e mail', 'mail']).toLowerCase(),
-    sector: getField(cells, header, ['setor', 'sector', 'area', 'área']),
-    activity: getField(cells, header, ['atividade', 'activity', 'funcao real']),
-    shift: getField(cells, header, ['turno', 'shift', 'periodo']),
-    leader: getField(cells, header, ['gestor', 'manager', 'responsavel', 'responsável', 'lider direto']),
+    sector: getFieldUpper(cells, header, ['setor', 'sector', 'area', 'área']),
+    activity: getFieldUpper(cells, header, ['atividade', 'activity', 'funcao real']),
+    shift: getFieldUpper(cells, header, ['turno', 'shift', 'periodo']),
+    leader: getFieldUpper(cells, header, ['gestor', 'manager', 'responsavel', 'responsável', 'lider direto']),
     soc: getField(cells, header, ['soc', 'unidade', 'unit']).toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2'),
   };
 }
@@ -221,16 +232,16 @@ export function mapLeaderRow(cells: string[], header: string[]): LeaderCsvRow {
 /** Mapeia uma linha de CSV para os campos de collaborators, usando os aliases de coluna conhecidos. */
 export function mapCollaboratorRow(cells: string[], header: string[]): CollaboratorCsvRow {
   return {
-    name: getField(cells, header, ['colaborador', 'nome', 'name', 'colaboradores']),
-    gender: getField(cells, header, ['genero', 'gênero', 'gender', 'sexo']),
-    role: getField(cells, header, ['cargo', 'role', 'funcao', 'função']),
+    name: getFieldUpper(cells, header, ['colaborador', 'nome', 'name', 'colaboradores']),
+    gender: getFieldUpper(cells, header, ['genero', 'gênero', 'gender', 'sexo']),
+    role: getFieldUpper(cells, header, ['cargo', 'role', 'funcao', 'função']),
     soc: getField(cells, header, ['soc', 'unidade', 'unit']).toUpperCase().replace(/^([A-Z]+)0([0-9]+)$/, '$1$2'),
     opsid: getField(cells, header, ['opsid', 'ops id', 'matricula', 'id']),
-    bpo: getField(cells, header, ['bpo', 'empresa']),
-    shift: getField(cells, header, ['turno', 'shift', 'periodo']),
-    sector: getField(cells, header, ['setor', 'sector', 'area', 'área']),
-    leader: getField(cells, header, ['lider', 'líder', 'leader', 'gestor']),
-    activity: getField(cells, header, ['atividade', 'activity', 'funcao real']),
+    bpo: getFieldUpper(cells, header, ['bpo', 'empresa']),
+    shift: getFieldUpper(cells, header, ['turno', 'shift', 'periodo']),
+    sector: getFieldUpper(cells, header, ['setor', 'sector', 'area', 'área']),
+    leader: getFieldUpper(cells, header, ['lider', 'líder', 'leader', 'gestor']),
+    activity: getFieldUpper(cells, header, ['atividade', 'activity', 'funcao real']),
     admission_date: parseBrDate(getField(cells, header, ['data de admissão', 'data de admissao', 'data admissao', 'admissao', 'admission'])),
   };
 }

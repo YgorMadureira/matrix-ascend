@@ -115,6 +115,18 @@ function parseCsv(text: string, sep: string): string[][] {
 const normalizeHeader = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const clean = (v: string | undefined): string | null => (!v || v.trim() === '-' || v.trim() === '') ? null : v.trim();
 
+// Mesmo `clean`, mas em MAIÚSCULO — usado nos campos de conteúdo (nome,
+// setor, cargo...). O banco também normaliza isso via trigger (ver
+// supabase/migrations/20260903_02_normaliza_maiusculo.sql), o que já
+// garante a correção final independente daqui; isto só evita que uma
+// linha nova fique com case misto até o próximo refetch. Também fecha uma
+// inconsistência antiga: `soc` já era normalizado no parser do frontend
+// (src/lib/csvParser.ts) mas não aqui.
+const cleanUpper = (v: string | undefined): string | null => {
+  const c = clean(v);
+  return c ? c.toUpperCase() : c;
+};
+
 function parseBrDate(raw: string): string | null {
   if (!raw || !raw.includes('/')) return null;
   const parts = raw.split('/');
@@ -147,20 +159,20 @@ function parseSheet(rawText: string): ParsedRow[] {
   const rows: ParsedRow[] = [];
   for (const cells of all.slice(1)) {
     if (!cells.some(c => c !== '')) continue;
-    const name = get(cells, ['colaborador', 'nome', 'name', 'colaboradores']).trim();
+    const name = get(cells, ['colaborador', 'nome', 'name', 'colaboradores']).trim().toUpperCase();
     if (!name || name.length < 2) continue;
     rows.push({
       name,
-      gender: clean(get(cells, ['genero', 'gênero', 'gender', 'sexo'])),
+      gender: cleanUpper(get(cells, ['genero', 'gênero', 'gender', 'sexo'])),
       admission_date: parseBrDate(get(cells, ['data admissao', 'data de admissão', 'admissao', 'admission', 'data_admissao'])),
-      shift: clean(get(cells, ['turno', 'shift', 'periodo'])),
-      sector: clean(get(cells, ['setor', 'sector', 'area', 'departamento'])),
-      leader: clean(get(cells, ['lider', 'líder', 'leader', 'gestor'])),
+      shift: cleanUpper(get(cells, ['turno', 'shift', 'periodo'])),
+      sector: cleanUpper(get(cells, ['setor', 'sector', 'area', 'departamento'])),
+      leader: cleanUpper(get(cells, ['lider', 'líder', 'leader', 'gestor'])),
       opsid: clean(get(cells, ['ops id', 'opsid', 'matricula', 'id'])),
-      bpo: clean(get(cells, ['bpo', 'empresa'])),
-      role: clean(get(cells, ['cargo', 'role', 'função', 'funcao'])),
-      activity: clean(get(cells, ['atividade', 'activity', 'funcao real'])),
-      soc: clean(get(cells, ['soc', 'unidade', 'unit'])) || 'SP6',
+      bpo: cleanUpper(get(cells, ['bpo', 'empresa'])),
+      role: cleanUpper(get(cells, ['cargo', 'role', 'função', 'funcao'])),
+      activity: cleanUpper(get(cells, ['atividade', 'activity', 'funcao real'])),
+      soc: cleanUpper(get(cells, ['soc', 'unidade', 'unit'])) || 'SP6',
       is_onboarding: false,
     });
   }

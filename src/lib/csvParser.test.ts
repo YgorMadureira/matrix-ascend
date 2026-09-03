@@ -154,20 +154,25 @@ describe('csvParser — parseBrDate', () => {
 });
 
 describe('csvParser — mapCollaboratorRow', () => {
-  it('mapeia todas as colunas pelos aliases conhecidos', () => {
+  // Pedido de 03/09/2026: todo texto de conteúdo entra em MAIÚSCULO,
+  // independente de como foi digitado na planilha de origem — o banco
+  // também normaliza isso via trigger (20260903_02_normaliza_maiusculo),
+  // isto aqui só evita caixa mista entre o upload e o próximo refetch.
+  // opsid fica de fora: é um identificador, não "conteúdo".
+  it('mapeia todas as colunas pelos aliases conhecidos, em MAIÚSCULO (exceto opsid)', () => {
     const header = ['colaborador', 'genero', 'cargo', 'soc', 'ops id', 'bpo', 'turno', 'setor', 'lider', 'atividade', 'data de admissao'];
     const cells = ['João Silva', 'M', 'AUXILIAR', 'sp06', '12345', 'Foco', 'T1', 'RECEBIMENTO', 'Maria Souza', 'CONFERENCIA', '05/03/2026'];
     const row = mapCollaboratorRow(cells, header);
     expect(row).toEqual({
-      name: 'João Silva',
+      name: 'JOÃO SILVA',
       gender: 'M',
       role: 'AUXILIAR',
       soc: 'SP6', // sp06 -> maiúsculo e zero interno removido
       opsid: '12345',
-      bpo: 'Foco',
+      bpo: 'FOCO',
       shift: 'T1',
       sector: 'RECEBIMENTO',
-      leader: 'Maria Souza',
+      leader: 'MARIA SOUZA',
       activity: 'CONFERENCIA',
       admission_date: '2026-03-05',
     });
@@ -184,25 +189,25 @@ describe('csvParser — mapCollaboratorRow', () => {
 });
 
 describe('csvParser — mapLeaderRow', () => {
-  it('mapeia as colunas do modelo de líderes', () => {
+  it('mapeia as colunas do modelo de líderes, em MAIÚSCULO (exceto e-mail)', () => {
     const header = ['nome', 'e-mail', 'setor', 'atividade', 'turno', 'gestor', 'soc'];
     const cells = ['Maria Souza', 'Maria.Souza@Shopee.com', 'RECEBIMENTO', 'Docas LH', 'T3', 'Carlos Lima', 'sp06'];
     expect(mapLeaderRow(cells, header)).toEqual({
-      name: 'Maria Souza',
+      name: 'MARIA SOUZA',
       email: 'maria.souza@shopee.com', // e-mail sempre minúsculo: é a chave do vínculo com o time
       sector: 'RECEBIMENTO',
-      activity: 'Docas LH',
+      activity: 'DOCAS LH',
       shift: 'T3',
-      leader: 'Carlos Lima',
+      leader: 'CARLOS LIMA',
       soc: 'SP6',
     });
   });
 
   // O header chega aqui já normalizado por parseDelimitedText (sem acento,
   // minúsculo) — por isso o alias é 'lider' e não 'líder'.
-  it('aceita "lider" como sinônimo de nome e campos ausentes viram vazio', () => {
+  it('aceita "lider" como sinônimo de nome, em MAIÚSCULO, e campos ausentes viram vazio', () => {
     const row = mapLeaderRow(['Ana Paula'], ['lider']);
-    expect(row.name).toBe('Ana Paula');
+    expect(row.name).toBe('ANA PAULA');
     expect(row.email).toBe('');
     expect(row.soc).toBe('');
   });
