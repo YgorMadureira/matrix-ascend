@@ -293,7 +293,10 @@ function isLeaderOnboarding(trainingType: string): boolean {
  *  · Quem está numa macro-área operacional → precisa de um treinamento
  *    que acenda A ÁREA DELE. Ter feito o treinamento de outra área não
  *    conta (era o furo da exportação de pendentes: alguém do Recebimento
- *    que só fez o de Processamento saía como treinado).
+ *    que só fez o de Processamento saía como treinado). "A área dele" são
+ *    duas: a do grupo em que ele é contado (que a activity pode ter
+ *    promovido para ASM) E a do setor em que ele está cadastrado — as duas
+ *    credenciam, ver o corpo da função.
  *  · Quem NÃO está numa macro-área operacional (Apoio, Almox, sem setor)
  *    → basta ter um treinamento que acenda qualquer área, porque o
  *    Onboarding PTS cobre todas elas (decisão de 13/08/2026). Onboarding
@@ -313,6 +316,24 @@ export function isCollaboratorTrained(
 
   if (area !== OTHER_AREA) {
     if (isAreaTrained(trainingTypes, area, hasSorting)) return true;
+
+    // O treinamento do SETOR CADASTRADO sempre credencia.
+    //
+    // `area` acima pode ter sido promovida para ASM pela activity (ver
+    // collaboratorArea). Essa promoção existe para a pessoa ser CONTADA no
+    // grupo certo do relatório — ela nunca deveria ter passado a EXIGIR o
+    // treinamento de ASM no lugar do treinamento do setor dela.
+    //
+    // Achado em SP2 em 16/09/2026: 10 líderes com setor "PROCESSAMENTO" e
+    // activity "ASM" apareciam pendentes. O caso mais claro era uma líder
+    // com os QUATRO treinamentos de área assinados (Recebimento,
+    // Processamento, Expedição e Tratativas) marcada como pendente só por
+    // não ter o "Sorter (ASM)". A regra era assimétrica: quem caía em
+    // PROCESSAMENTO era aceito pelo treinamento de ASM (linha abaixo), mas
+    // o contrário não valia.
+    const sectorArea = normalizeMacroArea(sector);
+    if (sectorArea && sectorArea !== area && isAreaTrained(trainingTypes, sectorArea, hasSorting)) return true;
+
     // Exceção do Sorter, para quando activity não identificou a pessoa como
     // Sorter (área ficou PROCESSAMENTO mesmo assim — ex: MG2, que não marca
     // activity, ou um caso de digitação diferente). Nas SOCs com ASM, quem

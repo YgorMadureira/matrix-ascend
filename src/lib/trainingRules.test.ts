@@ -375,6 +375,48 @@ describe('trainingRules — isCollaboratorTrained', () => {
     it('não confunde "ASM" no meio do texto com o prefixo — só conta se começar com ASM', () => {
       expect(collaboratorArea('PROCESSAMENTO', true, 'Apoio ASM')).toBe('PROCESSAMENTO');
     });
+
+    // 16/09/2026 — SP2: 10 líderes com setor "PROCESSAMENTO" e activity
+    // "ASM" apareciam pendentes mesmo tendo o treinamento do próprio setor.
+    // A promoção por activity existe para CONTAR a pessoa no grupo ASM, não
+    // para exigir dela um treinamento diferente do do setor onde está.
+    it('promovido para ASM pela activity continua credenciado pelo treinamento do SETOR dele', () => {
+      const soTemProcessamento = ['02. Treinamento Padrão SOC - Processamento'];
+      // continua contando no grupo ASM (o card de ASM não regride)
+      expect(collaboratorArea('PROCESSAMENTO', true, 'ASM')).toBe('ASM');
+      // ...mas o treinamento do setor dele credencia
+      expect(isCollaboratorTrained('PROCESSAMENTO', soTemProcessamento, true, 'ASM')).toBe(true);
+      expect(isCollaboratorTrained('PROCESSAMENTO', soTemProcessamento, true, 'ASM | Chutes')).toBe(true);
+    });
+
+    it('o caso relatado: líder com as quatro áreas assinadas não pode ficar pendente por falta do Sorter', () => {
+      const quatroAreas = [
+        '01. Treinamento Padrão SOC - Recebimento',
+        '02. Treinamento Padrão SOC - Processamento',
+        '03. Treinamento Padrão SOC - Expedição',
+        '04. Treinamento Padrão SOC - Tratativas',
+      ];
+      expect(isCollaboratorTrained('PROCESSAMENTO', quatroAreas, true, 'ASM', true)).toBe(true);
+    });
+
+    it('o treinamento de ASM continua credenciando quem foi promovido para ASM', () => {
+      expect(
+        isCollaboratorTrained('PROCESSAMENTO', ['06. Treinamento Padrão SOC - Sorter (ASM)'], true, 'ASM')
+      ).toBe(true);
+    });
+
+    it('ainda pendente quem não tem NEM o treinamento do setor NEM o de ASM', () => {
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['01. Treinamento Padrão SOC - Recebimento'], true, 'ASM')).toBe(false);
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['Onboarding HSE'], true, 'ASM')).toBe(false);
+      expect(isCollaboratorTrained('PROCESSAMENTO', [], true, 'ASM')).toBe(false);
+    });
+
+    // A regra nova é "o setor cadastrado também credencia" — ela não pode
+    // reabrir o furo antigo de aceitar o treinamento de QUALQUER área.
+    it('não reabre o furo: treinamento de outra área continua não credenciando', () => {
+      expect(isCollaboratorTrained('RECEBIMENTO', ['02. Treinamento Padrão SOC - Processamento'], true, null)).toBe(false);
+      expect(isCollaboratorTrained('EXPEDIÇÃO', ['01. Treinamento Padrão SOC - Recebimento'], false, null)).toBe(false);
+    });
   });
 
   // Pedido de 02/09/2026: líder (is_leader) com "Onboarding Líderes" ou
