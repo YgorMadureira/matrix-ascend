@@ -28,6 +28,8 @@ dist-ssr
 
 # Pacote de resgate do incidente 11/08 — contem imagens de assinatura (dado pessoal)
 resgate_pos_backup_*.json
+# Registro para desfazer a religação de assinaturas órfãs — contém nomes de colaboradores
+religacao_orfas_*.json
 
 # Exports de diagnostico do banco (inventario, planilhas de importacao/relatorio) —
 # detalhe interno de schema e dado de colaborador, nao pertence ao repositorio

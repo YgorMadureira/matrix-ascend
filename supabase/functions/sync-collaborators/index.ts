@@ -26,6 +26,9 @@
 //     são cadastrados e removidos manualmente pelos admins — a sincronização
 //     nunca os apaga.
 //   - Colaboradores em onboarding (is_onboarding) também ficam fora da remoção.
+//   - Ao final de TODA execução, assinaturas órfãs são religadas
+//     (relink_orphan_trainings, no banco): quem foi removido e voltou à
+//     planilha é recriado com id novo, e sem isso apareceria como pendente.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -359,27 +362,68 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Pós-processamento: falhas aqui NÃO são falhas de gravação da planilha.
+    // Até 16/09/2026 elas iam para writeErrors, e um timeout do vínculo de
+    // líderes aparecia no resumo como "1 lote(s) com erro" — escondendo
+    // quantos foram removidos e fazendo parecer que a gravação tinha falhado.
+    const avisos: string[] = [];
+
+    // ── Religação de assinaturas órfãs ─────────────────────────
+    // Se esta ou uma sincronização anterior removeu alguém que depois voltou
+    // à planilha (fonte do Sheets fora do ar por um dia, aba sem acesso), a
+    // pessoa foi recriada com id NOVO e as assinaturas dela ficaram soltas —
+    // ela aparece como pendente sem estar. Rodar a religação ao final de TODA
+    // sincronização desfaz isso na mesma execução que recriou a pessoa.
+    // A regra (e suas travas contra homônimo) mora no banco:
+    // relink_orphan_trainings(), migração 20260916_02.
+    //
+    // A contagem vem da diferença de órfãs antes/depois, e não do tamanho da
+    // resposta: a API devolve no máximo 1.000 linhas, então contar as linhas
+    // devolvidas travaria em 1.000 justamente num incidente grande (RJ2 teve
+    // ~1.900 pessoas removidas). range(0,0) só limita o que VOLTA — a função
+    // grava todas as religáveis dentro do banco.
+    let relinked: number | undefined;
+    const contarOrfas = async () => {
+      const { count } = await admin
+        .from('trainings_completed')
+        .select('id', { count: 'exact', head: true })
+        .is('collaborator_id', null);
+      return count;
+    };
+    const orfasAntes = await contarOrfas();
+    const { error: relinkErr } = await admin
+      .rpc('relink_orphan_trainings', { p_aplicar: true })
+      .eq('situacao', 'religavel')
+      .range(0, 0);
+    if (relinkErr) {
+      avisos.push('Religação de assinaturas: ' + relinkErr.message);
+    } else {
+      const orfasDepois = await contarOrfas();
+      if (orfasAntes != null && orfasDepois != null) relinked = orfasAntes - orfasDepois;
+    }
+
     // ── Vínculo com os líderes ─────────────────────────────────
     // A planilha reescreve o campo `leader` (texto livre) a cada sync, então
     // o vínculo resolvido precisa ser refeito na sequência — senão alguém que
     // mudou de líder na planilha continua pendurado no líder antigo.
-    // Não é motivo para falhar o sync: se der erro aqui, os colaboradores já
-    // foram atualizados e o vínculo pode ser refeito depois pela tela.
     let leaderLinks: number | undefined;
     const { data: linksData, error: linksErr } = await admin.rpc('resolve_leader_links');
-    if (linksErr) writeErrors.push('Vínculo de líderes: ' + linksErr.message);
+    if (linksErr) avisos.push('Vínculo de líderes: ' + linksErr.message);
     else leaderLinks = linksData as number;
 
     // Carimbo da execução. É por ele que a tela confirma que o agendamento
     // das 05h está vivo — antes disso, a única pista era o localStorage do
     // navegador de quem tinha clicado no botão.
-    const resumo = writeErrors.length
-      ? `${upserted} atualizados, ${writeErrors.length} lote(s) com erro`
-      : `${upserted} atualizados, ${removed} removidos` +
-        (blockedSocs.length
-          ? `, ${blockedSocs.length} unidade(s) travada(s) por segurança (${blockedSocs.map(b => b.soc).join(', ')})`
-          : '');
-    await registrarExecucao(admin, ehCron, writeErrors.length === 0, resumo);
+    const resumo =
+      (writeErrors.length
+        ? `${upserted} atualizados, ${writeErrors.length} lote(s) com erro de gravação`
+        : `${upserted} atualizados, ${removed} removidos`) +
+      (relinked ? `, ${relinked} assinaturas religadas` : '') +
+      (blockedSocs.length
+        ? `, ${blockedSocs.length} unidade(s) travada(s) por segurança (${blockedSocs.map(b => b.soc).join(', ')})`
+        : '') +
+      (avisos.length ? ` — aviso: ${avisos.join(' | ')}` : '');
+    await registrarExecucao(admin, ehCron, writeErrors.length === 0 && avisos.length === 0, resumo);
 
     return json({
       ok: true,
@@ -387,10 +431,12 @@ Deno.serve(async (req) => {
       uniqueRows: rows.length,
       upserted,
       removed,
+      relinked,
       leaderLinks,
       deletionSkipped,
       blockedSocs: blockedSocs.length ? blockedSocs : undefined,
       errors: writeErrors.length ? writeErrors.slice(0, 20) : undefined,
+      warnings: avisos.length ? avisos : undefined,
       finishedAt: new Date().toISOString(),
     });
   } catch (err) {

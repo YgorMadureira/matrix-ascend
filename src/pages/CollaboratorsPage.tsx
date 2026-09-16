@@ -260,7 +260,18 @@ export default function CollaboratorsPage() {
       } else if (data?.deletionSkipped) {
         toast.warning(`${data.upserted} atualizados/inseridos. ${data.deletionSkipped}`, { id: toastId, duration: 12000 });
       } else {
-        toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos.`, { id: toastId });
+        // relinked: assinaturas de gente que foi removida e voltou à planilha,
+        // religadas na mesma execução (ver relink_orphan_trainings no banco).
+        const religadas = data.relinked ? `, ${data.relinked} assinaturas religadas` : '';
+        toast.success(`Sincronização concluída! ${data.upserted} atualizados/inseridos, ${data.removed} removidos${religadas}.`, { id: toastId });
+      }
+
+      // Pós-processamento (religação de assinaturas, vínculo de líderes): a
+      // planilha foi gravada, mas um passo posterior falhou. Até 16/09/2026
+      // isso aparecia como "lote não gravou", o que não era verdade.
+      if (data?.warnings?.length) {
+        console.warn('[Sync] Avisos do pós-processamento:', data.warnings);
+        toast.warning(`Planilha gravada, mas: ${(data.warnings as string[]).join(' | ')}`, { duration: 15000 });
       }
 
       // ── Trava por unidade ──────────────────────────────────
