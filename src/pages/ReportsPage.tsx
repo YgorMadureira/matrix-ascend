@@ -607,6 +607,108 @@ export default function ReportsPage() {
     }
   };
 
+  // ============================================================
+  // EXPORTAÇÃO: TODOS os colaboradores da unidade, com o status de cada um
+  // ============================================================
+  // Mesma fonte de dados e a MESMA regra canônica (isCollaboratorTrained) de
+  // exportPendingCollaborators acima — a diferença é que aqui ninguém fica
+  // de fora: cada colaborador sai com "CERTIFICADO" ou "PENDENTE", os mesmos
+  // dois rótulos já usados na coluna de Status da tela de Colaboradores.
+  const exportAllCollaboratorsStatus = async () => {
+    setIsExporting(true);
+    try {
+      // soc null = admin sem unidade restrita → exporta de todas as unidades.
+      const USER_SOC = effectiveSoc;
+
+      const allCollabsForExport: any[] = [];
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        let q = supabase
+          .from('collaborators')
+          .select('id, name, sector, shift, role, leader, soc, bpo, activity, is_leader')
+          .order('sector')
+          .order('shift')
+          .order('name')
+          .range(page * 1000, (page + 1) * 1000 - 1);
+        if (USER_SOC) q = q.eq('soc', USER_SOC);
+        const { data, error } = await q;
+        if (error || !data) break;
+        allCollabsForExport.push(...data);
+        if (data.length < 1000) hasMore = false;
+        else page++;
+      }
+
+      if (allCollabsForExport.length === 0) {
+        toast.error('Nenhum colaborador encontrado' + (USER_SOC ? ` no SOC ${USER_SOC}` : '') + '.');
+        setIsExporting(false);
+        return;
+      }
+
+      const allTrainingsForExport: any[] = [];
+      let tPage = 0;
+      let tHasMore = true;
+      while (tHasMore) {
+        const { data, error } = await supabase
+          .from('trainings_completed')
+          .select('collaborator_id, training_type')
+          .range(tPage * 1000, (tPage + 1) * 1000 - 1);
+        if (error || !data) break;
+        allTrainingsForExport.push(...data);
+        if (data.length < 1000) tHasMore = false;
+        else tPage++;
+      }
+
+      const trainingsMapExport = new Map<string, string[]>();
+      allTrainingsForExport.forEach(t => {
+        const arr = trainingsMapExport.get(t.collaborator_id) || [];
+        arr.push(t.training_type || '');
+        trainingsMapExport.set(t.collaborator_id, arr);
+      });
+
+      const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO', 'Status', 'Treinamentos ja assinados'];
+      const rows = allCollabsForExport.map(c => {
+        const treinado = isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity, c.is_leader);
+        return [
+          c.name || '',
+          c.sector || '',
+          c.shift || '',
+          c.role || '',
+          c.leader || '',
+          c.soc || '',
+          c.bpo || '',
+          treinado ? 'CERTIFICADO' : 'PENDENTE',
+          [...new Set(trainingsMapExport.get(c.id) || [])].join(' | '),
+        ];
+      });
+
+      const csvContent = [
+        headers.join(';'),
+        ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      ].join('\n');
+
+      const BOM = '﻿';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      link.href = url;
+      link.download = `colaboradores_status_${USER_SOC || 'todas_socs'}_${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const treinados = rows.filter(r => r[7] === 'CERTIFICADO').length;
+      toast.success(`${allCollabsForExport.length} colaboradores exportados (${treinados} certificados, ${allCollabsForExport.length - treinados} pendentes)!`);
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      toast.error('Erro ao gerar o arquivo. Tente novamente.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -688,6 +790,29 @@ export default function ReportsPage() {
               <>
                 <Download size={13} />
                 Exportar Pendentes
+              </>
+            )}
+          </button>
+
+          <button
+            id="btn-export-all-status"
+            onClick={exportAllCollaboratorsStatus}
+            disabled={isExporting}
+            title={effectiveSoc ? `Exportar todos os colaboradores do SOC ${effectiveSoc}, com status` : 'Exportar todos os colaboradores de todas as SOCs, com status'}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 border border-gray-200 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Gerando...
+              </>
+            ) : (
+              <>
+                <FileDown size={13} />
+                Exportar Todos + Status
               </>
             )}
           </button>

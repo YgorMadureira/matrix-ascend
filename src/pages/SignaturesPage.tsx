@@ -49,10 +49,14 @@ export default function SignaturesPage() {
   const [endDate, setEndDate] = useState('');
   const [instructorFilter, setInstructorFilter] = useState('ALL');
   const [trainingFilter, setTrainingFilter] = useState('ALL');
+  const [sectorFilter, setSectorFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState('ALL');
 
   const [socOptions, setSocOptions] = useState<string[]>([]);
   const [instructorOptions, setInstructorOptions] = useState<string[]>([]);
   const [trainingOptions, setTrainingOptions] = useState<string[]>([]);
+  const [sectorOptions, setSectorOptions] = useState<string[]>([]);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
 
   // null = ainda não sabemos; true/false = resultado da 1ª tentativa de usar a view
@@ -65,7 +69,7 @@ export default function SignaturesPage() {
   }, [searchInput]);
 
   // volta pra página 1 sempre que um filtro muda
-  useEffect(() => { setPage(0); }, [search, socFilter, startDate, endDate, instructorFilter, trainingFilter, userSoc]);
+  useEffect(() => { setPage(0); }, [search, socFilter, startDate, endDate, instructorFilter, trainingFilter, sectorFilter, roleFilter, userSoc]);
 
   const baseTable = (useView: boolean, cols: string) =>
     useView
@@ -75,11 +79,15 @@ export default function SignaturesPage() {
   const applyFilters = useCallback((q: any, useView: boolean) => {
     const socCol = useView ? 'collaborator_soc' : 'collaborators.soc';
     const nameCol = useView ? 'collaborator_name' : 'collaborators.name';
+    const sectorCol = useView ? 'collaborator_sector' : 'collaborators.sector';
+    const roleCol = useView ? 'collaborator_role' : 'collaborators.role';
 
     if (userSoc) q = q.eq(socCol, userSoc);
     if (socFilter !== 'ALL') q = q.eq(socCol, socFilter);
     if (instructorFilter !== 'ALL') q = q.eq('instructor_name', instructorFilter);
     if (trainingFilter !== 'ALL') q = q.eq('training_type', trainingFilter);
+    if (sectorFilter !== 'ALL') q = q.eq(sectorCol, sectorFilter);
+    if (roleFilter !== 'ALL') q = q.eq(roleCol, roleFilter);
     if (startDate) q = q.gte('completed_at', `${startDate}T00:00:00`);
     if (endDate) q = q.lte('completed_at', `${endDate}T23:59:59`);
 
@@ -95,7 +103,7 @@ export default function SignaturesPage() {
       }
     }
     return q;
-  }, [userSoc, socFilter, instructorFilter, trainingFilter, startDate, endDate, search]);
+  }, [userSoc, socFilter, instructorFilter, trainingFilter, sectorFilter, roleFilter, startDate, endDate, search]);
 
   const mapRow = (r: any, useView: boolean): SignatureRecord => useView
     ? {
@@ -209,6 +217,24 @@ export default function SignaturesPage() {
         from += limit;
       }
       setTrainingOptions([...new Set(allTypes.filter(Boolean))].sort());
+
+      // Setor e cargo distintos — vêm de collaborators, não de trainings_completed
+      // (são atributos da pessoa, não do treinamento assinado).
+      let allSectors: string[] = [];
+      let allRoles: string[] = [];
+      from = 0;
+      while (true) {
+        let q = supabase.from('collaborators').select('sector, role').range(from, from + limit - 1);
+        if (userSoc) q = q.eq('soc', userSoc);
+        const { data, error } = await q;
+        if (error) break;
+        allSectors = allSectors.concat((data ?? []).map((c: any) => c.sector));
+        allRoles = allRoles.concat((data ?? []).map((c: any) => c.role));
+        if (!data || data.length < limit) break;
+        from += limit;
+      }
+      setSectorOptions([...new Set(allSectors.filter(Boolean))].sort());
+      setRoleOptions([...new Set(allRoles.filter(Boolean))].sort());
     };
     fetchOptions();
   }, [userSoc]);
@@ -567,6 +593,18 @@ export default function SignaturesPage() {
             className="px-3 py-2.5 rounded-lg bg-white border border-gray-100 text-[12px] font-black text-gray-600 outline-none shadow-sm flex-1 min-w-[150px]">
             <option value="ALL">Todos Treinamentos</option>
             {trainingOptions.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+
+          <select value={sectorFilter} onChange={e => setSectorFilter(e.target.value)}
+            className="px-3 py-2.5 rounded-lg bg-white border border-gray-100 text-[12px] font-black text-gray-600 outline-none shadow-sm flex-1 min-w-[150px]">
+            <option value="ALL">Todos Setores</option>
+            {sectorOptions.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+            className="px-3 py-2.5 rounded-lg bg-white border border-gray-100 text-[12px] font-black text-gray-600 outline-none shadow-sm flex-1 min-w-[150px]">
+            <option value="ALL">Todos Cargos</option>
+            {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
       </div>
