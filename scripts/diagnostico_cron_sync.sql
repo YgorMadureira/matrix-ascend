@@ -95,6 +95,16 @@ select '5. segredo service_role_key',
          '❌ NÃO EXISTE NA VAULT'
        )
 union all
+-- Desde 21/09/2026 é ESTE segredo que identifica o cron para a função (o
+-- header x-cron-secret). Tem de existir aqui E como variável CRON_SECRET no
+-- ambiente da função, com o mesmo valor — ver 20260921_01.
+select '5b. segredo cron_secret',
+       coalesce(
+         (select 'existe — ' || length(decrypted_secret) || ' caracteres'
+            from vault.decrypted_secrets where name = 'cron_secret'),
+         '❌ NÃO EXISTE NA VAULT — o agendamento vai falhar'
+       )
+union all
 select '6. chave serve para (papel / projeto)',
        coalesce(
          (select coalesce(j ->> 'role', '?') || ' / ' || coalesce(j ->> 'ref', '?')

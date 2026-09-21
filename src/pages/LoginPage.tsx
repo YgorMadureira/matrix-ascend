@@ -208,12 +208,17 @@ export default function LoginPage() {
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">E-mail</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                {/* O placeholder não sugere um domínio de e-mail corporativo:
+                    um campo de senha ao lado de "seu.email@<marca>.com", num
+                    domínio que não é da marca, é um dos sinais que levaram o
+                    Google Safe Browsing a classificar esta página como
+                    phishing em 17/09/2026 — ver public/robots.txt. */}
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-white border border-gray-200 focus:border-[#EE4D2D] focus:ring-2 focus:ring-[#EE4D2D]/10 text-gray-800 text-sm font-medium placeholder:text-gray-300 outline-none transition-all shadow-sm"
-                  placeholder="seu.email@shopee.com"
+                  placeholder="Seu e-mail corporativo"
                   required
                 />
               </div>

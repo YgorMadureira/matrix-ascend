@@ -1,14 +1,18 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Ferramenta interna: não deve ser rastreada nem indexada por ninguém.
+#
+# Até 18/09/2026 este arquivo fazia o contrário — liberava Googlebot,
+# Bingbot, Twitterbot e facebookexternalhit com "Allow: /". Não havia
+# motivo: não existe página pública de conteúdo aqui, só o login e a
+# página de assinatura acessada por QR Code. O efeito foi o site ser
+# rastreado e a tela de login (logo da Shopee + campo de senha, num
+# domínio vercel.app) ser classificada como phishing pelo Google Safe
+# Browsing, o que passou a bloquear o acesso de todos os usuários com
+# o aviso "Site perigoso" do Chrome.
+#
+# ⚠️ Isto reduz a descoberta do site, mas NÃO desfaz a classificação já
+# existente: o Safe Browsing não depende do robots.txt para avaliar
+# phishing. A remoção do aviso precisa do pedido de revisão ao Google, e
+# a solução definitiva é servir o portal num domínio da própria Shopee.
 
 User-agent: *
-Allow: /
+Disallow: /

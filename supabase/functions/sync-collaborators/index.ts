@@ -65,7 +65,7 @@ const PER_SOC_DELETE_LIMIT = 300;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 interface ParsedRow {
@@ -197,14 +197,43 @@ Deno.serve(async (req) => {
   // unidades de uma vez. Antes ela só exigia um login válido — qualquer
   // usuário, de qualquer perfil, conseguia dispará-la pelo console do
   // navegador. Agora são só dois chamadores legítimos:
-  //   · o cron das 05h, que se autentica com a service_role key;
+  //   · o agendamento das 05h, que prova ser ele pelo header x-cron-secret;
   //   · um usuário com perfil master.
+  //
+  // ⚠️ POR QUE UM SEGREDO PRÓPRIO, E NÃO A COMPARAÇÃO COM A SERVICE KEY
+  // Até 21/09/2026 a linha aqui era `token === serviceKey`: o agendamento
+  // mandava a service_role key no Authorization e a função comparava com a
+  // própria variável de ambiente. Isso nunca funcionou em produção. O
+  // agendamento falhou todos os dias de 11/08 a 21/09 e a base só era
+  // atualizada quando alguém clicava no botão.
+  //
+  // O diagnóstico: a chamada chegava a passar pelo gateway (a chave é um
+  // JWT válido, service_role, do projeto certo) e morria AQUI, com 401
+  // "Sessão inválida" — porque a chave enviada não era idêntica à que a
+  // função tem no ambiente. Duas coisas, em qualquer combinação, quebram a
+  // igualdade: o projeto pode receber a chave no formato novo
+  // (sb_secret_...), que o gateway nem aceita como Bearer, e qualquer
+  // rotação de chave desalinha os dois lados silenciosamente. Um erro de
+  // configuração que se apresenta como "sessão inválida" é impossível de
+  // diagnosticar de fora.
+  //
+  // O segredo dedicado não depende de qual formato a plataforma injeta nem
+  // de rotação: é o MESMO valor em dois lugares sob nosso controle — a
+  // variável CRON_SECRET da função e o segredo cron_secret na Vault, que o
+  // job das 05h lê para montar o header (ver a migração 20260921_01).
+  // Também não depende de o gateway validar o JWT: a autorização do cron é
+  // decidida aqui dentro, e não por uma configuração de deploy.
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
   if (!token) return json({ error: 'Não autenticado.' }, 401);
 
-  const ehCron = token === serviceKey;
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const headerSecret = req.headers.get('x-cron-secret');
+  const ehCron =
+    (!!cronSecret && !!headerSecret && headerSecret === cronSecret) ||
+    // Mantido para não quebrar nada que ainda chame pelo jeito antigo.
+    token === serviceKey;
 
   if (!ehCron) {
     const { data: { user }, error: userErr } = await admin.auth.getUser(token);
