@@ -21,9 +21,17 @@
 // ============================================================
 
 import { db, paginar } from './_conexao.mjs';
-import { isAreaTrained, isCollaboratorTrained, type MacroArea } from '../src/lib/trainingRules';
+import { definirRegrasDeArea, isAreaTrained, isCollaboratorTrained, type MacroArea } from '../src/lib/trainingRules';
 
 const AREAS: MacroArea[] = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'];
+
+// As regras configuradas na tela são aplicadas em lugares diferentes nos dois
+// lados: no TS ficam dentro do motor; no banco ficam no JOIN das views, não
+// dentro de training_unlocks_area. Por isso elas entram só na parte 2 (o
+// veredito por pessoa, que é o que as views calculam). A parte 1 compara as
+// regras EMBUTIDAS dos dois lados, e por isso roda com o registro vazio.
+const { data: regras } = await db.from('training_area_rules').select('training_name, area');
+definirRegrasDeArea([]);
 
 // .order() é obrigatório: sem chave estável o .range() do PostgREST pode
 // pular e repetir linhas entre as páginas, e o diagnóstico sai errado.
@@ -95,7 +103,9 @@ for (const comSorter of [false, true]) {
 if (problemas === 0) console.log('  ✅ todos classificados igual pelos dois lados, com e sem Sorter');
 
 // ── 2. Pessoa por pessoa: o veredito final bate? ─────────────
-console.log(`\n── 2. ${collabs.length} colaboradores ──\n`);
+// Agora sim com as regras da tela: é o que as views aplicam.
+definirRegrasDeArea(regras ?? []);
+console.log(`\n── 2. ${collabs.length} colaboradores (${(regras ?? []).length} regra(s) configurada(s) na tela) ──\n`);
 const divergentes: { soc: string; nome: string; setor: string; ts: boolean; treinos: string[] }[] = [];
 for (const c of collabs as any[]) {
   const sql = vereditoSql.get(c.id);

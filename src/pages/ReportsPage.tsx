@@ -16,6 +16,7 @@ import {
   type MacroArea,
 } from '@/lib/trainingRules';
 import { filterTeamOfLeader } from '@/lib/leaderTeam';
+import { carregarRegrasDeArea } from '@/lib/areaRules';
 
 const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
 const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
@@ -208,6 +209,10 @@ export default function ReportsPage() {
   }, [collaboratorMap, typesOf, showAsm]);
 
   const loadData = useCallback(async () => {
+    // As regras de área configuradas em Configurações entram no motor antes
+    // de qualquer cálculo desta tela — ver src/lib/areaRules.ts.
+    await carregarRegrasDeArea();
+
     const allCollabs: any[] = [];
     let hasMore = true;
     let page = 0;

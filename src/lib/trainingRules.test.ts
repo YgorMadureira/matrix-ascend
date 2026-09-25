@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
+  definirRegrasDeArea,
   isMicroCompletedBy,
   isAreaTrained,
   isCollaboratorTrained,
@@ -609,5 +610,66 @@ describe('trainingRules — calculateUnitStats (o número oficial da unidade)', 
     // r1, p1 e a1 treinados; t1 (só onboarding) e a2 (nada) pendentes.
     expect(stats.trained).toBe(3);
     expect(stats.pct).toBe(60);
+  });
+});
+
+// ============================================================
+// Regras configuradas na tela (training_area_rules) — 25/09/2026
+// ============================================================
+// O master declara em Configurações que um treinamento também cobre uma
+// área, sem mexer no código. O caso que motivou: 190 pessoas do setor ASM em
+// RJ2 fizeram "Onboarding PTS V3", que acende Receb/Proc/Exped mas não ASM,
+// e apareciam pendentes.
+describe('trainingRules — regras de área configuradas na tela', () => {
+  // O registro é global ao módulo: sem limpar, uma regra vazaria para os
+  // outros testes e eles passariam (ou falhariam) pelo motivo errado.
+  afterEach(() => definirRegrasDeArea([]));
+
+  it('sem regra configurada, Onboarding PTS V3 não credencia ASM', () => {
+    expect(isAreaTrained(['Onboarding PTS V3'], 'ASM', true)).toBe(false);
+    expect(isCollaboratorTrained('ASM', ['Onboarding PTS V3'], true)).toBe(false);
+  });
+
+  it('com a regra, o mesmo treinamento passa a credenciar ASM', () => {
+    definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'ASM' }]);
+    expect(isAreaTrained(['Onboarding PTS V3'], 'ASM', true)).toBe(true);
+    expect(isCollaboratorTrained('ASM', ['Onboarding PTS V3'], true)).toBe(true);
+    // o caso real de RJ2: setor Processamento + activity de Sorter
+    expect(isCollaboratorTrained('PROCESSAMENTO', ['Onboarding PTS V3'], true, 'ASM | Chutes')).toBe(true);
+  });
+
+  it('é aditiva: não tira o que o treinamento já credenciava', () => {
+    definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'ASM' }]);
+    for (const area of ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'] as const) {
+      expect(isAreaTrained(['Onboarding PTS V3'], area, true)).toBe(true);
+    }
+    // e continua não credenciando Tratativas, que nenhum onboarding cobre
+    expect(isAreaTrained(['Onboarding PTS V3'], 'TRATATIVAS', true)).toBe(false);
+  });
+
+  it('não vaza para outros treinamentos nem para outras áreas', () => {
+    definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'ASM' }]);
+    expect(isAreaTrained(['Onboarding PTS - Sem Sorter'], 'ASM', true)).toBe(false);
+    expect(isAreaTrained(['Onboarding HSE'], 'ASM', true)).toBe(false);
+  });
+
+  it('casa o nome com tolerância a acento e caixa, como o resto do motor', () => {
+    definirRegrasDeArea([{ training_name: 'treinamento pátio', area: 'PROCESSAMENTO' }]);
+    expect(isAreaTrained(['TREINAMENTO PATIO'], 'PROCESSAMENTO', false)).toBe(true);
+  });
+
+  it('acende o tick da Matriz de Certificação na área configurada', () => {
+    definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'ASM' }]);
+    expect(isMicroCompletedBy('Onboarding PTS V3', 'Sorter Base', 'ASM', true)).toBe(true);
+  });
+
+  it('credencia quem está fora das macro-áreas (Apoio, sem setor)', () => {
+    definirRegrasDeArea([{ training_name: 'TREINAMENTO COP', area: 'PROCESSAMENTO' }]);
+    expect(isCollaboratorTrained('Apoio', ['Treinamento COP'], false)).toBe(true);
+  });
+
+  it('regra inválida (área desconhecida) é ignorada, não quebra', () => {
+    definirRegrasDeArea([{ training_name: 'TREINAMENTO COP', area: 'INEXISTENTE' }]);
+    expect(isCollaboratorTrained('Apoio', ['Treinamento COP'], false)).toBe(false);
   });
 });

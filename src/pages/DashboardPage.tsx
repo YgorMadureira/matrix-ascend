@@ -12,6 +12,7 @@ import {
   type SocHealthResult,
 } from '@/lib/trainingRules';
 import { filterTeamOfLeader } from '@/lib/leaderTeam';
+import { carregarRegrasDeArea } from '@/lib/areaRules';
 
 /** Estado inicial da saúde, enquanto os dados não chegaram. Fora do componente para ter identidade estável entre renders. */
 const VAZIO_SAUDE: SocHealthResult = { eligible: false, microCount: 0, minRequired: 14, missing: 14, evaluatedCollaborators: 0, healthPct: 0 };
@@ -126,6 +127,12 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const LIMITE = 1000;
+
+      // Antes de qualquer cálculo: as regras de área que o master configurou
+      // em Configurações (ver src/lib/areaRules.ts). Sem isto, o Dashboard
+      // calcularia só com as regras embutidas e mostraria número diferente
+      // do da tela de Colaboradores, que lê a view (onde o banco já aplica).
+      await carregarRegrasDeArea();
 
       // Contagens primeiro, para saber quantas páginas pedir de uma vez.
       const [cCollabs, cTrainings, cMaterials] = await Promise.all([

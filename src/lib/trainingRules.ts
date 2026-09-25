@@ -28,6 +28,10 @@
 //      → acende aquela macro inteira
 //   5. Qualquer outro treinamento → acende SOMENTE o micro de nome
 //      equivalente (comparação tolerante a acento/caixa/código/versão)
+//   6. Além de tudo acima, o master pode declarar em Configurações que um
+//      treinamento também cobre uma área (tabela training_area_rules). É
+//      SEMPRE aditivo: acrescenta cobertura, nunca tira. Ver
+//      definirRegrasDeArea() mais abaixo e src/lib/areaRules.ts.
 //
 // TRATATIVAS nunca é aceso por Onboarding — exige o "Treinamento Padrão
 // SOC - Tratativas" (decisão de 13/08/2026).
@@ -158,6 +162,43 @@ function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[]
   return null;
 }
 
+// ============================================================
+// Regras configuradas na tela (tabela training_area_rules)
+// ============================================================
+// "Este treinamento TAMBÉM credencia esta área", declarado pelo master em
+// Configurações. São ADITIVAS: nunca removem o que as regras acima concedem
+// — uma configuração capaz de tirar cobertura seria uma segunda fonte de
+// verdade contradizendo o motor em silêncio.
+//
+// Por que um registro de módulo e não um parâmetro: isto é configuração
+// global do sistema, não dado de uma chamada. Passar por parâmetro obrigaria
+// a mudar a assinatura de cinco funções e todos os pontos de chamada das
+// telas — e alguém esqueceria um, que é exatamente como nascem as
+// divergências. Quem carrega é carregarRegrasDeArea() (src/lib/areaRules.ts),
+// chamado pelas telas antes de calcular.
+//
+// ⚠️ Teste que mexe nisto tem de limpar depois (ver definirRegrasDeArea no
+// arquivo de testes).
+let regrasConfiguradas = new Map<string, Set<MacroArea>>();
+
+/** Substitui as regras em memória. Chamado no carregamento das telas e nos testes. */
+export function definirRegrasDeArea(regras: { training_name: string; area: string }[]): void {
+  const mapa = new Map<string, Set<MacroArea>>();
+  for (const r of regras) {
+    const chave = normalizeText(r.training_name);
+    const area = normalizeMacroArea(r.area);
+    if (!chave || !area) continue;
+    if (!mapa.has(chave)) mapa.set(chave, new Set());
+    mapa.get(chave)!.add(area);
+  }
+  regrasConfiguradas = mapa;
+}
+
+/** A configuração diz que este treinamento credencia esta área? */
+function regraConfiguradaAcende(trainingType: string, area: MacroArea): boolean {
+  return regrasConfiguradas.get(normalizeText(trainingType))?.has(area) ?? false;
+}
+
 /** Regra 5: match tolerante por nome, usado quando o treinamento é específico (não acende área inteira). */
 function matchesMicroByName(trainingType: string, microName: string): boolean {
   const t = stripVersionAndCode(normalizeText(trainingType));
@@ -176,9 +217,14 @@ export function isMicroCompletedBy(
   macroArea: string,
   hasSorting: boolean
 ): boolean {
+  const area = normalizeMacroArea(macroArea) as MacroArea;
+  // A regra da tela é um OU a mais — inclusive para um treinamento específico,
+  // que continua podendo casar pelo nome do micro (regra 5) logo abaixo.
+  if (area && regraConfiguradaAcende(trainingType, area)) return true;
+
   const areas = areasUnlockedBy(trainingType, hasSorting);
   if (areas !== null) {
-    return areas.includes(normalizeMacroArea(macroArea) as MacroArea);
+    return areas.includes(area);
   }
   return matchesMicroByName(trainingType, microName);
 }
@@ -203,7 +249,9 @@ export function countCompletedMicros(
  * não certificados de micro-processo específico.
  */
 export function isAreaTrained(trainingTypes: string[], area: MacroArea, hasSorting: boolean): boolean {
-  return trainingTypes.some(t => (areasUnlockedBy(t, hasSorting) ?? []).includes(area));
+  return trainingTypes.some(t =>
+    regraConfiguradaAcende(t, area) || (areasUnlockedBy(t, hasSorting) ?? []).includes(area)
+  );
 }
 
 /** Áreas relevantes para o card "% Treinados" / Matriz / gráfico — ASM só entra se a SOC tem sorting. */
@@ -345,7 +393,12 @@ export function isCollaboratorTrained(
     return false;
   }
 
-  return trainingTypes.some(t => (areasUnlockedBy(t, hasSorting) ?? []).length > 0);
+  // Fora das macro-áreas (Apoio, Almox, sem setor): basta acender qualquer
+  // área — inclusive por uma regra configurada na tela.
+  return trainingTypes.some(t =>
+    (areasUnlockedBy(t, hasSorting) ?? []).length > 0 ||
+    (regrasConfiguradas.get(normalizeText(t))?.size ?? 0) > 0
+  );
 }
 
 /** Áreas relevantes para o Índice de Saúde — ASM só entra se a SOC tem sorting. */

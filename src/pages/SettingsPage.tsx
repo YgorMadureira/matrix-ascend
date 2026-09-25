@@ -5,6 +5,15 @@ import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2 } from 'lucide-
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
+/** Uma linha de training_area_rules: "este treinamento também cobre esta área". */
+interface AreaRule {
+  id: string;
+  training_name: string;
+  area: string;
+}
+
+const AREAS_DISPONIVEIS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
+
 interface UserProfile {
   id: string;
   email: string;
@@ -66,6 +75,13 @@ export default function SettingsPage() {
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [trainings, setTrainings] = useState<TrainingItem[]>([]);
   const [microTrainings, setMicroTrainings] = useState<SocMicroTraining[]>([]);
+
+  // Regras de área configuráveis (só master) — tabela training_area_rules.
+  // "Este treinamento também credencia esta área". Ver a migração 20260925_01.
+  const [areaRules, setAreaRules] = useState<AreaRule[]>([]);
+  const [nomesDeTreinamento, setNomesDeTreinamento] = useState<string[]>([]);
+  const [novaRegra, setNovaRegra] = useState({ training_name: '', area: '' });
+  const [salvandoRegra, setSalvandoRegra] = useState(false);
 
   // Manage Questions
   const [managingTraining, setManagingTraining] = useState<TrainingItem | null>(null);
@@ -159,6 +175,69 @@ export default function SettingsPage() {
     setInstructors(inst ?? []);
     setTrainings(tr ?? []);
     setMicroTrainings(micro ?? []);
+
+    // Só o master vê e edita as regras de área — não vale gastar a leitura
+    // pesada dos nomes de treinamento para quem não pode usá-las.
+    if (isMaster) await carregarRegrasEnomes();
+  };
+
+  const carregarRegrasEnomes = async () => {
+    const { data: regras } = await supabase
+      .from('training_area_rules')
+      .select('id, training_name, area')
+      .order('training_name');
+    setAreaRules(regras ?? []);
+
+    // Os nomes vêm das assinaturas já registradas (é o que o motor compara),
+    // e não da tabela de materiais: o nome que vale é o que foi gravado na
+    // assinatura. Paginado, só a coluna de texto — mesmo caminho que a tela
+    // de Assinaturas usa para montar o filtro de treinamentos.
+    const nomes: string[] = [];
+    for (let de = 0; ; de += 1000) {
+      const { data, error } = await supabase
+        .from('trainings_completed')
+        .select('training_type')
+        .order('id')
+        .range(de, de + 999);
+      if (error) break;
+      nomes.push(...(data ?? []).map(t => t.training_type).filter(Boolean));
+      if (!data || data.length < 1000) break;
+    }
+    setNomesDeTreinamento([...new Set(nomes)].sort());
+  };
+
+  const adicionarRegra = async () => {
+    if (!novaRegra.training_name || !novaRegra.area) {
+      toast.error('Escolha o treinamento e a área.');
+      return;
+    }
+    setSalvandoRegra(true);
+    const { error } = await supabase.from('training_area_rules').insert({
+      training_name: novaRegra.training_name,
+      area: novaRegra.area,
+      created_by: profile?.id ?? null,
+    });
+    setSalvandoRegra(false);
+
+    if (error) {
+      toast.error(
+        /duplicate key|unica/i.test(error.message)
+          ? 'Essa regra já existe.'
+          : 'Não consegui salvar: ' + error.message
+      );
+      return;
+    }
+    toast.success('Regra criada. O cálculo passa a considerá-la ao recarregar as telas.');
+    setNovaRegra({ training_name: '', area: '' });
+    carregarRegrasEnomes();
+  };
+
+  const removerRegra = async (regra: AreaRule) => {
+    if (!confirm(`Remover a regra "${regra.training_name} → ${regra.area}"?\n\nQuem dependia só dela para estar certificado volta a aparecer como pendente.`)) return;
+    const { error } = await supabase.from('training_area_rules').delete().eq('id', regra.id);
+    if (error) { toast.error('Não consegui remover: ' + error.message); return; }
+    toast.success('Regra removida.');
+    carregarRegrasEnomes();
   };
 
   useEffect(() => {
@@ -713,6 +792,84 @@ export default function SettingsPage() {
              )}
           </div>
       </div>
+
+      {/* Regras de área — só o master */}
+      {isMaster && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-8 border-b border-gray-50">
+            <div className="flex items-center gap-2">
+              <Shield size={18} className="text-gray-900" />
+              <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Cobertura de Treinamentos por Área</h2>
+            </div>
+            <p className="text-xs text-gray-400 font-medium mt-1">
+              Declare que um treinamento também certifica uma área. Vale para todas as unidades e passa a contar
+              nas telas de Colaboradores, Dashboard e Relatórios.
+            </p>
+            <p className="text-[11px] text-gray-400 font-medium mt-2 bg-gray-50 rounded-xl p-3 border border-gray-100">
+              Estas regras <strong className="text-gray-600">acrescentam</strong> cobertura — nunca tiram. O que os
+              treinamentos já certificam hoje (Onboarding PTS, Treinamento Padrão SOC da área, Onboarding Líderes)
+              continua valendo mesmo sem nenhuma regra aqui.
+            </p>
+          </div>
+
+          <div className="p-8 space-y-6">
+            <div className="flex flex-col lg:flex-row gap-3">
+              <select
+                value={novaRegra.training_name}
+                onChange={e => setNovaRegra(r => ({ ...r, training_name: e.target.value }))}
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:border-[#EE4D2D]"
+              >
+                <option value="">Escolha o treinamento…</option>
+                {nomesDeTreinamento.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <select
+                value={novaRegra.area}
+                onChange={e => setNovaRegra(r => ({ ...r, area: e.target.value }))}
+                className="px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-black text-gray-700 outline-none focus:border-[#EE4D2D] lg:min-w-[190px]"
+              >
+                <option value="">Certifica a área…</option>
+                {AREAS_DISPONIVEIS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <button
+                onClick={adicionarRegra}
+                disabled={salvandoRegra}
+                className="px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
+              >
+                {salvandoRegra ? 'Salvando…' : 'Adicionar'}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {areaRules.map(regra => (
+                <div key={regra.id} className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gray-50/50 border border-transparent hover:border-gray-100 hover:bg-white hover:shadow-sm transition-all group">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-bold text-gray-800 truncate">{regra.training_name}</span>
+                    <span className="text-gray-300 shrink-0">→</span>
+                    <span className="px-2.5 py-1 rounded-full bg-[#FEF6F5] text-[#EE4D2D] text-[10px] font-black border border-[#EE4D2D]/10 shrink-0">
+                      {regra.area}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removerRegra(regra)}
+                    className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                    title="Remover regra"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              {areaRules.length === 0 && (
+                <div className="text-center py-10">
+                  <Shield size={40} className="mx-auto text-gray-100 mb-2" />
+                  <p className="text-xs text-gray-400 font-medium">
+                    Nenhuma regra extra. O sistema está usando só as regras padrão.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trainings and Quiz Configurations */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
