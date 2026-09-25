@@ -175,7 +175,23 @@ function parseSheet(rawText: string): ParsedRow[] {
       bpo: cleanUpper(get(cells, ['bpo', 'empresa'])),
       role: cleanUpper(get(cells, ['cargo', 'role', 'função', 'funcao'])),
       activity: cleanUpper(get(cells, ['atividade', 'activity', 'funcao real'])),
-      soc: cleanUpper(get(cells, ['soc', 'unidade', 'unit'])) || 'SP6',
+      // Sem SOC na planilha, fica SEM SOC — nunca atribuído a uma unidade
+      // qualquer. Até 22/09/2026 aqui havia `|| 'SP6'`, um padrão herdado
+      // dos tempos em que SP6 era a única unidade. Quando a aba de SP35
+      // parou de preencher a coluna SOC, as ~550 pessoas dela foram gravadas
+      // como SP6: inflaram o headcount e o percentual de treinados de SP6,
+      // duplicaram quem já existia em SP35, e a correção da planilha gerou
+      // uma remoção de 609 linhas que a trava por unidade bloqueou.
+      // Limpeza feita por scripts/corrigir_soc_duplicada.mjs.
+      //
+      // ⚠️ String VAZIA, não null. O upsert usa ON CONFLICT (name, soc) e,
+      // num índice único, NULL nunca conflita com NULL — cada sincronização
+      // inseriria a pessoa de novo, todo dia. Com '' o casamento funciona.
+      // Quem fica sem SOC não entra em nenhuma unidade: sai do gráfico
+      // Desempenho por SOC (que exige SOC preenchida) e das telas filtradas
+      // por unidade, aparecendo só para o master — que é o comportamento
+      // pedido, para não inflar o número de ninguém.
+      soc: cleanUpper(get(cells, ['soc', 'unidade', 'unit'])) ?? '',
       is_onboarding: false,
     });
   }

@@ -1,0 +1,4418 @@
+[
+  {
+    "nome": "ANALICE MOREIRA MELONI",
+    "id_apagado": "009ea060-c28b-4ebd-885b-54288152dd83",
+    "soc_errada": "SP6",
+    "id_mantido": "8ed7549e-cd00-47e6-a862-26f9bc30c1c4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VITORIA APARECIDA LIMA DA PAIXAO",
+    "id_apagado": "01c0d868-06cf-4bc2-8530-373226699dd1",
+    "soc_errada": "SP6",
+    "id_mantido": "e0d4aacc-6423-4c08-8b4c-04faad37dff0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELA PEREIRA NUNES BRITO",
+    "id_apagado": "02a85912-efdd-46eb-b3d1-16a51270c7fb",
+    "soc_errada": "SP6",
+    "id_mantido": "40f97955-c748-4531-8649-86fa2b8b8017",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EVELYN ANALY ROMERO",
+    "id_apagado": "02afb737-90a0-4833-8fff-8ac479194003",
+    "soc_errada": "SP6",
+    "id_mantido": "d089d94a-2c1c-4223-bade-1c602c8a4170",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCIANA OLIVEIRA DOS SANTOS CORREIA",
+    "id_apagado": "02cf4f98-46df-42df-83b6-001f142c105f",
+    "soc_errada": "SP6",
+    "id_mantido": "b6fa0a1b-e4f8-48bb-a401-f9fc66b3028e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WANDERLEY RICHARD GABRIEL RIBEIRO",
+    "id_apagado": "02e5d7ea-7c29-4316-a183-3a3cc71606ef",
+    "soc_errada": "SP6",
+    "id_mantido": "8cb6b797-5065-4548-bf4e-f9e94543502a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JHONATAN GOMES DA SILVA",
+    "id_apagado": "04e59de2-8818-4714-b81f-2c3ad9a54524",
+    "soc_errada": "SP6",
+    "id_mantido": "e01fdd26-f190-429c-9291-66cb3917ec7c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCAS RAPHAEL NUNES DE OLIVEIRA",
+    "id_apagado": "0647d79e-07a0-438b-9fe8-f97d104caf0a",
+    "soc_errada": "SP6",
+    "id_mantido": "3b6ee129-8de1-41b0-b619-c705fe950089",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCUS VINCIUS DA SILVA MELO",
+    "id_apagado": "0689800c-d1b2-4a79-a67a-50c7ffaca9bc",
+    "soc_errada": "SP6",
+    "id_mantido": "a547eb3d-df95-496b-8f85-24453caf83c2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VIVIANE DE OLIVEIRA URBANO",
+    "id_apagado": "09f8d615-e6ca-462b-a47e-16ddf4b02a9a",
+    "soc_errada": "SP6",
+    "id_mantido": "275200a1-31b2-48ec-8804-9fb90e71fe21",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME QUINTEIRO NUNES",
+    "id_apagado": "0aec7862-53d6-4b52-af9b-4370ecdefb19",
+    "soc_errada": "SP6",
+    "id_mantido": "87cdb516-0aed-4b33-b0f9-a4b54680f5c2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISAC ADONAI DA SILVA BAIAO",
+    "id_apagado": "0aef1e46-306c-490a-9d61-6a3a69d8d1e5",
+    "soc_errada": "SP6",
+    "id_mantido": "23518ecb-6b77-41d5-9217-6beffc33d302",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA BEATRIZ CASSAR DOS SANTOS",
+    "id_apagado": "0b8429ff-b167-404b-aa02-4b79fad20fb0",
+    "soc_errada": "SP6",
+    "id_mantido": "86116d6d-c446-4624-a58b-8b7c42beea21",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PRICILA FERNANDA DA SILVA GERING",
+    "id_apagado": "0c68983c-e41d-4d85-9cd0-bcc7eafd7950",
+    "soc_errada": "SP6",
+    "id_mantido": "9f5c4c02-8cc6-4dd1-bc4b-d354b48bcd0a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALESSANDRA VITORIA SOARES DOS SANTOS",
+    "id_apagado": "0c95a7ff-4f39-403d-85d7-3b080cf3969f",
+    "soc_errada": "SP6",
+    "id_mantido": "47d25ab9-3f73-40d7-b297-efc8579bffb7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAQUELINE GOMES DOS SANTOS RIBEIRO",
+    "id_apagado": "0cb418d7-8b48-42ae-a171-16fb5c17b5ef",
+    "soc_errada": "SP6",
+    "id_mantido": "1ea1b1a7-8109-461d-adff-496aac765d76",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHELE CRISTINA TURIBIO DORIA",
+    "id_apagado": "0ccf4108-3976-42eb-b81f-413434afc9c4",
+    "soc_errada": "SP6",
+    "id_mantido": "fb3e699f-f581-42a9-9f40-60e7e62b6ff0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KARINE FLAVIA PONCIANO",
+    "id_apagado": "0d286bc7-3dff-4855-99b3-1888bc6e6bc4",
+    "soc_errada": "SP6",
+    "id_mantido": "04dff780-6934-4d7a-bcb6-c057f92f0948",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALINE CRISTINA TIBAES PEREIRA",
+    "id_apagado": "0df40733-70a9-4969-a7d5-572297430e21",
+    "soc_errada": "SP6",
+    "id_mantido": "866d03f1-3a34-46b3-90fa-b95d53153aac",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA VIVIAN NOGUEIRA DA COSTA E SILVA",
+    "id_apagado": "0e810991-da23-4f2c-975d-3697b8b85461",
+    "soc_errada": "SP6",
+    "id_mantido": "f2414bd6-5d91-47af-adb8-ed6c51ccadeb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HELLEN CRYSTYNA RODRIGUES",
+    "id_apagado": "0eb7b5c1-6770-4f5b-aa66-788901567345",
+    "soc_errada": "SP6",
+    "id_mantido": "765e58c7-1e74-4f90-9757-12c36361bbef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCIA CRISTINA DEGASPARI LACORTE",
+    "id_apagado": "0efaa2c8-f9e3-4e9c-9c9a-2cedbefcbcad",
+    "soc_errada": "SP6",
+    "id_mantido": "1c9ddedf-1443-44d6-9b58-cc8e25996ba6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VICTOR HUGO BERNARDINELLI DA SILVA",
+    "id_apagado": "0efbfb19-4a29-48f5-a77e-5e7c61fdbbc1",
+    "soc_errada": "SP6",
+    "id_mantido": "2f0a70b8-31ed-4d55-bdd4-1a409fbebf4d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KEROLIN BEATRIZ LOPES CARDOSO",
+    "id_apagado": "0f3bc246-c90e-4600-8908-0265d4534105",
+    "soc_errada": "SP6",
+    "id_mantido": "fbcb0d48-7384-48d5-b713-b857dfaf4abf",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAIS FERNANDA MALAVAZZI",
+    "id_apagado": "0f413a6b-b197-4edd-b5e0-c42c32119744",
+    "soc_errada": "SP6",
+    "id_mantido": "891cb4e6-d370-417c-87bc-344819f499bc",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALISSON PEREIRA DA SILVA",
+    "id_apagado": "0f46abc7-8b08-4a02-a95b-b965e6cdd743",
+    "soc_errada": "SP6",
+    "id_mantido": "0edfb6ed-edd2-48c7-b215-6f2a0152021d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNA ROBERTA BALDINI CARDOSO DE MORAIS",
+    "id_apagado": "0f7f730a-1c04-4f56-ba68-728b624dd754",
+    "soc_errada": "SP6",
+    "id_mantido": "765a73fc-a1be-4cc8-8615-42411e7e3fe6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELLY NICOLE NUNES SILVA",
+    "id_apagado": "10122580-f486-4765-8a15-f675c90b676f",
+    "soc_errada": "SP6",
+    "id_mantido": "e9e3e725-13f4-43ac-ace3-4533f65014a6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAPHAELLA THELES SILVA RODRIGUES",
+    "id_apagado": "1025c6e5-7e98-4063-8095-2e81631de496",
+    "soc_errada": "SP6",
+    "id_mantido": "53f2406d-cffd-4061-a6a3-4bf147eabb22",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA SAMPAIO",
+    "id_apagado": "106e128d-c9c9-4d68-8af0-273033414471",
+    "soc_errada": "SP6",
+    "id_mantido": "78be6406-0558-45fe-beb0-87be3e9ad633",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA VITORIA DE OLIVEIRA ALVES",
+    "id_apagado": "1081ba40-d9b9-4d75-bcd5-56bf05dedf4d",
+    "soc_errada": "SP6",
+    "id_mantido": "1f74514a-d056-437a-88ff-b4e502c0bab9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATALIA SCARPELIM",
+    "id_apagado": "10fca960-09e7-4083-bedd-796a3e84ddea",
+    "soc_errada": "SP6",
+    "id_mantido": "29f5f472-7749-4306-85c9-b1ea0872a960",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AMALIA PEREIRA FLAMINI",
+    "id_apagado": "11256403-f7ba-4723-ba8f-39d52a30d517",
+    "soc_errada": "SP6",
+    "id_mantido": "91f44b5d-47d9-4675-b0bd-49be65bec007",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCIO HENRIQUE ROCHA FAGUNDES",
+    "id_apagado": "11cc2fdb-4d37-4c4c-a6db-59a97ac9578c",
+    "soc_errada": "SP6",
+    "id_mantido": "7af8cfae-1d1c-421c-b06e-61d1f23382ef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CARLOS EDUARDO VAZ LEITE DA SILVA",
+    "id_apagado": "120b885a-6f9d-49ee-819c-645fe849dfd2",
+    "soc_errada": "SP6",
+    "id_mantido": "47c74b08-079e-43e6-8193-ad5d97500662",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KELLY MARIANA PEREIRA SALVIANO",
+    "id_apagado": "120f8931-db0d-429c-aa91-74ce16acc960",
+    "soc_errada": "SP6",
+    "id_mantido": "4d5a9004-c7a9-4dbd-bb96-c8596e476d00",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDREIA FIGUEIREDO DOS SANTOS",
+    "id_apagado": "13259647-8d18-4699-8293-864f5f74a8ea",
+    "soc_errada": "SP6",
+    "id_mantido": "26211285-c71e-4417-9b65-eb2502d0ef3d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCAS MACEDO GADDUCCI",
+    "id_apagado": "14c6c1d4-870a-4290-97c2-69bcff53ec77",
+    "soc_errada": "SP6",
+    "id_mantido": "8674f979-1b6b-461a-a3ee-79e597402a42",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHEL ORLANDO NICOLAI",
+    "id_apagado": "165637dd-60a1-4a6b-91b5-a3f57777ecf6",
+    "soc_errada": "SP6",
+    "id_mantido": "7941cdf6-44f4-476e-9219-c63b362dda44",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "INGRID SABRINA ROMERO GARCIA",
+    "id_apagado": "1754ec4a-155b-453f-a064-3fe434c0677b",
+    "soc_errada": "SP6",
+    "id_mantido": "8705b59e-d1b3-49b3-92b1-ba27af5bd11d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GRACE KELLY MARCHAS DOS SANTOS",
+    "id_apagado": "175e0a47-6180-4e14-a3cd-e52fd00ac8f0",
+    "soc_errada": "SP6",
+    "id_mantido": "6309d625-951f-4c06-9ec9-e82a1c99bf57",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALANY CRISTINA CAMPOS BUTIGNOL",
+    "id_apagado": "17cf7299-596e-4c53-a982-0cc8a81ca21d",
+    "soc_errada": "SP6",
+    "id_mantido": "4928c7d6-bc34-485f-802c-164f0c265e6c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SARAH MELLO DE ARRUDA",
+    "id_apagado": "1816912c-e983-49d6-b3fd-649f4cf94da2",
+    "soc_errada": "SP6",
+    "id_mantido": "24bf7b6c-3213-47f5-a37f-013e5214d8b2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRENDA HAYARA OLIVEIRA DA SILVA",
+    "id_apagado": "18f7335e-b7fa-47e4-afb4-1b354964c5f5",
+    "soc_errada": "SP6",
+    "id_mantido": "66d28ec4-7175-42fe-a3a6-624c72803b28",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCELA VITORIA NOGUEIRA DA SILVA",
+    "id_apagado": "19b6c8d7-7930-4b86-adca-4fa5b3f2a135",
+    "soc_errada": "SP6",
+    "id_mantido": "918c6415-80d7-4ad4-b2d0-9701b5c075f5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAYSA MARE DE OLIVEIRA POLIZEL ROTTA",
+    "id_apagado": "1a004e9e-c6de-4ec1-8b7c-59a31499a478",
+    "soc_errada": "SP6",
+    "id_mantido": "78317828-f7b2-4c9e-9254-4a306d549198",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOCIELE DE SOUZA GOZZER",
+    "id_apagado": "1a5733d0-27cb-41cb-8b47-3b363385d80d",
+    "soc_errada": "SP6",
+    "id_mantido": "dc0564d1-d7a3-4299-8c7f-55bfb3a98a1d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINARA RANGELMA SOUZA DE JESUS",
+    "id_apagado": "1a68412c-4ff7-48ad-9211-8b20abe09f79",
+    "soc_errada": "SP6",
+    "id_mantido": "4fa4719d-a1e3-48df-a836-7dc1ce694cbc",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALICE SANTOS DE OLIVEIRA",
+    "id_apagado": "1b444f11-821a-4be6-9fb8-f6670e8577a8",
+    "soc_errada": "SP6",
+    "id_mantido": "0b88ff99-3085-4b5e-b32f-5f596744cb9e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELA MORAES DO PRADO",
+    "id_apagado": "1b7b0532-10ee-4f1c-b977-52319a2a2398",
+    "soc_errada": "SP6",
+    "id_mantido": "8e5bc805-4808-4c04-b89e-e185e5438331",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JENNIFER SILVA SANTOS",
+    "id_apagado": "1bdbbde6-f9b0-4981-994f-b3af2c376474",
+    "soc_errada": "SP6",
+    "id_mantido": "9159c008-6980-4f80-9f4e-088df491ae25",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIELSON MATEUS DA SILVA",
+    "id_apagado": "1c513cc3-395d-4f08-922a-164223188fa9",
+    "soc_errada": "SP6",
+    "id_mantido": "55276bfd-fbd3-41cc-95a0-3c273d1c8ff6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUIZ HENRIQUE RAMALHO RAMOS",
+    "id_apagado": "1cb61676-33ae-4e23-97e8-74459358e51f",
+    "soc_errada": "SP6",
+    "id_mantido": "f9adc6b0-c43b-45b0-bf51-3de46e5efa2c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAIO MONTEIRO BARRETO",
+    "id_apagado": "1d76246c-fd96-48ac-b714-e9b667da64c6",
+    "soc_errada": "SP6",
+    "id_mantido": "f2a61ff6-df02-4378-a058-92dee4b0e710",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADRIANO DA SILVA LIMA",
+    "id_apagado": "1dbfd2eb-f8a5-4dfe-aae5-8cd9943c8f1a",
+    "soc_errada": "SP6",
+    "id_mantido": "c64bd8b4-6457-4290-bcf8-1b9b399f7e2c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNA DENISE DE SOUSA REIS",
+    "id_apagado": "1f7d24d0-51ef-417f-ad9d-cc2e5fe6ff59",
+    "soc_errada": "SP6",
+    "id_mantido": "8632a6a8-ed59-4a67-b18b-a092c413c104",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FLAVIO LOPES DE MORAIS FILHO",
+    "id_apagado": "1f8b2830-7b55-489f-a931-7dc5a8ab0762",
+    "soc_errada": "SP6",
+    "id_mantido": "85730820-12cf-40c8-83c8-b8d1ab484206",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATAN ARAUJO DOS SANTOS",
+    "id_apagado": "1fce26ee-33a8-49b7-9d7b-8282f5443e26",
+    "soc_errada": "SP6",
+    "id_mantido": "5e426eb2-1059-421d-aebe-acfbcaf146fa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CLAUDIA LOPES DOS SANTOS OLIVEIRA",
+    "id_apagado": "1fd26660-ac7b-499a-884c-2eac18de9f8d",
+    "soc_errada": "SP6",
+    "id_mantido": "409dd512-3205-4a38-9810-cd0d9c0719b6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NIARA ISABELA RODRIGUES PONCE",
+    "id_apagado": "1ffbb875-10f0-4ea0-acad-65cb409f4c72",
+    "soc_errada": "SP6",
+    "id_mantido": "5ef539c7-cc07-4faa-8348-6abea04aab10",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THIAGO BUGNO PEREIRA",
+    "id_apagado": "20d4f9d8-509b-4514-917b-1a940756c669",
+    "soc_errada": "SP6",
+    "id_mantido": "870ebbde-2f36-4aa7-92b4-a9e0c8719ee7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MYRELLA LIMA ALVES",
+    "id_apagado": "211ffae4-98c2-4a0b-ac93-095561ce6efa",
+    "soc_errada": "SP6",
+    "id_mantido": "6b793a25-940a-46ae-a2a5-78a9ed6c0491",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HEMILYN DANIEL MARTINS",
+    "id_apagado": "217cd1c7-9d76-41e3-be17-c1f531ef15b5",
+    "soc_errada": "SP6",
+    "id_mantido": "79926e9e-eb43-4148-bf49-aef20cc2b339",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA EDUARDA COLASSIO DA CUNHA CALDEIRA",
+    "id_apagado": "21c7872b-b044-4918-b085-1af627ce1e5d",
+    "soc_errada": "SP6",
+    "id_mantido": "f4c0184c-89e5-4afe-bedd-0f05d1be2341",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JESSICA CAMILE FERREIRA BERTI",
+    "id_apagado": "22a01ec1-a2f9-4586-8a56-89254ae61352",
+    "soc_errada": "SP6",
+    "id_mantido": "48d28579-8037-473b-8424-1ea41e990352",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAINE SILVA DE MORAES",
+    "id_apagado": "22ca18eb-1bf6-40cb-a359-d382d01e750d",
+    "soc_errada": "SP6",
+    "id_mantido": "59b2c944-a3e2-47ff-8f47-7b74af0bd428",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KELI CRISTINA DE CAMPOS COSTA",
+    "id_apagado": "22d2e8c8-c60f-4823-9882-eb213863e7bf",
+    "soc_errada": "SP6",
+    "id_mantido": "24796b6c-15d6-410a-96cf-c0f0066c225a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNO LUIS FERNANDES BRONETTA",
+    "id_apagado": "24c69306-c400-469c-a3d8-0f92d52fe9c8",
+    "soc_errada": "SP6",
+    "id_mantido": "1b8e1d69-ff5a-432f-9459-f049fbbda31f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PAMELA CRISTINA DE MOURA PEREIRA",
+    "id_apagado": "2557106f-f2b5-49d0-a573-fa178c1243e9",
+    "soc_errada": "SP6",
+    "id_mantido": "20502d36-487b-4513-b515-d352007f139f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FERNANDA DA SILVA LEME",
+    "id_apagado": "25bace2e-228b-4196-9c4a-5c5b55bbb3e3",
+    "soc_errada": "SP6",
+    "id_mantido": "e0c215d6-f529-4578-b648-477ec2223b96",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LETICIA DA SILVA FILARDI",
+    "id_apagado": "26502530-50b7-4ecf-ae5f-b1887db86e6f",
+    "soc_errada": "SP6",
+    "id_mantido": "dc79d967-710b-4aad-9320-c551d3cb5fa9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELA CRISTINA RAMALHO DINIZ",
+    "id_apagado": "26832d98-c526-439d-82df-7146f556c52c",
+    "soc_errada": "SP6",
+    "id_mantido": "92873a96-f1e4-444b-83cb-104bd42433eb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUSTAVO MOREIRA MACIEL",
+    "id_apagado": "26a9d3e0-f5dd-45d3-918e-d83c2b6ed57d",
+    "soc_errada": "SP6",
+    "id_mantido": "7b663bb0-04e3-4758-bb23-5f021ae0efee",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WITNEY VITORIA DOS REIS",
+    "id_apagado": "26cf6aea-3275-45a5-b980-68a32e42cb4f",
+    "soc_errada": "SP6",
+    "id_mantido": "cb456f80-3665-4982-aa39-5320da5c7d78",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA THAINA NUNES MAGALHAES",
+    "id_apagado": "26dea360-6e8c-470c-8cf0-a93af08fbf36",
+    "soc_errada": "SP6",
+    "id_mantido": "9a4319d8-678a-4e3c-9663-e52f1d0e91ee",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PATRICIA APARECIDA DOS SANTOS VASSALO ZOPPI",
+    "id_apagado": "27c580b3-56d5-4b5e-80e7-669a6ab3dd57",
+    "soc_errada": "SP6",
+    "id_mantido": "c5fc9e64-9ebd-41db-87e6-90ef68da71e1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KATHILYN MAYARA RIBEIRO",
+    "id_apagado": "287e221b-0b1c-45c6-b3da-ffc5b2ef41bf",
+    "soc_errada": "SP6",
+    "id_mantido": "a07103c0-d850-4f0e-9f1e-4c4d7f9aa3d0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YASMIN ELOA CHRISTINI ORCHEL",
+    "id_apagado": "28e301c7-e6b6-4edd-acc9-adb53719e045",
+    "soc_errada": "SP6",
+    "id_mantido": "d0e5176f-808c-4c77-8851-145063694c2f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA EDUARDA LEITE FEITOSA",
+    "id_apagado": "28f94cd6-21d7-47c8-be14-a84f44ff3ef8",
+    "soc_errada": "SP6",
+    "id_mantido": "f44f0e1f-cd6a-4320-b749-c7666622ac2e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JONATHAS HENRIQUE DE PAULA SOUSA",
+    "id_apagado": "2994757c-0177-4666-93ff-5cc548e75166",
+    "soc_errada": "SP6",
+    "id_mantido": "06220ea6-eb2b-4fcc-b06a-27f53c40e045",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL ORTEGAS BUENO",
+    "id_apagado": "2a0be6e7-7d59-49a0-8df4-516035d02606",
+    "soc_errada": "SP6",
+    "id_mantido": "b3e23e24-c1be-4fde-b56c-6ca6824b9741",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME EDUARDO DE ALMEIDA CIZOTTO",
+    "id_apagado": "2a5c1bd6-d02a-44b6-bb50-4200a2246cec",
+    "soc_errada": "SP6",
+    "id_mantido": "f731782d-5d27-4755-a563-f7b8de3cbeea",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHEL PEDREIRA MEDEIROS",
+    "id_apagado": "2afa3ef8-49fe-4aa5-8778-e8636978bfcd",
+    "soc_errada": "SP6",
+    "id_mantido": "aedd2527-5835-46ff-99df-a7d546bfc9c0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ERICK MIGUEL DE OLIVEIRA MARTINS",
+    "id_apagado": "2afdf57a-50c4-45fa-9b41-173025df3031",
+    "soc_errada": "SP6",
+    "id_mantido": "984728ee-d1e3-4ff8-a2fe-02c9da438411",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIANE CRISTINA PEREIRA DA SILVA",
+    "id_apagado": "2b287581-9576-4156-a451-098795d650b1",
+    "soc_errada": "SP6",
+    "id_mantido": "6c2fd629-effa-4205-a698-a0c98952518e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "IRACEMA RAMOS BIZARRO",
+    "id_apagado": "2b6f6983-9b12-4e12-ae3a-d2e98028a518",
+    "soc_errada": "SP6",
+    "id_mantido": "1b72129f-28ae-4e6e-b644-cf168b3afb0c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CINTIA DE ALMEIDA PEDROSO",
+    "id_apagado": "2bdad66b-6d1f-4d61-afe0-490f05cd0a67",
+    "soc_errada": "SP6",
+    "id_mantido": "6923d046-3026-483e-8023-a43499aa3c82",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCIANA DE OLIVEIRA CRUZ",
+    "id_apagado": "2cd5439a-4232-4aba-b05c-cdba80b07209",
+    "soc_errada": "SP6",
+    "id_mantido": "c8d9be7a-d808-4772-b2fc-eeedb18f861d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CRISTIANE SANTOS DA SILVA",
+    "id_apagado": "2ce0f5de-2ea4-4203-bd92-0a1514279471",
+    "soc_errada": "SP6",
+    "id_mantido": "59710d2a-5f77-40cb-8a9e-61ad9720c58f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YASMIN FERREIRA GREGORIO",
+    "id_apagado": "2d040764-9d17-49a9-80e0-fd65be164f09",
+    "soc_errada": "SP6",
+    "id_mantido": "21df8172-e655-4fc1-84a4-b92e0e01904b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AYESKA VICTORIA OLIVEIRA SILVA",
+    "id_apagado": "2d04930c-3b55-4cdc-9395-ab995b78a570",
+    "soc_errada": "SP6",
+    "id_mantido": "ce9512ad-2502-49c7-8642-5249f7ae9d65",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CRISTINA TOLEDO DA ROCHA",
+    "id_apagado": "2db3e95c-c3d7-4008-b530-f3c56821ea76",
+    "soc_errada": "SP6",
+    "id_mantido": "ca860ac2-e1c0-4cbe-8765-a05615ddebdf",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DHELITON DA SILVA TENORIO",
+    "id_apagado": "2db9f76b-b8bc-4fab-83eb-bda86957b610",
+    "soc_errada": "SP6",
+    "id_mantido": "cd6f780a-7a80-4cae-b958-d8e5c93e0c4d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NILVANIA PEREIRA DA SILVA",
+    "id_apagado": "2ff295ec-0421-4dba-9054-901ca883b579",
+    "soc_errada": "SP6",
+    "id_mantido": "c5a1faa5-4d8e-43a7-86b7-85d1e45e6734",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JHULIT YNARA DA SILVA ANASTACIO",
+    "id_apagado": "305f40f7-eac7-4216-ba4b-9c00b0e8c5c4",
+    "soc_errada": "SP6",
+    "id_mantido": "fdf3e857-c9c3-42b3-be66-2ab27da06442",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GISLAINE APARECIDA CARVALHO DE OLIVEIRA",
+    "id_apagado": "3068641e-250b-43f0-88ff-166edabebb1f",
+    "soc_errada": "SP6",
+    "id_mantido": "27fcc75e-a317-4493-b9ee-70d09bed0358",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VANDERLEIA FERNADES  DA SILVA",
+    "id_apagado": "3141a342-4307-4bba-a55e-90bae2b48e2b",
+    "soc_errada": "SP6",
+    "id_mantido": "ab6b188a-c918-4bdd-a4a0-d4739bfdbfd9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CRISTIANO BRIAN DE OLIVEIRA",
+    "id_apagado": "31ff9b69-20fa-4825-8cf8-3a576f3dd67f",
+    "soc_errada": "SP6",
+    "id_mantido": "c663f0b2-e261-4cc5-a52c-36f302541da4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA ANGELICA DE LIMA",
+    "id_apagado": "33c95407-525b-4c8f-a1c6-2a3ad3810d88",
+    "soc_errada": "SP6",
+    "id_mantido": "87e73c96-af01-496d-8856-0d1da034f04f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA CLARA DA SILVA ALVES",
+    "id_apagado": "3411e13c-a0c9-4e2e-9314-cc25ee0887ef",
+    "soc_errada": "SP6",
+    "id_mantido": "9414cb0d-1ca9-40cd-ae15-156c272b3a3f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME RODRIGUES DA SILVA",
+    "id_apagado": "355385a1-059e-4123-b87a-abf287014a77",
+    "soc_errada": "SP6",
+    "id_mantido": "abde44ad-9405-4194-a242-c302c5ab11b1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRESSA DA SILVA BERNARDO",
+    "id_apagado": "36798d39-9a9a-4de9-bcab-0ed10903ef45",
+    "soc_errada": "SP6",
+    "id_mantido": "75aff3c1-ade4-4fbe-a384-6586971c5431",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAMILA APARECIDA CEZARINO",
+    "id_apagado": "36c563b8-25ea-4e20-8eef-4247ca8c07c9",
+    "soc_errada": "SP6",
+    "id_mantido": "b876fe0e-5d93-4723-8a1e-8ab9e72a66f7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FRANCISCA CLARA ALVES MESQUITA",
+    "id_apagado": "37221e76-cb41-4c6b-874e-eb2246d0aedf",
+    "soc_errada": "SP6",
+    "id_mantido": "90c2c719-90cd-4ffb-b49d-0de7f9d89ab1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANNE GABRIELY LAUREANO ALVES",
+    "id_apagado": "374f18d8-1535-449c-b6be-ba824213881e",
+    "soc_errada": "SP6",
+    "id_mantido": "a55abf44-0fa6-437b-867d-12c040d19cd4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "IGOR DOS SANTOS LUIZ",
+    "id_apagado": "37b8e93e-94e0-4109-a1b3-c9afce2751fd",
+    "soc_errada": "SP6",
+    "id_mantido": "2006220e-84eb-497e-a5e2-841f764efa3f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAISSA SILVA DA COSTA",
+    "id_apagado": "37e0cd06-f17d-4242-81ce-9ca2c23e7ffc",
+    "soc_errada": "SP6",
+    "id_mantido": "92a3033e-c11d-4c60-b0cf-6521aa1c37d4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATALIA AMELIA EMYGDIO",
+    "id_apagado": "3893730c-79b0-4be0-9383-d107972f7721",
+    "soc_errada": "SP6",
+    "id_mantido": "d012622d-8ea6-4519-a34b-01cefacde068",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA FERNANDA IZAIAS",
+    "id_apagado": "38da58a3-ec15-41e1-940f-af4686774e3d",
+    "soc_errada": "SP6",
+    "id_mantido": "85afb37e-890e-4117-ae18-4af5b682c063",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RIQUELMI PAES DO AMARAL",
+    "id_apagado": "396f0cff-1851-4975-a940-13ec22c07e8e",
+    "soc_errada": "SP6",
+    "id_mantido": "1fbb36ff-4b02-45ba-976c-70e2c9de6801",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUSTAVO TURIBIO",
+    "id_apagado": "39b4ab6c-e5df-40da-a30a-914452acde19",
+    "soc_errada": "SP6",
+    "id_mantido": "41666b48-9ee9-4654-a7e0-2d7622ec2bf7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WILLIAM GABRIEL LEMOS DE LIMA",
+    "id_apagado": "3aa6e178-92c7-49b3-9b09-e20e01153fc6",
+    "soc_errada": "SP6",
+    "id_mantido": "092bd8ae-fbe5-4f6b-993d-acfa4395eaa9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WELLINGTON DOUGLAS ATAIDE DOS SANTOS ALVES",
+    "id_apagado": "3ab593c4-de97-4739-a0b7-9351d2971652",
+    "soc_errada": "SP6",
+    "id_mantido": "bf52bb29-6e23-4e1a-a76d-b60ca818e312",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEONARDO LUIZ DA SILVA PEREIRA",
+    "id_apagado": "3bab5e20-3cf6-4256-9d25-19c2e539e5ce",
+    "soc_errada": "SP6",
+    "id_mantido": "6e0fb8f7-d285-4726-af6f-292642ff6a06",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HELOISA PERES VOLPATO",
+    "id_apagado": "3c403e1c-6a48-4b6c-beec-792b6f053920",
+    "soc_errada": "SP6",
+    "id_mantido": "269fd2bf-1cec-46a9-ad10-1baab006d9e8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VICTOR AUGUSTO ROCHA SANTOS",
+    "id_apagado": "3dbdf72e-3015-4054-8e2d-25b82fea283b",
+    "soc_errada": "SP6",
+    "id_mantido": "f5f14bdb-9655-4b29-a4e6-bfcf0001bb42",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SANDRO EDUARDO DOS SANTOS",
+    "id_apagado": "3e1af9af-ed8a-4386-ae3c-6b68627a4064",
+    "soc_errada": "SP6",
+    "id_mantido": "dd7c121d-4373-40d3-9614-ad7544968cd9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CASSIA CONCEICAO RANDO",
+    "id_apagado": "4149b872-8044-4a3b-a3aa-13bae1016702",
+    "soc_errada": "SP6",
+    "id_mantido": "f28e0314-9452-45a7-8b9b-672d0e77eaf7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MAURICIO PRANDO",
+    "id_apagado": "4295457d-3c04-44d2-9469-dbf8541036b4",
+    "soc_errada": "SP6",
+    "id_mantido": "43e77352-c83d-402a-96a4-97c9f68b721c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VIVIANE CRISTINA OLEGARIO RIBEIRO",
+    "id_apagado": "4407d071-696a-4326-aedd-788bb0be1dc8",
+    "soc_errada": "SP6",
+    "id_mantido": "c8e6e67d-e9df-43f5-baa4-83d3cad05298",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALESSANDRA RAMOS CAVALCANTE",
+    "id_apagado": "441ab95a-9f04-4128-96f5-def7b392377d",
+    "soc_errada": "SP6",
+    "id_mantido": "4c5f3720-ec16-4804-8932-cc08249e7cbb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA LUIZA MARQUES CAVALCANTE",
+    "id_apagado": "44fc4340-66f1-4c8a-900b-274c6e462491",
+    "soc_errada": "SP6",
+    "id_mantido": "a582c4b3-977d-472f-bf82-0d1cabe24ed8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PETERSON WILLIAN FIRMINO FELIX",
+    "id_apagado": "45853397-c1f7-4bf1-9330-addee5791e76",
+    "soc_errada": "SP6",
+    "id_mantido": "6d445b20-d408-4a61-b607-60f9d0cd313e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA EDUARDA DE BRITO LEME",
+    "id_apagado": "4633f4d2-3cbd-4c75-ac0e-446740b60906",
+    "soc_errada": "SP6",
+    "id_mantido": "e16bf0ea-9eed-45b9-85ff-38855f0368a7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNO HENRIQUE MESSIAS",
+    "id_apagado": "4655bb77-763b-4295-a38b-8d2237dbd700",
+    "soc_errada": "SP6",
+    "id_mantido": "5d5931fc-9fe4-4351-9ff5-b8d065cc8d1c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAMILA FERNADA DE FREITAS",
+    "id_apagado": "47075fe8-4c7e-4f79-9c91-cdc0daea016b",
+    "soc_errada": "SP6",
+    "id_mantido": "d728856d-63d0-49d1-809c-111615eeefaf",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE LUIZ DOS SANTOS FILHO",
+    "id_apagado": "47bbee31-855e-40cd-a70a-8779c47e8220",
+    "soc_errada": "SP6",
+    "id_mantido": "008359ae-68e1-4689-92c8-3ffd7d6ec997",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "UIARA GARCIA LUIZ",
+    "id_apagado": "48c9b11f-20d9-42e8-ae4e-1260da2fdbe0",
+    "soc_errada": "SP6",
+    "id_mantido": "c44e48bd-ce12-42c8-a99f-6de8c0d5709e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YASMIN VICTORIA PEREIRA",
+    "id_apagado": "48d1b27a-a3f5-4ddb-a2bf-af63bd996b43",
+    "soc_errada": "SP6",
+    "id_mantido": "2c96439b-ad1e-46ce-bf72-8b8e097a81e1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KELVIN ORTEGA FERRAZ BATISTA",
+    "id_apagado": "48e2282a-66be-4c2d-a551-b8c76f547e83",
+    "soc_errada": "SP6",
+    "id_mantido": "66c7bdc0-9989-4caa-9b68-833952dbe234",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUSTAVO PAULA NASCIMENTO",
+    "id_apagado": "4939edc3-069d-4598-90b2-06f4422411db",
+    "soc_errada": "SP6",
+    "id_mantido": "fdda24d9-0711-4066-a72b-bc538b25493e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAIZA SAIS",
+    "id_apagado": "493c071d-c278-4cef-bfdd-3c4a538593c7",
+    "soc_errada": "SP6",
+    "id_mantido": "c7698b22-8847-4674-86d7-d1a5257b842c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA KAREN BARBOSA DA SILVA",
+    "id_apagado": "49f4260f-bc2a-4099-b5e7-85f6f2e0a306",
+    "soc_errada": "SP6",
+    "id_mantido": "d235c02d-14d6-4cff-9660-74f4895d38df",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELLI BORGES MARTINS",
+    "id_apagado": "4a7cce2f-ee50-4f9d-b445-8e2acb608cef",
+    "soc_errada": "SP6",
+    "id_mantido": "2438d736-8439-4743-a079-51bc16228f4e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SARA CHAYANE THEODORO DOS ANJOS",
+    "id_apagado": "4a94ee14-f860-4b10-82f1-3f138b0ef7d7",
+    "soc_errada": "SP6",
+    "id_mantido": "8cf592db-b29c-488b-b0cd-0222fe8c4a43",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VIVIAN ALICE FABIANO BERNARDO SILVA",
+    "id_apagado": "4b1f1285-fd8e-4158-9c07-d6c95ca31b05",
+    "soc_errada": "SP6",
+    "id_mantido": "91c5d7be-1cb7-461a-af8b-4a1357d9cd3c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YSLENE DE JESUS CUNHA",
+    "id_apagado": "4b9397c1-2015-450b-be92-db33ff7f1bd9",
+    "soc_errada": "SP6",
+    "id_mantido": "6d28bcf5-7f2e-4316-84e9-b23e8869624a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOAO PEDRO LEITE DE SOUSA BATISTA",
+    "id_apagado": "4c14d122-4d4f-4f70-9340-44ac96922078",
+    "soc_errada": "SP6",
+    "id_mantido": "8b8f900b-43cb-49db-943f-f5d4501dec93",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISAAC ELIAS DE SOUZA PALMA",
+    "id_apagado": "4c2c616a-a2b9-4785-8777-1b1e8b1ac7f3",
+    "soc_errada": "SP6",
+    "id_mantido": "3d6492e4-1786-415f-95c6-c213b561e95f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAYANE BALBINO DOS SANTOS",
+    "id_apagado": "4c53b92b-53c5-452a-b62c-223a68179b97",
+    "soc_errada": "SP6",
+    "id_mantido": "a2ccf97f-3377-4b56-b57b-4e623b9a6ba1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EDUARDO HENRIQUE DA SILVA SANTOS",
+    "id_apagado": "4d61e304-3061-46b8-a0e3-892d81a3e078",
+    "soc_errada": "SP6",
+    "id_mantido": "07d29374-eb31-4deb-8ffb-7d92d9c01fb6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WILLIAM RENAN DE MORAES",
+    "id_apagado": "4d671984-e718-468a-8b58-bf1f592d7ba2",
+    "soc_errada": "SP6",
+    "id_mantido": "8515114c-26e8-4c93-9c57-8be7ea51df75",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAIKA VITORIA DE OLIVEIRA CONCEICAO",
+    "id_apagado": "4e8f5282-f5e7-4c3d-b9ee-7b14e259fd38",
+    "soc_errada": "SP6",
+    "id_mantido": "411b726d-b8ad-48cd-b4dd-9ae75a0fc87b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GISELE FERMINO DOS SANTOS",
+    "id_apagado": "4ed20f74-f74e-496f-a2e7-0612ba7a1023",
+    "soc_errada": "SP6",
+    "id_mantido": "17d57ff9-9fcf-4ff7-bc0e-cded55015174",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIANA ROSA SANTOS",
+    "id_apagado": "4f171118-87be-4e18-bb79-8a3de80954ab",
+    "soc_errada": "SP6",
+    "id_mantido": "b2726d0c-3df3-40bc-9b59-b8249dab55b1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EMANUELLE CRISTINY DE AQUINO",
+    "id_apagado": "4fbc6cbd-bc5d-4e15-922b-3b94758e329e",
+    "soc_errada": "SP6",
+    "id_mantido": "0515a911-7dad-488a-a7d9-7ace440334ef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EISHILA CAUANE MORALES SIQUEIRA",
+    "id_apagado": "4fd3c13f-3458-4827-bdb2-052703b52589",
+    "soc_errada": "SP6",
+    "id_mantido": "f4b78637-c35d-45d2-9af1-1617a0346e11",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VIVIANE CRISTINE DA SILVA",
+    "id_apagado": "5061bd38-cf3a-43f6-bdcc-de1929fac066",
+    "soc_errada": "SP6",
+    "id_mantido": "2c237f4d-51e0-4b0c-9026-a1d9051f54f2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAMILA TAIS DE SOUZA DOMINGUES",
+    "id_apagado": "5101d10b-7334-4b8a-9023-11e7a8a025b5",
+    "soc_errada": "SP6",
+    "id_mantido": "433e2aa3-a98e-4dc5-914c-4a515565d912",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LETICIA DOS SANTOS OLIVEIRA",
+    "id_apagado": "513bcd2f-51a3-4fe0-865d-d210a4e0726d",
+    "soc_errada": "SP6",
+    "id_mantido": "cc403d46-775d-435f-8cac-f41e05228b9e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOAO VITOR OLIVEIRA DAS NEVES",
+    "id_apagado": "51622f08-d91a-4322-ab5a-45fb410698d4",
+    "soc_errada": "SP6",
+    "id_mantido": "3a90b1a7-847d-4d35-b4a0-f58c7951d06a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA CLARA FONTES SANTANA ORTIZ",
+    "id_apagado": "51660a95-eef2-4e1c-b72e-1a5d584c95f7",
+    "soc_errada": "SP6",
+    "id_mantido": "438e0d3e-cac4-4cf9-ac39-452e3626c040",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA EDUARDA FORNEL PUCCI",
+    "id_apagado": "51a11c4f-74f5-4b37-9cf7-543f79bbf30a",
+    "soc_errada": "SP6",
+    "id_mantido": "9943e3e9-6ebe-4b14-a74d-0aa77e8cddcc",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SILMARA SILVA FIRMINO",
+    "id_apagado": "51da1d9c-19d3-489e-a256-c0bb5e059843",
+    "soc_errada": "SP6",
+    "id_mantido": "414bd3ff-db63-4898-ade8-1b1cef8fc302",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDREINA MARIA DA SILVA",
+    "id_apagado": "5270eeae-d2a2-4852-b07a-10a20da2ae12",
+    "soc_errada": "SP6",
+    "id_mantido": "8b2979a4-2293-4e72-b544-537804fd06c1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PAMELA GABRIELE CAMPOS DA SILVA",
+    "id_apagado": "529222f3-e6cf-4a06-8b20-fc4aeab89b25",
+    "soc_errada": "SP6",
+    "id_mantido": "e9c82c55-890c-45ab-b81a-d4989adb9851",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TATIANE CRISTINA CARNEIRO FERREIRA",
+    "id_apagado": "52e0f9a5-0522-4b04-b008-9bc2f8f0eeac",
+    "soc_errada": "SP6",
+    "id_mantido": "dc85a43d-cb87-411d-858d-ef9f16d11cf9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JONATHAN GUILHERME DA ROCHA",
+    "id_apagado": "535f2b38-df8f-4915-8120-5cdcb4f1ce38",
+    "soc_errada": "SP6",
+    "id_mantido": "6360bcb6-efc3-4b6f-9028-2b7bcb5d506c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ARIADNE CASALE DE SOUZA",
+    "id_apagado": "537360ba-fda1-4c7c-9cc4-4130dd69a5cd",
+    "soc_errada": "SP6",
+    "id_mantido": "3f9069f4-4ad5-445c-bce5-67620c824225",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIO CESAR LEITE DOS SANTOS",
+    "id_apagado": "53e2c8ce-1445-4d78-baa5-e9594cc9d6f3",
+    "soc_errada": "SP6",
+    "id_mantido": "143f90e2-b0fa-4fbd-a861-985f6672a18c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MAGUIANI DE FATIMA DAMASCENO",
+    "id_apagado": "5435d1f7-baaa-4f76-b9e4-2e2c0d46d5d3",
+    "soc_errada": "SP6",
+    "id_mantido": "80b8369c-7233-4a2b-99f9-dbcde990951c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAMILE CAROLINE PEREIRA",
+    "id_apagado": "54448144-218c-4699-91d6-69fd65e6d540",
+    "soc_errada": "SP6",
+    "id_mantido": "b045599d-d86c-4dfe-acd6-bae30b0bf92a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAMILY GEOVANA AGUIAR SANTOS",
+    "id_apagado": "54644771-00e0-40ee-8837-9d76aa0668a2",
+    "soc_errada": "SP6",
+    "id_mantido": "943e6afe-5fe6-4576-a872-45f138dbbd0d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATIELY TEODORO ESTEVES MOREIRA VIANA",
+    "id_apagado": "547a0734-5cf6-4e79-86cb-14a049471864",
+    "soc_errada": "SP6",
+    "id_mantido": "5e09d00f-09c3-4579-95b8-0db5735fc058",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VINICIUS MOREIRA DOS SANTOS",
+    "id_apagado": "552399bd-89fe-471f-8613-1faaf04d7dac",
+    "soc_errada": "SP6",
+    "id_mantido": "0af0f276-2716-4c4a-9827-e0ee64c95beb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RENILDA FERREIRA DOS SANTOS",
+    "id_apagado": "554914d6-bdc4-4209-9599-64f3bc88fa4b",
+    "soc_errada": "SP6",
+    "id_mantido": "c5cfdcba-75b1-4027-8e0a-0ebf7d83a68f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KLEBER RYAN LIMA DA SILVA",
+    "id_apagado": "559e8a28-d6a7-4f0e-87ab-e34a875c998e",
+    "soc_errada": "SP6",
+    "id_mantido": "09ac81fe-9dfb-4da1-b22b-1df8ec08e323",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THAINA RUSSI DOS SANTOS",
+    "id_apagado": "55cc5d4a-3b29-420a-91f9-5403225c9188",
+    "soc_errada": "SP6",
+    "id_mantido": "52a32938-9cf4-4c8e-98c4-ee99d162e0ca",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KATIELE EFIGENIA RUSSO AUGUSTO",
+    "id_apagado": "55e6d262-24bc-40df-bbec-107c0d20660a",
+    "soc_errada": "SP6",
+    "id_mantido": "2830cd73-cbd8-40d5-b3a3-224d39cd23ba",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BYANCA DOS SANTOS FUOCO",
+    "id_apagado": "565911a0-0f5c-42d2-b95f-77d970e244f9",
+    "soc_errada": "SP6",
+    "id_mantido": "0aa7d5b2-7562-48c7-83d8-08291688cf0c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAYSSA RAYANE FERNANDES DAMASCENO",
+    "id_apagado": "56ccdd48-f9e1-47e9-8c42-027dae1e92c5",
+    "soc_errada": "SP6",
+    "id_mantido": "70933572-737a-4e4e-b6d1-cae183c10d96",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VICTOR ANGELO ZARUBAIKO",
+    "id_apagado": "57309bc8-2387-41c5-ad2f-61d92116fe7f",
+    "soc_errada": "SP6",
+    "id_mantido": "aeba6b5d-d6a5-4225-98a6-3bb467067fbf",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CLARA CORDEIRO JARDIM",
+    "id_apagado": "58c9c6cc-15c5-49f1-b36e-849290962121",
+    "soc_errada": "SP6",
+    "id_mantido": "30d2b289-14ff-45c4-aa59-d1412b432053",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MILTON FRANCISCO RUBIO JUNIOR",
+    "id_apagado": "58e0a582-04bf-4656-80e4-4fe07e20df43",
+    "soc_errada": "SP6",
+    "id_mantido": "80d23a78-5b80-4188-9642-2c85bfeb2f06",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE GABRIEL SILVA DOS SANTOS",
+    "id_apagado": "59368791-9bdf-4107-9f36-30899a6c51d7",
+    "soc_errada": "SP6",
+    "id_mantido": "e0fd700c-d957-4e53-b8fe-7f5c2735cc28",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GIULIANE RODRIGUES DA SILVA",
+    "id_apagado": "599e5f7e-4fb8-4d42-b493-791ddc301c00",
+    "soc_errada": "SP6",
+    "id_mantido": "23680b92-1af9-4f81-895c-90f74ee5fc5e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DOUGLAS DE OLIVEIRA CARDOZO",
+    "id_apagado": "59b67bff-1674-4c87-8ac8-25b7d6059c15",
+    "soc_errada": "SP6",
+    "id_mantido": "c7735791-0575-4f1d-884b-376b0339b520",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LORRAINY FERNANDA APARECIDA DO CARMO HONORIO",
+    "id_apagado": "59cd8997-d83c-42d4-a381-307fd6d1b103",
+    "soc_errada": "SP6",
+    "id_mantido": "e57eb15c-9b69-4da9-b931-9516e289c516",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BEATRIZ PROTEGE DA SILVA",
+    "id_apagado": "5a27a29d-831c-46c6-b69f-94be936010c5",
+    "soc_errada": "SP6",
+    "id_mantido": "81515891-9dd6-406f-9110-7a4d3e93a00b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NAYARA DA SILVA E CRUZ",
+    "id_apagado": "5a62be6c-7c71-4eee-8fd7-d482f0ad0870",
+    "soc_errada": "SP6",
+    "id_mantido": "98ec05bb-d62f-4d76-908f-fe4111ae3338",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATALIA AMANDA DE BRITO ROSARIO",
+    "id_apagado": "5ac8ee1f-2ab5-41a2-96f0-e5d9f367132e",
+    "soc_errada": "SP6",
+    "id_mantido": "e67f17b5-b01d-4ed2-88c1-2ca46d387955",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VICTORIA TRIANO FRANCISCO",
+    "id_apagado": "5ae3e7f8-8fc4-4aac-9a94-3a454abcf9b3",
+    "soc_errada": "SP6",
+    "id_mantido": "4df98eed-526c-44cb-8e75-cee845d9aa4b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AKIANE KAINA RODRIGUES SILVA",
+    "id_apagado": "5af04e99-7445-4257-b3de-82d7d2b5ac64",
+    "soc_errada": "SP6",
+    "id_mantido": "31738308-0c13-458e-be55-a00c17471d4f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LYANDRA LARISSA HENRIQUE ESTEVAM",
+    "id_apagado": "5b2d4dd2-5893-4087-9547-e95cc3f19549",
+    "soc_errada": "SP6",
+    "id_mantido": "66250a80-8584-445b-9fdc-a23cce9152a3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHEL APARECIDO VIEIRA BATISTA",
+    "id_apagado": "5bc01d7b-a994-44cb-9cfb-aecb6b0c48aa",
+    "soc_errada": "SP6",
+    "id_mantido": "f2b76af6-afcb-42b7-b7fb-5d2c48ac51c4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAROLAINE ALBUQUERQUE DOS SANTOS",
+    "id_apagado": "5c142bf7-35db-41ae-916c-4e58a14d45a7",
+    "soc_errada": "SP6",
+    "id_mantido": "ccb2072b-a012-49d9-9285-2ac98007498e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIELSON CONCEICAO DOS SANTOS",
+    "id_apagado": "5c98707d-0cb1-4304-bf34-51d1db63dbd5",
+    "soc_errada": "SP6",
+    "id_mantido": "936452ad-145e-4024-8765-26eabb6221f6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AMANDA VITORIA MARTINS AFONSO",
+    "id_apagado": "5cda4f21-e793-4346-9ad4-7aaece8bf5a0",
+    "soc_errada": "SP6",
+    "id_mantido": "7a0404b4-e47f-44e0-aa7d-837b8cbb9b78",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALINE APARECIDA MORENO DOS SANTOS",
+    "id_apagado": "5d97bfc0-21f0-439e-8b4c-631dd6feb60d",
+    "soc_errada": "SP6",
+    "id_mantido": "aea263bd-d24f-4f87-b30e-d54e031f588d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ESDRAS MICHEL LEAL DE OLIVEIRA AFONSO",
+    "id_apagado": "5dbdac4c-a38d-4937-ac7f-6410177621fa",
+    "soc_errada": "SP6",
+    "id_mantido": "04fbb42d-b72f-494d-8c92-f6466cb0a31b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MONIQUE EMANUELLE MOREIRA",
+    "id_apagado": "5dcedc29-4a64-4183-a85c-952698a790d0",
+    "soc_errada": "SP6",
+    "id_mantido": "f5121777-20bf-4403-9007-e7b31036b28b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LETICIA FERNANDA DE BARROS ROSA",
+    "id_apagado": "5e09391d-4ef4-4615-b4dd-274f10f02c80",
+    "soc_errada": "SP6",
+    "id_mantido": "b89d2db1-20ca-4d70-8e09-c74d90aa69ae",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA PAULA FERREIRA HELLMEISTER",
+    "id_apagado": "5e38527c-a030-4a03-842a-4db2e1966547",
+    "soc_errada": "SP6",
+    "id_mantido": "16ac18bd-b41c-49b4-989d-c343e53b12d9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNA BARBOSA LIMA",
+    "id_apagado": "5e675fcc-fb45-458d-aeab-7fa5eb308833",
+    "soc_errada": "SP6",
+    "id_mantido": "86246a60-7de6-4b21-85b2-55baaf93b1c2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VALERIA ANTUNES ROMAO",
+    "id_apagado": "5ec0d2bd-2b56-48fb-b8d4-0ad1d5cac719",
+    "soc_errada": "SP6",
+    "id_mantido": "e0f9d7a1-46cb-4263-a4f8-d83932d195ae",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TATIELEN LARISSA PEREIRA SILVA",
+    "id_apagado": "613cb8d4-1a08-4d37-b232-28c4767ba40e",
+    "soc_errada": "SP6",
+    "id_mantido": "2d23333a-b043-48ae-b693-49e3fd933206",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BIANCA APARECIDA MOREIRA SALES",
+    "id_apagado": "61619519-e7af-4190-ba28-192567b8c9fd",
+    "soc_errada": "SP6",
+    "id_mantido": "b7863b6e-7bb1-4a04-9952-684ad8226281",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANANDA RILLARY DE OLIVEIRA FARIAS",
+    "id_apagado": "61c62a8a-8e8b-4e1e-8541-b4ffdf0d7c21",
+    "soc_errada": "SP6",
+    "id_mantido": "5aee3b98-4191-4f96-9e67-f7f90f13918a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAELA CRISTINA ROSSI",
+    "id_apagado": "61dd8628-480a-45c4-aa11-818cf6e49929",
+    "soc_errada": "SP6",
+    "id_mantido": "1096f2b7-08e3-4c98-b967-662ef5191714",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL RODRIGUES OLEGARIO",
+    "id_apagado": "639289d9-1e93-4ffd-8c29-7c4cf66fbb83",
+    "soc_errada": "SP6",
+    "id_mantido": "d149bf89-6d98-4ec8-ad1d-fbd8a6e14e21",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRE RICARDO BARROS",
+    "id_apagado": "63cf4f9c-c321-4ee8-91a3-50b099fb5b43",
+    "soc_errada": "SP6",
+    "id_mantido": "3347d9ba-9a5f-439f-836a-9dca2b1beb84",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIEL DA CUNHA ARAUJO",
+    "id_apagado": "63e4d223-a5b9-4f60-ae85-7bde84168320",
+    "soc_errada": "SP6",
+    "id_mantido": "4cfaf665-401d-4c4c-96ff-49beb1cfbbe0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATALIA SOUZA FREITAS",
+    "id_apagado": "640a240f-43e4-41f1-b815-380ea71951f8",
+    "soc_errada": "SP6",
+    "id_mantido": "6f887bce-5dc4-47fd-a8a4-d5a3c926feea",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JHESSY INAE CHRISTINI DA SILVA",
+    "id_apagado": "643c58d8-26fe-46f1-893f-5649cd68db80",
+    "soc_errada": "SP6",
+    "id_mantido": "b5df249a-c974-4403-a08a-ce43cdb0387a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIANO EDI CAMPOS DE CAMARGO",
+    "id_apagado": "646621dc-1454-48b5-afac-3b0e39f926db",
+    "soc_errada": "SP6",
+    "id_mantido": "864bc22f-0aee-4f49-9a41-9d4786edb759",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CLAUDIA VALCIMARA APARECIDA BIDIAS",
+    "id_apagado": "65015db5-012b-4986-885d-caff8d32d46e",
+    "soc_errada": "SP6",
+    "id_mantido": "f578b1fe-afb5-4257-bed3-27a263475db0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA GABRIELLE ALVES PEREIRA",
+    "id_apagado": "65357d58-e1f9-43d8-8bfe-eec4d0d0635c",
+    "soc_errada": "SP6",
+    "id_mantido": "1e39d12d-25a1-490d-a53f-855fe8f7c7d5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADALGISA RIBEIRO",
+    "id_apagado": "6616c37e-79ef-41df-8e16-2d15a077da59",
+    "soc_errada": "SP6",
+    "id_mantido": "a9fa22a2-4cd9-4338-be41-928597d45c18",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 1
+  },
+  {
+    "nome": "MARCOS LUCA BRAGA DE OLIVEIRA",
+    "id_apagado": "66fb4e82-b232-4b0d-913f-3b78d5cd07f0",
+    "soc_errada": "SP6",
+    "id_mantido": "311d858f-634f-4f4a-aaa0-d09ec0a1e538",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FRANCINE SUELEN SAMPAIO VIEIRA",
+    "id_apagado": "67908ed6-927a-4267-acbb-f466292691d5",
+    "soc_errada": "SP6",
+    "id_mantido": "c1357b0b-a354-4a1c-a30c-29a5290ff3af",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAIANE NAYARA BRASIL DA SILVA SANTOS",
+    "id_apagado": "68229016-52a0-4ce3-9054-fa1388f73ab0",
+    "soc_errada": "SP6",
+    "id_mantido": "bbda42f5-71b7-42a6-adaa-7bf74df8c756",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAEL DE SOUZA",
+    "id_apagado": "685d57b1-ef40-4629-8a88-630ac49f3f3f",
+    "soc_errada": "SP6",
+    "id_mantido": "5cb05f10-46ff-40fb-bb6d-a4ebb60da38d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ESTEFANI CRISTINA ANACLETO",
+    "id_apagado": "688fc147-8223-4057-b6d7-790624759192",
+    "soc_errada": "SP6",
+    "id_mantido": "d749ee46-a7f1-4aad-afdd-6c4eeaf06964",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SARITA CRISTINA GARCIA",
+    "id_apagado": "691d7cc0-6053-400f-90d1-98e658550a49",
+    "soc_errada": "SP6",
+    "id_mantido": "477fdc91-c566-40fd-8893-82cc3d83534a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAI MARTINS VITTI",
+    "id_apagado": "698ea6ed-a2ca-4bee-8add-de80aae15f28",
+    "soc_errada": "SP6",
+    "id_mantido": "e5ab09db-50cd-4e6a-bbeb-39d1999d958b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAWANE RAPHAELA ANDRADE MEDEIROS",
+    "id_apagado": "69c16fd8-015d-4001-8ace-45ca21f66657",
+    "soc_errada": "SP6",
+    "id_mantido": "878867e7-aa11-400d-ab20-62fe66012bec",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EVERTON HENRIQUE DE ARRUDA",
+    "id_apagado": "6a411438-aa3e-47f2-bc7f-fadf12ca28f4",
+    "soc_errada": "SP6",
+    "id_mantido": "5f546efa-2f9e-49b0-86e6-86b3fa2ea962",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAMILY CRISTINA MARCELINO ALVES DA SILVA",
+    "id_apagado": "6a542a44-00c0-4d1f-8054-e8ca2e2a4b7f",
+    "soc_errada": "SP6",
+    "id_mantido": "ec5a2567-54b6-48fa-94be-b1ed87038f69",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SULIANE RIBEIRO DE OLIVEIRA",
+    "id_apagado": "6ae967e7-16c3-49cf-9f76-46487a4c805a",
+    "soc_errada": "SP6",
+    "id_mantido": "bdc1d8e6-82c7-48e3-84fd-d866cefb3387",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELISANDRA LUISA DE OLIVEIRA",
+    "id_apagado": "6b0393ea-7f00-46d3-aefd-e3e8e9827cd5",
+    "soc_errada": "SP6",
+    "id_mantido": "22e24525-9e7a-4d52-b6dc-35c30b1ac42b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SAMARA DO PRADO SOARES",
+    "id_apagado": "6b4f9c19-eb9b-4d0a-afbb-92878219e698",
+    "soc_errada": "SP6",
+    "id_mantido": "a4a8e90f-1515-45ea-a7d9-1cc0737dcd5d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RENATA CRISTINA ALVES DE LIMA",
+    "id_apagado": "6b7d5981-eaa1-457b-8284-8291ca00d4c6",
+    "soc_errada": "SP6",
+    "id_mantido": "daa8c00f-c9ab-4766-ba4e-24e690910151",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELOILDES SANTOS MARCAL",
+    "id_apagado": "6b835c09-8546-46a5-8f49-5cddd9974c74",
+    "soc_errada": "SP6",
+    "id_mantido": "7f039cca-bb99-4304-b08d-3b7195ff878d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VANESSA OLIVEIRA DE SOUSA CARVALHO",
+    "id_apagado": "6c2d6d66-34b7-4a9a-99d9-57ed7eb3f50d",
+    "soc_errada": "SP6",
+    "id_mantido": "54f72347-4db8-454b-8cf1-bba7076c1200",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PEDRO HENRIQUE BISPO DE JESUS",
+    "id_apagado": "6d3d7233-bde5-48f7-a3b7-cd19476b930b",
+    "soc_errada": "SP6",
+    "id_mantido": "b3168b49-e773-4d6a-866e-12a5f616432c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIELA LETICIA DA SILVA",
+    "id_apagado": "6d545e20-bb22-4ca5-a7d4-2769de1fc671",
+    "soc_errada": "SP6",
+    "id_mantido": "c8a9b409-b19c-4966-a4a3-c576a85a1651",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUISA MARIA GRETER",
+    "id_apagado": "6d7184ba-9f9d-4984-b0e5-4ed1f7f8249d",
+    "soc_errada": "SP6",
+    "id_mantido": "26979124-7cf1-41db-ad3d-2eb4ceaf97d1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAELY VITORIA VIANA BORGES",
+    "id_apagado": "6d82837d-445a-414b-9560-aa263741917c",
+    "soc_errada": "SP6",
+    "id_mantido": "1b5c5b3f-70e8-41f1-9577-80142370af01",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIZABETH LOPES DE SOUZA",
+    "id_apagado": "6e451047-6ab1-4443-b724-ec3eebb3fdbb",
+    "soc_errada": "SP6",
+    "id_mantido": "f40ff874-c61c-4df4-8ccf-c0a562816d39",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIA BEATRIZ DA SILVA PAES",
+    "id_apagado": "6f551112-1357-42dd-8740-5c41d21ecd69",
+    "soc_errada": "SP6",
+    "id_mantido": "e7f9b27d-8b46-4ccc-90ca-81cd2e5a3589",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIA DE SOUSA NOGUEIRA",
+    "id_apagado": "6f9df160-6326-4649-98b3-609136b045ab",
+    "soc_errada": "SP6",
+    "id_mantido": "88c6c25c-a148-4f6a-a049-7a72843f47a8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RODRIGO HENRIQUE DA SILVA SOARES GODOY",
+    "id_apagado": "6faef43c-fa89-4fa8-846c-8fa4386e6acb",
+    "soc_errada": "SP6",
+    "id_mantido": "bed8bd15-d294-49bd-94d6-8f104e3a1bb4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINA SANTOS DE SOUZA",
+    "id_apagado": "7164d643-26c5-4961-b67c-152b5e7197f7",
+    "soc_errada": "SP6",
+    "id_mantido": "67f9c3c1-a206-4a31-8c0d-000319965107",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINA LARISSA FERREIRA",
+    "id_apagado": "7226e2bb-a29c-47c3-b01f-978969beaff7",
+    "soc_errada": "SP6",
+    "id_mantido": "a55e4e5c-b4cf-4552-afc3-01ae449674d7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VANESSA MARTINS RAMOS PRATES",
+    "id_apagado": "7233f6a6-3a31-4e12-909b-748fafce7327",
+    "soc_errada": "SP6",
+    "id_mantido": "8e8acd28-2381-415a-8f1f-0ef6797cf9f8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIANA REIS DE OLIVEIRA",
+    "id_apagado": "725007e4-0a1d-4441-ba60-6895997404a5",
+    "soc_errada": "SP6",
+    "id_mantido": "dc123460-704e-4232-8cf8-6a85b022f99e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSIANE SOARES PAES DE ARAUJO",
+    "id_apagado": "72cd1f7e-e210-4693-8c04-885bd7f02b3c",
+    "soc_errada": "SP6",
+    "id_mantido": "e2be9aee-1fbe-44a5-8112-e35cee14e6a6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIELE MARCONDES ALVES",
+    "id_apagado": "740444f7-9f21-4055-8a11-66bea71db6b6",
+    "soc_errada": "SP6",
+    "id_mantido": "38941289-025d-4e85-9832-10692d78df7f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PAMELA VITORIA LIMA DANTAS DE FREITAS",
+    "id_apagado": "747af5a8-c0c1-4225-8495-88f842fff60f",
+    "soc_errada": "SP6",
+    "id_mantido": "3553c8cc-6f24-4167-b11a-2e0fe7444de3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELLE VITORIA DO NASCIMENTO GARCIA",
+    "id_apagado": "747bdcdc-a8a2-4d31-b5cc-e2d3112e8c9f",
+    "soc_errada": "SP6",
+    "id_mantido": "4363af4f-2d92-4933-a7e0-d01c87a78777",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNA LETICIA DA SILVA SEVERINO",
+    "id_apagado": "75ecd1a8-a190-423c-976e-588fd229512b",
+    "soc_errada": "SP6",
+    "id_mantido": "d308e04d-b08c-45e4-9854-42784dc8052f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA DOS SANTOS GONCALVES",
+    "id_apagado": "75ee7b6c-1a4a-4f7e-a5e2-2f37775d7b46",
+    "soc_errada": "SP6",
+    "id_mantido": "8ad02f47-8d77-4592-b48a-918a6ff0a9f7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINA ANDRESA SILVA",
+    "id_apagado": "768f665d-13e8-4781-aaaa-d8303d2873a4",
+    "soc_errada": "SP6",
+    "id_mantido": "b89534c7-f011-44d3-a389-ae2cf67a6d48",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BEATRYCE DE ANDRADE SILVA",
+    "id_apagado": "779f4b08-3902-4935-8db5-9ebdf9b76567",
+    "soc_errada": "SP6",
+    "id_mantido": "5315e105-0401-4ea5-9f67-e575329f74d5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAMILY PEREIRA DE SOUZA",
+    "id_apagado": "77a28606-d050-4df3-9d53-fee612136573",
+    "soc_errada": "SP6",
+    "id_mantido": "01fd580a-dcad-4a65-8296-5b436928a9c1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA DE FATIMA ALVES PEREIRA",
+    "id_apagado": "77db7cca-5fb7-43d3-9926-239fca8764ff",
+    "soc_errada": "SP6",
+    "id_mantido": "822b506e-2470-4e12-bf6a-35cd259cd4f9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ERICA RODRIGUES ARRUDA",
+    "id_apagado": "7867a7db-ae64-44d5-92d3-219fc991a044",
+    "soc_errada": "SP6",
+    "id_mantido": "1e56c315-d788-4376-a8b8-b345d72390b6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DIEGO KENEDY SANTOS DE AGUIAR",
+    "id_apagado": "787df8e3-5487-4f5b-acd4-572723ea1c85",
+    "soc_errada": "SP6",
+    "id_mantido": "a7c7a1bc-7439-42f6-bbcb-22fc92e0e05c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NICOLE DOMINGOS DE LIMA",
+    "id_apagado": "78cab590-6570-4aa4-8a22-02f7b4a35953",
+    "soc_errada": "SP6",
+    "id_mantido": "66f2dc79-7b8f-4628-9bac-a79c16a006dc",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME SOARES DE OLIVEIRA",
+    "id_apagado": "799f0bca-dbb3-4dc6-808e-ef838ac3b2d5",
+    "soc_errada": "SP6",
+    "id_mantido": "c7f7bd35-f4c2-48c1-9b3e-b84975b80f09",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA PAULA ROCHA DONATO",
+    "id_apagado": "79d3f495-d74c-4d74-9436-5aac704ed0cc",
+    "soc_errada": "SP6",
+    "id_mantido": "92d12425-840f-4be5-bac0-0adc3d1ea87e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIEL WESLLEY DE OLIVEIRA SOUZA",
+    "id_apagado": "7a37713c-5108-4982-9390-8f91c34ede17",
+    "soc_errada": "SP6",
+    "id_mantido": "e2134f3e-606e-4068-8c84-48089a7c9e4c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MIKAELE ALESSANDRA SILVA DE ANDRADE",
+    "id_apagado": "7a671a15-3c47-4ff4-a6f2-9a84e0519940",
+    "soc_errada": "SP6",
+    "id_mantido": "36d218cc-3f9e-455b-aa83-86643963e6e1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LOISIANE SANTOS BORGES",
+    "id_apagado": "7b50f4bf-2b7c-4430-8910-a72a00d34f06",
+    "soc_errada": "SP6",
+    "id_mantido": "f34ce0d0-a70f-4d07-a692-927c5ccb02c2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIECE DOS SANTOS SOUZA",
+    "id_apagado": "7bb5eb4b-e5c8-4850-a2ee-263cff78abcb",
+    "soc_errada": "SP6",
+    "id_mantido": "b8c88987-feb6-4334-8574-899c9798b952",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JANAINA EMANUELE FERREIRA MEDINA",
+    "id_apagado": "7bead063-f6bf-4ad1-9240-05a1d9439013",
+    "soc_errada": "SP6",
+    "id_mantido": "d50ad266-591d-41bb-a608-0e7f8004acd8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "UARISSON RUAN MOREIRA DA SILVA",
+    "id_apagado": "7c11db8b-f8c8-4cde-afb1-a65229a208a9",
+    "soc_errada": "SP6",
+    "id_mantido": "b0db390d-27a2-430d-829a-b3a53548dc12",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAQUEL CRISTINA CARVALHO DOS SANTOS",
+    "id_apagado": "7cda598a-f5df-46a7-9dfa-5cb143cdd28d",
+    "soc_errada": "SP6",
+    "id_mantido": "d16c7052-1700-4744-a954-7dad4c4045c4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME HENRIQUE DE OLIVEIRA DOS SANTOS",
+    "id_apagado": "7d45c80f-cc76-41eb-9028-9d8281a5fc30",
+    "soc_errada": "SP6",
+    "id_mantido": "1b3cd3c6-d31a-435e-834b-ad3a96044c7b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA CASTORINA FERREIRA DA COSTA GODOY",
+    "id_apagado": "7da63e82-bd24-459b-bf9a-5f396aefa2a8",
+    "soc_errada": "SP6",
+    "id_mantido": "d3a47fe2-4990-477d-a6e6-4d4bb32b8871",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAMON CESAR MIGUEL COUTO",
+    "id_apagado": "7e8f0716-71d7-4869-aa31-0afcc2ab71ba",
+    "soc_errada": "SP6",
+    "id_mantido": "ec03d29e-7b82-45c0-9816-722a56eb0e9a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BIANCA VIVIAN RODRIGUES",
+    "id_apagado": "7f0baeef-3d92-4536-84f0-0ce6c93f3468",
+    "soc_errada": "SP6",
+    "id_mantido": "2f39b0c1-576b-4d69-a1b4-e90c53777c02",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA JULIA DA SILVA DOMINGUES",
+    "id_apagado": "7f301279-73d1-42da-a75c-55232b017688",
+    "soc_errada": "SP6",
+    "id_mantido": "a60f2519-c8ac-4a4e-a70b-43d9bc7ed452",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL HENRIQUE FERREIRA SANTOS DA SILVA",
+    "id_apagado": "7f3166fb-b15a-4c0f-986b-4d6e4c4e11bc",
+    "soc_errada": "SP6",
+    "id_mantido": "8422210d-1f70-4116-9d41-8cc98ea4a9e0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADRIELE DOS SANTOS LIMA",
+    "id_apagado": "7fac7e82-93b5-4efb-aec5-2a9e63806b31",
+    "soc_errada": "SP6",
+    "id_mantido": "a4139d71-b02a-49a4-8424-91eedb122848",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SABRINA FRANCIELI PEREIRA AUGUSTO",
+    "id_apagado": "7fc10bae-4c38-4821-99f9-0713f8bd4a72",
+    "soc_errada": "SP6",
+    "id_mantido": "015ab383-d0fb-4085-bd36-b94ac451efe5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOAO PEDRO RAMOS PEREIRA",
+    "id_apagado": "80705fda-f2e7-43bd-8a87-efd6ea3dd325",
+    "soc_errada": "SP6",
+    "id_mantido": "0d2519f6-a096-4bc6-96a2-45b6f51ce4df",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCO ANTONIO SOARES MORATO",
+    "id_apagado": "80a7b352-89a0-462f-b337-878aaff64712",
+    "soc_errada": "SP6",
+    "id_mantido": "dff23bdd-b452-4031-99ea-e0a093f3096c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAILANI JAMILE SOUZA CAJAHYBA",
+    "id_apagado": "80f04ed0-f70b-4883-917d-3cf4f35de1ab",
+    "soc_errada": "SP6",
+    "id_mantido": "aacdbe60-f4f0-4c51-bb35-5f904ba2abbf",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRESSA ALMEIDA BITENCOURT",
+    "id_apagado": "8111dc21-3eb2-4942-8b74-365df27da5f9",
+    "soc_errada": "SP6",
+    "id_mantido": "c5a657f1-47d3-470c-8646-118868235f20",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BARBARA LUANA DE SOUZA GIMENES",
+    "id_apagado": "814cf007-6a0a-4bd8-8ae4-acae67e0002b",
+    "soc_errada": "SP6",
+    "id_mantido": "3bf8af19-8490-47fb-a7b5-05334fc9a759",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEONARDO MAGRINI",
+    "id_apagado": "81bd9fb8-3a40-4e1a-9dc1-079c58382fa2",
+    "soc_errada": "SP6",
+    "id_mantido": "a7f87ead-885a-4ad6-9425-297ac73b74ab",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PATRICIA APARECIDA DUARTE",
+    "id_apagado": "81d06733-69d2-4309-b0de-d7a88ed43e66",
+    "soc_errada": "SP6",
+    "id_mantido": "7dbc4512-6bdc-49af-ae24-2ba8a9cab6ca",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SARAH STEFANY RIBEIRO",
+    "id_apagado": "822321d0-de45-4c70-b6ce-ed14e69283da",
+    "soc_errada": "SP6",
+    "id_mantido": "47549ced-00da-49c6-a9ac-f800893854e1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARA FERNANDES BARBOSA LOPES",
+    "id_apagado": "828efffc-a7df-4834-bb8c-e45cf37c1f70",
+    "soc_errada": "SP6",
+    "id_mantido": "334f0ff8-e45c-486b-bd04-b662cf98db66",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA CAROLINA MARQUES DA CRUZ",
+    "id_apagado": "82ffaaf3-fe34-4fe7-ae4f-1174b11f2c7e",
+    "soc_errada": "SP6",
+    "id_mantido": "b1e73e61-eb5c-46d2-820b-95936d0b9545",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCAS EDUARDO DE MORAIS BRITO",
+    "id_apagado": "8316beee-127b-408b-ac5a-e9dd4f9feeb9",
+    "soc_errada": "SP6",
+    "id_mantido": "63186e4f-5ff6-44f3-84fe-a4e9ceb9f6ac",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAIQUE JARDIM SILVA CRUZ",
+    "id_apagado": "8334ec93-f41b-451a-bc81-8664fa05d6ed",
+    "soc_errada": "SP6",
+    "id_mantido": "4435f319-5da0-44b8-8a14-732df75053eb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAQUEL CRISTINA DE SOUZA",
+    "id_apagado": "83492f8e-ed65-4b5e-a8e8-f110c37852df",
+    "soc_errada": "SP6",
+    "id_mantido": "69fbf921-6b2f-4375-99d0-ef0ee0fabcea",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA JULIA FERNANDES DE ALMEIDA",
+    "id_apagado": "8365bb77-041a-4389-9470-def8199d2ac4",
+    "soc_errada": "SP6",
+    "id_mantido": "141030ea-65a4-4ed9-b883-2f2fe14bd2bb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PALOMA SANTOS DE LIMA",
+    "id_apagado": "836978b9-3c11-476e-bc80-40f2dee5fd76",
+    "soc_errada": "SP6",
+    "id_mantido": "d477d6ac-0ee1-43e5-8fe3-f46b3b650944",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNA FERNANDA DE SOUZA SILVA",
+    "id_apagado": "83854a54-f031-4ba5-a14e-34a835f97c97",
+    "soc_errada": "SP6",
+    "id_mantido": "1a714364-5994-4aa7-866e-a6bf36aab5e2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KARINA STOCCO SIMOES",
+    "id_apagado": "83907e07-d44a-48a9-bc5c-5442156699d6",
+    "soc_errada": "SP6",
+    "id_mantido": "bf8418ed-ea7f-4448-a9f4-a87feaa4c0b8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATHALIA EDUARDA DE SOUZA SILVA",
+    "id_apagado": "8485306b-64f3-4f0f-b765-74e2bbe45422",
+    "soc_errada": "SP6",
+    "id_mantido": "421de546-2ecd-4431-8644-0b71d0c880ce",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUAN HELIAS MOREIRA",
+    "id_apagado": "84cbe73d-6372-47ba-bde5-313f05eae633",
+    "soc_errada": "SP6",
+    "id_mantido": "4d055e0c-6ad7-4d39-b649-f2fa4f1e9fb5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "STEFANY FERNANDES DE SOUZA",
+    "id_apagado": "85a5ffdc-6ebb-48c8-a2e8-b45ef91c7959",
+    "soc_errada": "SP6",
+    "id_mantido": "a21fcb71-a67b-4eb2-ba3f-e8366deb0468",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JACQUELINE CARDOSO",
+    "id_apagado": "862dbabb-5fd9-4596-bc05-4a96232ae069",
+    "soc_errada": "SP6",
+    "id_mantido": "79f2e412-68de-4a9e-bc22-e502c4738cf5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THAYNARA LEAL FIGUEIRA",
+    "id_apagado": "86458206-5432-436d-a78e-c6de858f7444",
+    "soc_errada": "SP6",
+    "id_mantido": "b1cee6b9-3d9a-4434-ac4b-84a17e955c98",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELEN RENATA ALVES DE OLIVEIRA",
+    "id_apagado": "86a9ca62-0f7f-419b-af22-040437c92980",
+    "soc_errada": "SP6",
+    "id_mantido": "852ddee8-9e9d-49e5-8caa-7639d8df3af9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "INAE HELOISA MARQUES MARTINS",
+    "id_apagado": "86ebbf6c-609b-4d99-b548-2cdc649bd3f5",
+    "soc_errada": "SP6",
+    "id_mantido": "f29fe4b6-a668-444e-a405-b0e71b34a508",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAWANNY VITORIA RODRIGUES DOS SANTOS",
+    "id_apagado": "872842db-7594-4b18-94f0-2f5ed2510b3d",
+    "soc_errada": "SP6",
+    "id_mantido": "3ffbb727-bac3-4038-bc62-05059526c5ef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRE BORGES EVANGELISTA JUNIOR",
+    "id_apagado": "882a3683-655e-4b08-8e6f-23a8df216370",
+    "soc_errada": "SP6",
+    "id_mantido": "c496808c-61d5-4947-9258-fb2459edacd9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELA DE ALMEIDA CHAVES",
+    "id_apagado": "8884557a-1e19-4fd5-9303-0e510f19930f",
+    "soc_errada": "SP6",
+    "id_mantido": "1653342b-1434-4885-a7fc-b6bc381638dd",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA LUIZA SILVA PEREIRA",
+    "id_apagado": "888bdae2-a860-415f-bc52-cb7de6678d6b",
+    "soc_errada": "SP6",
+    "id_mantido": "c567a42d-b6c1-43a3-a4fd-c33e4c918657",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIANA OLEGARIO LIMA",
+    "id_apagado": "88c9a5e6-a8e8-4799-97c6-7bcfa5af8e6f",
+    "soc_errada": "SP6",
+    "id_mantido": "209448d2-1752-498d-9a65-306dea83128a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EDUARDO GEORG DE LIMA BOMFIM",
+    "id_apagado": "88f4aef2-dfe4-4587-bbf2-66be32ba7245",
+    "soc_errada": "SP6",
+    "id_mantido": "a44494e2-987e-4953-8423-9f21282e757c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PATRICIA RAMOS CORREIA",
+    "id_apagado": "8978aea7-4178-461b-9baa-a136a30462ee",
+    "soc_errada": "SP6",
+    "id_mantido": "ab6d265b-3e4d-40b9-88ad-53828589c615",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ROSEMEIRE APARECIDA BATISTA",
+    "id_apagado": "8a6afc50-a0d8-4e5b-8fdb-a8da441deb64",
+    "soc_errada": "SP6",
+    "id_mantido": "ae9bacbc-1b70-43cd-83df-16a4c95768c6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEONARDO GOMES LEAL DE PAIVA",
+    "id_apagado": "8a736a97-3a61-40ac-8b19-92fee2f44166",
+    "soc_errada": "SP6",
+    "id_mantido": "0318e411-a577-4673-996a-10d00cd6e51f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRE COUTINHO FAGUNDES",
+    "id_apagado": "8a7826b3-6c57-48ce-b388-a81f466b790e",
+    "soc_errada": "SP6",
+    "id_mantido": "139289cd-fd4c-498a-b4f2-5bf73778d735",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALAN ALEXANDRE",
+    "id_apagado": "8aceb997-4750-4995-babd-0734a1350a31",
+    "soc_errada": "SP6",
+    "id_mantido": "dc69a002-be41-4d2b-b520-e5c55c42db07",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CRISTIAN ALEX ROCHA SILVA",
+    "id_apagado": "8bc1d482-0a83-429d-a01c-c865a18ff7c1",
+    "soc_errada": "SP6",
+    "id_mantido": "339a347b-bb12-46be-8df3-dfe8c07564a6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ESLAINE COSTA DOS SANTOS",
+    "id_apagado": "8be547a8-bedd-400d-be46-6b57ae30e35e",
+    "soc_errada": "SP6",
+    "id_mantido": "5d8345a0-8c76-426a-b092-f93fdba4fcd4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THIAGO DE SOUZA OLIVEIRA",
+    "id_apagado": "8c523130-0ce2-4aee-a081-8c4eb7736c8e",
+    "soc_errada": "SP6",
+    "id_mantido": "6f6045ad-0867-4f9c-86c4-532bf2535bae",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FERNANDA BARCELONI PERES MARTINS",
+    "id_apagado": "8cd5317d-d575-4515-a6cd-3f7121b3c808",
+    "soc_errada": "SP6",
+    "id_mantido": "656278f3-cfa8-49b3-b25f-26753025ec03",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MISAEL ROBERTO",
+    "id_apagado": "8d1020cc-0f74-404e-be6a-7688b8c65edc",
+    "soc_errada": "SP6",
+    "id_mantido": "27d918bc-b823-4176-a9e4-e1d5108a58ae",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VINICIUS RAMOS BARROSO",
+    "id_apagado": "8d2252d9-1c4a-4423-b3e4-04df1ea5525a",
+    "soc_errada": "SP6",
+    "id_mantido": "fec31999-d8ef-46d8-811f-636011132522",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NICOLE MARCHETTO VIEIRA",
+    "id_apagado": "8d601f66-19b3-4f05-8592-19a43e626e79",
+    "soc_errada": "SP6",
+    "id_mantido": "39046897-c271-4b10-ae57-83be05a56dc2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GRAZIELE NOGUEIRA",
+    "id_apagado": "8e28ec4d-4d47-44bc-b295-fd2a2aec7d2c",
+    "soc_errada": "SP6",
+    "id_mantido": "50c1b899-4468-40cd-b9b5-dedc855252b7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DIOGO HENRIQUE ROCHA DO NASCIMENTO",
+    "id_apagado": "8ea0667b-7e94-4053-a13e-3e3bb0ce848c",
+    "soc_errada": "SP6",
+    "id_mantido": "0e5479df-772c-48a6-b4dd-2b448aae7b86",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAYSLA MENDES",
+    "id_apagado": "8ea40428-3f98-4aa8-9fa7-ab39ef3a55bc",
+    "soc_errada": "SP6",
+    "id_mantido": "e028a641-396a-4ef1-8f27-8fe75d917245",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GICELIA CRISTINA MARTINS",
+    "id_apagado": "8f363c78-6683-40ef-8811-a68aac52420f",
+    "soc_errada": "SP6",
+    "id_mantido": "20f8dd56-18cd-4182-ae61-ed40e4ec0b38",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIA DE OLIVEIRA MARTINS MAIA",
+    "id_apagado": "8fc53b9a-3259-4f71-8937-337f50b20914",
+    "soc_errada": "SP6",
+    "id_mantido": "1439123b-38a6-4a4c-85bb-b34d681f7d64",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "REGINA UCHAKI",
+    "id_apagado": "9055f6b1-5216-48f0-93d3-0abc7e09a8fa",
+    "soc_errada": "SP6",
+    "id_mantido": "dc79494c-8f20-4352-b962-8d3494708d03",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MAYARA CAROLINE SOARES MORAES PINTO",
+    "id_apagado": "910b59d8-2ece-4c5b-9029-c27048cf47cb",
+    "soc_errada": "SP6",
+    "id_mantido": "f791e6ef-6214-4f9f-bddc-c16d5e53a7fb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DHANDARA BUENO DE LIMA",
+    "id_apagado": "913249a6-70f7-4f20-ae19-aa4b6dca94ff",
+    "soc_errada": "SP6",
+    "id_mantido": "f09a6d21-3908-481d-93a1-925d5fe62e31",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EDLAINE CRISTINA DA SILVA",
+    "id_apagado": "91445dea-b213-4a51-be12-a1dc1f90d018",
+    "soc_errada": "SP6",
+    "id_mantido": "dcc94346-a98c-44da-8b42-eea143f9a89e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ENZO FELIPE CORTINOVI PINTO",
+    "id_apagado": "915bb6a3-6a94-4dc9-abd4-f42834c535d0",
+    "soc_errada": "SP6",
+    "id_mantido": "27063097-a6e9-4a82-889f-2f711ed9e6e7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARILLYN PEREIRA DE MORAES DOS SANTOS",
+    "id_apagado": "9166f5e3-bbdb-45c6-9ef1-dc7083ef15b0",
+    "soc_errada": "SP6",
+    "id_mantido": "e735109f-93a4-4f76-bbab-36374677728d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BIANCA DANIELA DA SILVA",
+    "id_apagado": "917f76c4-0cee-43ea-800d-7c1f72172094",
+    "soc_errada": "SP6",
+    "id_mantido": "03daeff9-ac0e-4ddc-99ee-b3769662feac",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JHENIFER FERNANDA SOUZA DOS SANTOS",
+    "id_apagado": "918237f8-c036-44e0-a525-6ed2c49e64e4",
+    "soc_errada": "SP6",
+    "id_mantido": "3923453f-4bd4-4c7e-ac86-26e1e34ca415",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GRAZIELA BARBOZA RIBEIRO",
+    "id_apagado": "91ef0643-8f25-4995-b060-400cfccb2e3b",
+    "soc_errada": "SP6",
+    "id_mantido": "65a41aa8-58f9-40cd-8d44-0aff953ddc28",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MONIZE BOCCHIO RODRIGUES",
+    "id_apagado": "91ffc4cb-4b6e-492f-8c3d-5f4ee607ad2f",
+    "soc_errada": "SP6",
+    "id_mantido": "6612d422-2679-4bb6-a93b-fa250e0d62ce",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BEATRIZ CESAR DE LIMA",
+    "id_apagado": "927e8ec4-d38b-43e2-9637-e687e3d52e91",
+    "soc_errada": "SP6",
+    "id_mantido": "8b0c53eb-0a78-4b0f-b1d0-b3ab1f6cf3fa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA HELENA DA CRUZ",
+    "id_apagado": "9381dd74-23d5-4d35-9ab4-fba6e9e24594",
+    "soc_errada": "SP6",
+    "id_mantido": "e5eb43f0-542c-45d2-80fd-876734b59c44",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YASMIM VICTORIA FEITOSA RIGAZZO",
+    "id_apagado": "93c02da4-763b-484b-a90d-7e614b4ca9b3",
+    "soc_errada": "SP6",
+    "id_mantido": "02a09e53-4f33-4455-8ca7-96be82074a1f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SABRUNA LARISSA CARMO SOUZA",
+    "id_apagado": "943c4a17-faeb-48bd-8fcd-cd45463fedde",
+    "soc_errada": "SP6",
+    "id_mantido": "b64dbaf6-cc76-4668-9be4-2952d9ee7627",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LOHANE VITORIA DA SILVA CONCEICAO",
+    "id_apagado": "94d32791-9073-4555-b11d-dbca4fde6aa5",
+    "soc_errada": "SP6",
+    "id_mantido": "75deaef0-2d56-40f0-b0cb-2b1f27619cf5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SUZI DOS SANTOS PEREIRA DANTAS",
+    "id_apagado": "951624bd-b9a6-4ee9-9a35-eb6027f131a9",
+    "soc_errada": "SP6",
+    "id_mantido": "20133f46-86d2-4426-aee1-140d75cf517e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GRAZIELLA DE FATIMA DO AMARAL",
+    "id_apagado": "9536e5af-d2da-4bd7-b438-98ceb145a231",
+    "soc_errada": "SP6",
+    "id_mantido": "d7360075-a106-47a6-b262-9ad8ebdc99bd",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DEIVID PAULA GLORIA",
+    "id_apagado": "957a690e-7a06-4b99-847f-d9216e8a968a",
+    "soc_errada": "SP6",
+    "id_mantido": "ae951f1a-cfc0-40f3-a064-ee6440eed154",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAEL AUGUSTO PELLEGRINOTTI",
+    "id_apagado": "9620d277-f8f7-48d4-b00c-198ff90af4d0",
+    "soc_errada": "SP6",
+    "id_mantido": "a74a6651-ad70-49bf-8c59-4fca34aff5d1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LETICIA MACEDO DOS SANTOS",
+    "id_apagado": "963c217d-a2a8-493c-b184-02005012c231",
+    "soc_errada": "SP6",
+    "id_mantido": "99a56354-1d15-4593-aaa3-60e99985aab1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RYAN DE LIMA RODRIGUES",
+    "id_apagado": "96917602-1c0e-421c-b777-399ae4ede0d3",
+    "soc_errada": "SP6",
+    "id_mantido": "b428fd25-f6df-4fcc-80ff-8612a3d409d5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MAIQUELLE VIRGINIA ALVES SANTOS",
+    "id_apagado": "974155ce-af9c-4a90-aecb-175ae2e78e1d",
+    "soc_errada": "SP6",
+    "id_mantido": "15bebe9d-4cb1-4f61-89b1-080b581c5b94",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISADORA DOS SANTOS BATISTA",
+    "id_apagado": "97c2f2c7-9373-4fa4-80a3-e08d4197795d",
+    "soc_errada": "SP6",
+    "id_mantido": "850112de-1b71-4b01-a37a-01f36da441e9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL GALLINA FONSECA",
+    "id_apagado": "98cea29a-b28a-42fa-9fe2-51fe61c28de3",
+    "soc_errada": "SP6",
+    "id_mantido": "615eb313-62cd-40ae-849f-67ec870c5991",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PAMELA SATURNINO",
+    "id_apagado": "98d33432-04a0-47b9-9245-a4888c0acd3a",
+    "soc_errada": "SP6",
+    "id_mantido": "5a456d94-bd5d-42aa-9a8d-3f19502cba27",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LETICIA DAYANE DE SOUZA",
+    "id_apagado": "98e501d5-cc21-47f0-a4ff-11d646b6db6c",
+    "soc_errada": "SP6",
+    "id_mantido": "fcd3cdb3-edb9-4079-bf56-e3c246a7dd19",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATHALY FERNANDA DE MOURA ALVES",
+    "id_apagado": "9a0adc12-2872-4815-bf00-cf1256688cdb",
+    "soc_errada": "SP6",
+    "id_mantido": "eadf49ce-bfba-4828-ad29-84f4efe1534b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA EDUARDA SILVA DA CRUZ",
+    "id_apagado": "9aa9312d-0326-493f-86a2-a1e828a20d63",
+    "soc_errada": "SP6",
+    "id_mantido": "62b48f93-c4e0-4c30-913f-43c9b6a0298a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SAMANTA VIEIRA DE SANTANA RASQUINHO",
+    "id_apagado": "9ae09000-c9b4-40d3-a084-91a61d8eb958",
+    "soc_errada": "SP6",
+    "id_mantido": "35bf7aa8-5b57-4187-b7db-de004be17f51",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JANNAINA GONCALVES DE FREITAS",
+    "id_apagado": "9b3fd8c6-ee72-4e0d-98c2-04c8d7adbe97",
+    "soc_errada": "SP6",
+    "id_mantido": "34ee1d4c-c282-4081-afd6-648d09db48fa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EVANILDA LOPES DE BRITO",
+    "id_apagado": "9bc36280-c190-45cb-bc49-098f5c648bd4",
+    "soc_errada": "SP6",
+    "id_mantido": "0efa370d-4734-4a24-a3f0-f735b4253fc8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHELY NASCIMENTO PASCHOAL",
+    "id_apagado": "9be5b2bc-9919-4fc1-a919-f83248b3b717",
+    "soc_errada": "SP6",
+    "id_mantido": "38db0a45-0f8f-49fd-9c31-b36bba1f86a7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LIA GRAZIELA RODRIGUES DA SILVA",
+    "id_apagado": "9bea1a45-c308-4067-b5db-b7ca7caf53f9",
+    "soc_errada": "SP6",
+    "id_mantido": "586cf4ed-3259-4345-bcba-4db267534aed",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THAUANY RAMOS SILVA",
+    "id_apagado": "9bfbc106-ac45-4603-9381-01df78f665f0",
+    "soc_errada": "SP6",
+    "id_mantido": "6d8f5003-02b9-44d9-8bb0-cd626243d950",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIANA DE OLIVEIRA DELBAJE",
+    "id_apagado": "9c3f79d9-1d6e-4b61-b528-4ab7c5ac0121",
+    "soc_errada": "SP6",
+    "id_mantido": "2fe0e0b9-0692-4576-b0c2-aafe317a4cf7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FABIANA LETICIA JODAL",
+    "id_apagado": "9d5cff36-dad7-411c-9bed-a3129e2b032c",
+    "soc_errada": "SP6",
+    "id_mantido": "7837d7a6-39b0-4485-8105-7a4ad9fc99d8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUIS HENRIQUE LOPES MIRANDA",
+    "id_apagado": "9e3b442d-17d5-45b0-a293-bf0fc676e2e7",
+    "soc_errada": "SP6",
+    "id_mantido": "eda9abc4-99f0-4b52-afa3-73a85c5c99c7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THAIS RIBEIRO ALVES LINS",
+    "id_apagado": "9eb50805-0321-4522-9282-8b000f22a9d1",
+    "soc_errada": "SP6",
+    "id_mantido": "0ad3d548-bd72-4304-857c-f973f493489c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JUSSARA PINTO DO AMARAL",
+    "id_apagado": "a0b3ee1a-4ef9-4814-985c-8999da63a81c",
+    "soc_errada": "SP6",
+    "id_mantido": "c6be95a6-abce-43cd-9990-5f9b7d9aeb32",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VIVIANE FERREIRA MENDES",
+    "id_apagado": "a0b569eb-9f46-4297-94fc-0b7f03828c3d",
+    "soc_errada": "SP6",
+    "id_mantido": "a90069e3-4b39-4875-b6de-6d2bfac9a36c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEIDIANE RODRIGUES PINHEIRO",
+    "id_apagado": "a0b584d6-9720-441b-b692-803e6f6a9ad4",
+    "soc_errada": "SP6",
+    "id_mantido": "fb575c39-0978-42e7-91b8-2209f6f7086f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA RAMOS CASARES",
+    "id_apagado": "a0c620fe-86d0-4025-8fd9-97f6446bda49",
+    "soc_errada": "SP6",
+    "id_mantido": "7dd4b91b-0022-4d3d-8aa6-58dd2c9ff444",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KARINE SILVA DE JESUS",
+    "id_apagado": "a0fd74b9-957e-42a8-bfd4-902ad8214d47",
+    "soc_errada": "SP6",
+    "id_mantido": "f944b4e6-76b3-4b10-879d-6c925abac21f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUIGI SILVA FRANCA",
+    "id_apagado": "a20a59d6-dc22-4fab-baa7-54d36775d70f",
+    "soc_errada": "SP6",
+    "id_mantido": "529e1125-0b84-480a-8bdd-46a275a95d3f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MOISES DE ARAUJO MELO",
+    "id_apagado": "a369da9e-8112-47c6-a9e3-a277b991629b",
+    "soc_errada": "SP6",
+    "id_mantido": "42913953-5692-43e3-9d9e-239e64eb4b81",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL HENRIQUE ALVES ARAUJO",
+    "id_apagado": "a3fd44ed-bcb1-4022-9756-d7b20bce4bd7",
+    "soc_errada": "SP6",
+    "id_mantido": "0606002c-bdb6-4504-a7cf-6df8be3d31eb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARINA GOMES DE FRANCA",
+    "id_apagado": "a526a9f8-1f6e-4e2b-82eb-a5d92eaf516a",
+    "soc_errada": "SP6",
+    "id_mantido": "925147e7-91cb-4e2a-8920-4f87875d372c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAROLINA CANTANHEDE MARQUES",
+    "id_apagado": "a60ae97d-40d9-455c-97e5-00b1284069f0",
+    "soc_errada": "SP6",
+    "id_mantido": "8757647c-52a4-4843-8695-c5b880622ce0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JEISON APARECIDO SCHIEVENIN",
+    "id_apagado": "a70f8db1-d612-4a4e-be21-fd9966483379",
+    "soc_errada": "SP6",
+    "id_mantido": "79398ce1-b784-4ceb-81d8-3ea9251bae0d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUANA VITORIA DE OLIVEIRA BORTOLOTO",
+    "id_apagado": "a7746bae-4922-474a-95ca-a5120b6baca5",
+    "soc_errada": "SP6",
+    "id_mantido": "cb596d79-2535-4f68-a3df-a83b08eab98b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADRIELY LAGES PEREIRA",
+    "id_apagado": "a7ce7f01-0303-48ea-876c-6d6fa32a2b7b",
+    "soc_errada": "SP6",
+    "id_mantido": "b0859077-3732-41d0-bb5e-89d8a1be5022",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SAMUEL ASAFE DE MOURA",
+    "id_apagado": "a824c58d-5035-41e4-b761-e87fed9c6306",
+    "soc_errada": "SP6",
+    "id_mantido": "01986a55-40d3-40d9-bff2-cfadc8f755b2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARKS MIGUEL SANTOS RAMOS",
+    "id_apagado": "a882836f-9c33-4e0a-8beb-f55ede95d564",
+    "soc_errada": "SP6",
+    "id_mantido": "c0e22571-7eae-45a4-a4d4-57fbeaf531bd",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUIZ AUGUSTO COELHO",
+    "id_apagado": "a9f056a0-d56b-4b04-9d1c-ea189c7be6be",
+    "soc_errada": "SP6",
+    "id_mantido": "93ba3829-1b41-454c-b3f9-ea52f9eebc70",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FRANCISCO LEONARDO ARAUJO SILVA",
+    "id_apagado": "aa13b5e9-e5e4-425e-b77c-e43d5b73c3a8",
+    "soc_errada": "SP6",
+    "id_mantido": "1f510a35-4ee7-416b-af18-5faa5978d75c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA PAULA RIBEIRO PREARO",
+    "id_apagado": "ab212de3-5956-4840-8a46-eace6abfcf60",
+    "soc_errada": "SP6",
+    "id_mantido": "7a029fa0-15dc-4db1-8798-c50f4178d2b4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FELIPE GONCALVES FERREIRA",
+    "id_apagado": "abb08f91-18ad-4af6-8238-79ae459c8127",
+    "soc_errada": "SP6",
+    "id_mantido": "8d701df9-877c-452d-9c39-2e298485fcc7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FERNANDA ROBERTA DO NASCIMENTO GOMES",
+    "id_apagado": "ad155335-bf99-4682-92a7-18e62393fb39",
+    "soc_errada": "SP6",
+    "id_mantido": "c7d480c4-26d6-4c60-a85b-1f9dfb3a32d9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AMELIA SILVA DE OLIVEIRA",
+    "id_apagado": "ada9c420-fac4-4677-bebf-5b2076d43c9b",
+    "soc_errada": "SP6",
+    "id_mantido": "fd2cc26e-a957-495d-ad9f-3123d7fd12a9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL APARECIDO FERRAZ",
+    "id_apagado": "ae177fdc-5c05-4abf-9e2f-ceb6968e906a",
+    "soc_errada": "SP6",
+    "id_mantido": "e65a20c7-e589-4b72-b9ee-7dcdb5eda415",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAMILLY TEIXEIRA BARBOSA",
+    "id_apagado": "ae45f73b-b0de-4073-a830-c5cbea0d732b",
+    "soc_errada": "SP6",
+    "id_mantido": "c89705be-b030-452e-95be-e888056532e3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MONYK DE PAULA DOS ANJOS",
+    "id_apagado": "aebe16fb-27e7-4d9d-9022-09ce9e168595",
+    "soc_errada": "SP6",
+    "id_mantido": "82a01939-ed1b-4d37-9798-8d72b8b6126b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA HELENA MARINHO",
+    "id_apagado": "aed5749a-a380-42ca-b9b9-7346841bd8bf",
+    "soc_errada": "SP6",
+    "id_mantido": "0e9735eb-991b-4067-99a7-8109a76e2915",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIAS EMANOEL GUAITA RAMOS",
+    "id_apagado": "af088ce9-436c-4f21-a2e9-75db9673f426",
+    "soc_errada": "SP6",
+    "id_mantido": "062ff907-bb34-4bf7-9762-2774973c57c7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOAO VITOR OLEGARIO CAVALCANTE",
+    "id_apagado": "af7af7b9-d531-4589-9f64-99b954c304f1",
+    "soc_errada": "SP6",
+    "id_mantido": "14cb95d5-f4ef-4d33-8292-f9210f7eb4c2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEANDRA GOMES DE MORAES SILVA",
+    "id_apagado": "afbf23c2-4c0b-41b8-9a29-aaf452fb1058",
+    "soc_errada": "SP6",
+    "id_mantido": "51db00cb-809b-4662-892d-57d596e6ec07",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MATHEUS HENRIQUE GUIMARAES",
+    "id_apagado": "b068299a-16f5-4b1c-8955-9a646ff439d9",
+    "soc_errada": "SP6",
+    "id_mantido": "215cc0ce-d3f6-4133-855d-d51c8cc8d6f1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAMILE CAMILE ROCHA DOS SANTOS",
+    "id_apagado": "b0d8c27c-f778-46e7-8c66-4633b6725103",
+    "soc_errada": "SP6",
+    "id_mantido": "41ce17e7-a895-44b2-999f-a59b5de9e3cb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NICOLY ALMEIDA ALVES",
+    "id_apagado": "b0dcd36c-34f3-4939-9e68-af2ac5af2571",
+    "soc_errada": "SP6",
+    "id_mantido": "75593f53-e5a4-4a55-ac5f-0a58ef725bc8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FABIO FERNANDO PEREIRA SANTOS",
+    "id_apagado": "b19d67b2-1dfd-4337-9922-0df67701e9bc",
+    "soc_errada": "SP6",
+    "id_mantido": "d7beaf30-038a-4a13-b951-b1b5e6874907",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELA CRISTINA DA SILVA JANUARIO",
+    "id_apagado": "b27a0518-1a73-4798-b522-f5169fc2f5fa",
+    "soc_errada": "SP6",
+    "id_mantido": "1d27fd0e-04cd-4d8b-9653-addd83dae223",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUIZ HENRIQUE WANDERLEY SANTOS",
+    "id_apagado": "b2a4bb77-3350-4ab7-9c21-7317bc4ba301",
+    "soc_errada": "SP6",
+    "id_mantido": "a3861219-44b8-4c19-9c1e-b2cfc0da9e97",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALICIA VICTORIA DA SILVA DIAS",
+    "id_apagado": "b38d1b1e-c61c-4170-afe5-7c0f758c6619",
+    "soc_errada": "SP6",
+    "id_mantido": "3325d55d-da3c-4def-94dd-1ab8c22f3712",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHELE SANTOS FARIAS",
+    "id_apagado": "b436a570-b1d4-482b-82b5-f337946016e1",
+    "soc_errada": "SP6",
+    "id_mantido": "4f8236dd-e907-4e24-9ed6-574a986aae13",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THAUAN WINICIUS GOMES DE SOUSA",
+    "id_apagado": "b4c9ab0f-f6c3-4fcb-91fb-d851c2a76a5a",
+    "soc_errada": "SP6",
+    "id_mantido": "0ea0f587-b4ed-4ff0-9084-375c451fdaaa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELLE VICTORIA DE ALMEIDA",
+    "id_apagado": "b5b87578-ef89-44a6-99b8-540b57f01b71",
+    "soc_errada": "SP6",
+    "id_mantido": "f1e92997-9dd7-455c-97e8-459ccd4395de",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ELIEL MARCOS DE CARVALHO",
+    "id_apagado": "b5c66847-df88-4468-ad68-020fa4c562b0",
+    "soc_errada": "SP6",
+    "id_mantido": "d4a62b64-c7cc-4c66-a1c5-d97ee5d04fb6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CLARA CRUZ MARTINS",
+    "id_apagado": "b671fb43-61dd-4919-b286-03bc4388c0ed",
+    "soc_errada": "SP6",
+    "id_mantido": "a4a18715-6286-467d-8e56-5a0b19a91919",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELA BARBOSA BISPO DE ARAUJO",
+    "id_apagado": "b6e614b8-85f4-4cca-8288-257a175bfaa9",
+    "soc_errada": "SP6",
+    "id_mantido": "3e45ba83-fb86-4083-975e-514bc0e6c8aa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YSABELLA ACUCENA OLIVEIRA DOS SANTOS",
+    "id_apagado": "b8a41a41-0f40-49c8-803c-b5ffed168a3c",
+    "soc_errada": "SP6",
+    "id_mantido": "c23ba997-5b8c-4752-a9d1-9b8f236c493c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GIOVANA VITORIA DA CRUZ GONCALVES DOS SANTOS",
+    "id_apagado": "b8d3f62c-08aa-4129-8d5e-10cf0eaa22e5",
+    "soc_errada": "SP6",
+    "id_mantido": "d740f92f-8a99-4f6c-8d8a-56a24bc783cb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NADIA CAMELO DA SILVA",
+    "id_apagado": "b8e94275-859d-4c3d-aa86-df10f7389818",
+    "soc_errada": "SP6",
+    "id_mantido": "c37e1e6d-42c8-499b-a457-98e691635885",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUDMILLA TEIXEIRA DE PAULO",
+    "id_apagado": "b9124b7b-56bb-400d-9bfe-8e11acc860b2",
+    "soc_errada": "SP6",
+    "id_mantido": "97b93fba-18c6-469e-959d-0055acfd4132",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KETTY BIANCA DE ALMEIDA RIBEIRO",
+    "id_apagado": "b9406a16-08ce-4e31-9b3f-b40a5badd50b",
+    "soc_errada": "SP6",
+    "id_mantido": "af8f1dfa-5309-48d6-b057-4d09374b057a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAIANE CRISTINA SILVA",
+    "id_apagado": "b9b503e3-097f-4723-bd49-47814452bd01",
+    "soc_errada": "SP6",
+    "id_mantido": "65d78364-4d1d-49c4-aa97-dd5be208da0c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADRIELLE DANDARA SANTANA HIPOLITO",
+    "id_apagado": "ba9d57d6-9957-415a-b468-67fea34e6d7e",
+    "soc_errada": "SP6",
+    "id_mantido": "2b77f329-c62d-4991-9bbf-7edc929fde0b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIELLE SILVA RIBEIRO DOS SANTOS",
+    "id_apagado": "baf88ccd-645f-478d-b6ff-7032b4a4bae1",
+    "soc_errada": "SP6",
+    "id_mantido": "91c833f6-53fb-4b0f-a99c-8cfe4aac5cc3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATALIA CRISTINA ROCHA DE SOUSA",
+    "id_apagado": "bc34a595-2b5e-45e7-b758-1ccd41a0415b",
+    "soc_errada": "SP6",
+    "id_mantido": "24efc92b-b1f4-4d63-bb06-aca6c7a9cfca",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JONATHAS MURIEL SILVA PIRES",
+    "id_apagado": "bcd586ec-9a88-479c-8123-dfcda1781263",
+    "soc_errada": "SP6",
+    "id_mantido": "41a6d927-ca59-4014-be96-5fb1387200fb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VITORIA GONCALVES DE SOUZA",
+    "id_apagado": "bd5cef7a-c4a7-4e8f-a38d-01ca416f199f",
+    "soc_errada": "SP6",
+    "id_mantido": "dd40a96f-66f2-402d-b316-e1482f12f3f6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHELE BUENO DA SILVA",
+    "id_apagado": "bda71d1d-986e-49e4-b0f1-707be811bcaa",
+    "soc_errada": "SP6",
+    "id_mantido": "57a66933-eaaa-4d65-876e-0f695660af18",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAIANE MOURAO NUNES MACHADO",
+    "id_apagado": "be44d292-90be-4771-8a30-439f2a7c347a",
+    "soc_errada": "SP6",
+    "id_mantido": "a608d226-fdc8-4c85-ace7-4a87f968086e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WALLACE AUGUSTO DO CARMO DE ALMEIDA SOUZA",
+    "id_apagado": "bf29179a-450a-447e-ace6-c38bbb8609f2",
+    "soc_errada": "SP6",
+    "id_mantido": "e485b282-9780-4ebf-ab72-7c18457b0995",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALANNA KLESIA PEREIRA DA SILVA",
+    "id_apagado": "bf844158-0c69-44ed-bbd8-2ec084db894c",
+    "soc_errada": "SP6",
+    "id_mantido": "c941c8fe-f4e1-43d0-b49b-8a08c17a4239",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BEATRIZ FERNANDA COMISSO DE CAMPOS",
+    "id_apagado": "c0fea4cf-3e63-49b2-9272-87600a30855a",
+    "soc_errada": "SP6",
+    "id_mantido": "691cb203-ec7a-4c9e-b29c-e1e60c661d26",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIEL DIAS DOS SANTOS",
+    "id_apagado": "c1154df8-3180-4dea-9b59-804472eb41cd",
+    "soc_errada": "SP6",
+    "id_mantido": "ba286a88-d5bd-4b04-b44a-e28d9deeb114",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DENISE FRASSON",
+    "id_apagado": "c1c9d048-f7ff-4f8f-b8fa-112848b2d615",
+    "soc_errada": "SP6",
+    "id_mantido": "cdba418e-bbc7-44bc-b366-d99a3a654bd5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIA GONCALVES BRITTO LUCCAS",
+    "id_apagado": "c26ef755-0fcb-4f9b-b4e4-1a6379470691",
+    "soc_errada": "SP6",
+    "id_mantido": "040970d6-ccd3-4f27-b639-3591099d2280",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 8
+  },
+  {
+    "nome": "LUCAS FLORENCIO PEREIRA",
+    "id_apagado": "c27ad3e1-5e7f-4b03-a5a0-c58a96b77360",
+    "soc_errada": "SP6",
+    "id_mantido": "b2332dba-55e5-4f5a-8565-8da054767a9d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EDUARDA APARECIDA VIEIRA",
+    "id_apagado": "c3083cb3-276e-4e1b-883c-d1cc1367a90c",
+    "soc_errada": "SP6",
+    "id_mantido": "e4350862-750a-44a4-a9a1-aa5e72fb7f01",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAVID SILVA DE OLIVEIRA",
+    "id_apagado": "c30b9751-5d81-49fb-bcdf-6969e9e86dec",
+    "soc_errada": "SP6",
+    "id_mantido": "a9a200e8-84a5-4ad0-a6c8-3fe491adcba1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAISA CORREA CAMARGO",
+    "id_apagado": "c328db3e-caed-4e32-a542-065c72e5cc18",
+    "soc_errada": "SP6",
+    "id_mantido": "7812c4b9-e5db-48dd-813f-4132280c5423",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAYANE QUEIROGA SILVA",
+    "id_apagado": "c3818167-1940-48b7-9c08-d6e7d74af850",
+    "soc_errada": "SP6",
+    "id_mantido": "2f901298-077f-41df-909d-f9d7f15eca9c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GLAIDIR DOS SANTOS LEAL",
+    "id_apagado": "c3c16f78-faa9-4f98-b58b-27bb0828e0b2",
+    "soc_errada": "SP6",
+    "id_mantido": "7b4d364a-743d-4f59-9165-385b77316e95",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEONARDO VINICIUS MARQUES MAESTRO",
+    "id_apagado": "c46ab728-7c4f-408b-b16d-f20ada6ad5f4",
+    "soc_errada": "SP6",
+    "id_mantido": "c722fb21-42de-409d-91c2-74026a8dcb0b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ERICA LUANA DE OLIVEIRA NICOLAU",
+    "id_apagado": "c496cd14-655e-497c-b111-0db935ece985",
+    "soc_errada": "SP6",
+    "id_mantido": "2616b7a4-feb5-453c-b0b7-a5cbb73d2ad7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCOS VINICIUS FERREIRA DA SILVA",
+    "id_apagado": "c4d2084c-4191-4935-96db-c0449aaaa33e",
+    "soc_errada": "SP6",
+    "id_mantido": "a0e7b9a5-17d4-4993-8c8c-b50d7666d554",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE HENRIQUE DA SILVA RIGAZZO",
+    "id_apagado": "c4ee49a9-3e5e-4161-a0bf-d68ddf2be7cc",
+    "soc_errada": "SP6",
+    "id_mantido": "b9918f14-2455-43c4-8b53-d522816facea",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUANA DA SILVA LISCIO",
+    "id_apagado": "c572f217-5466-42af-b273-7c5e7ea01e05",
+    "soc_errada": "SP6",
+    "id_mantido": "1687d251-ca74-4323-b1c8-e7bddfbd4922",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GISELY FERNANDA ALVES FERREIRA",
+    "id_apagado": "c57a9666-c10a-449c-83ef-f8dd809b388f",
+    "soc_errada": "SP6",
+    "id_mantido": "54967290-f015-4bf8-b5b1-639d51e8273a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MIKAELLA PEDROSA DA SILVA",
+    "id_apagado": "c59a3939-670f-4630-ab9d-bd2068a95084",
+    "soc_errada": "SP6",
+    "id_mantido": "309eac61-7690-47e6-91bf-eb9724d88d15",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ADENILDE SANTIAGO DA SILVA",
+    "id_apagado": "c5da041c-560e-4600-a84b-3a599612b385",
+    "soc_errada": "SP6",
+    "id_mantido": "f39e34b4-e9cd-4b27-bcfe-0a5aed76ca7d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HIAGO FERNANDO SANTOS DA ROSA CABRAL",
+    "id_apagado": "c603a0a7-0cb9-4641-b5d3-685f523cbd8d",
+    "soc_errada": "SP6",
+    "id_mantido": "391d3cab-53ba-44da-93d8-f476e08b3c5d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TOMAS DEGASPARI LACORTE",
+    "id_apagado": "c606b807-f718-455d-bdf5-4643637b1c75",
+    "soc_errada": "SP6",
+    "id_mantido": "03f6bc0a-3c94-4eba-a463-6058bd0ae151",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUANA BERNARDINELLI DI BENE",
+    "id_apagado": "c622eb3f-2d4d-402e-800f-a3b27908ea0c",
+    "soc_errada": "SP6",
+    "id_mantido": "0b2cdfc8-02c4-43b7-8d2c-1e68f942c227",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUSTAVO ALVES BAPTISTA",
+    "id_apagado": "c62332f8-f292-4f3f-bad8-e9ae268d824c",
+    "soc_errada": "SP6",
+    "id_mantido": "940d528b-63f3-44c4-b064-558e1e29a333",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MATHEUS LUIS FERRAZ DOS SANTOS",
+    "id_apagado": "c6c100a1-8206-4dad-a245-265e142cf095",
+    "soc_errada": "SP6",
+    "id_mantido": "68f7f1b6-78a7-4e83-8f43-9e3089adfe7a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "WESLEI RODRIGO MARTINS PEREIRA",
+    "id_apagado": "c730b973-5cb9-4543-8f2b-ca7046daf7ab",
+    "soc_errada": "SP6",
+    "id_mantido": "598695ae-6ada-478c-8a9c-bc4bbecf4623",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "THALITA DOS SANTOS PEREIRA",
+    "id_apagado": "c7975f49-7dc7-4e63-aebc-d4e988de5d56",
+    "soc_errada": "SP6",
+    "id_mantido": "b0ccff54-de26-42b1-ac11-e1fb07ef2eee",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "AMANDA GABRIELA BRAGA MARCAL",
+    "id_apagado": "c79ea349-1918-4bce-9e6a-d024e348cec2",
+    "soc_errada": "SP6",
+    "id_mantido": "6383c94f-c3d7-491d-8d6f-4de521904996",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANNILO MOURA BARROS",
+    "id_apagado": "c7ff252d-ed80-4240-b803-ed840ab79641",
+    "soc_errada": "SP6",
+    "id_mantido": "5103dfed-21d3-48a3-bb7f-12d5acff6b2f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIANA VALVERDE DOS SANTOS",
+    "id_apagado": "c84c63b1-e228-4db1-9fd6-1102cb589aa1",
+    "soc_errada": "SP6",
+    "id_mantido": "26e3fa93-6b28-4f1b-8687-eb1ed881fbf6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BARBARA ROBERTA DE OLIVEIRA BENTO",
+    "id_apagado": "c8a301d3-87ce-444c-b6e8-84ec58fb84c5",
+    "soc_errada": "SP6",
+    "id_mantido": "bf9b0a0f-6d3a-41c6-8e0d-fcb6609a11ef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RODRIGO TONIN BATISTA",
+    "id_apagado": "ca99682f-5997-4a3b-a6e6-783ee5c9d004",
+    "soc_errada": "SP6",
+    "id_mantido": "963399cd-fa50-4cd9-b8a6-9ea5ed4d7df4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "IGOR HENRIQUE LOPES BARBOSA",
+    "id_apagado": "cb1e90a0-df2a-4d58-bce0-ad153835dc92",
+    "soc_errada": "SP6",
+    "id_mantido": "67f66961-c3d9-4cb8-be09-a2b00d6b922e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIANE DA SILVA ALMEIDA",
+    "id_apagado": "cb3726a4-0f77-472d-b55c-a33fb09e048a",
+    "soc_errada": "SP6",
+    "id_mantido": "11465d7e-b0ea-411c-bd4f-d8de83065fb3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCELA BARBOSA DE ALMEIDA",
+    "id_apagado": "cb3fd9fb-a1ae-423f-b33c-1ecad1f90b16",
+    "soc_errada": "SP6",
+    "id_mantido": "6b1df6f4-2c80-440f-b3c8-e0588a481004",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAMON DIAS FERREIRA",
+    "id_apagado": "cccdbbe5-a3cf-4d01-b6f2-57c7e00d4829",
+    "soc_errada": "SP6",
+    "id_mantido": "7390eda3-f2d9-46f0-a1f7-d88b07e4856d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANILO SOUZA TRISTAO",
+    "id_apagado": "cd2fee1b-42f4-4c59-8786-57f078270985",
+    "soc_errada": "SP6",
+    "id_mantido": "ecfc1f1c-fef9-484e-8770-ce9afd672787",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAYANNE DE ALMEIDA ROCHA",
+    "id_apagado": "cd6c1ce4-7bb0-42ff-b7ff-31673564a22e",
+    "soc_errada": "SP6",
+    "id_mantido": "ffff1869-e144-4c29-8a15-6afb4f227a10",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE ANDRE ALVES DE OLIVEIRA",
+    "id_apagado": "cebf4e2b-2881-4896-9435-2aec01bf01fe",
+    "soc_errada": "SP6",
+    "id_mantido": "fd1100ba-c408-4f4c-936e-c5b0d1819543",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIELI PEREIRA MACHADO",
+    "id_apagado": "cf03726b-2ca9-4131-9b2e-4554e25bc5d4",
+    "soc_errada": "SP6",
+    "id_mantido": "e24e2c4e-425a-4b80-a411-e2347f6be551",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JENIFFER VICTORIA DOS ANJOS SOARES",
+    "id_apagado": "d03de26b-6165-4cca-8491-e5dfd0b954a7",
+    "soc_errada": "SP6",
+    "id_mantido": "2a0697f6-9ed9-40d7-913e-18ddb8db9051",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PAULO EDUARDO FERNANDES SILVA MARTINS",
+    "id_apagado": "d1117ea6-92c9-4eac-a2c8-2229d6dc1442",
+    "soc_errada": "SP6",
+    "id_mantido": "8ff60b7e-ef00-4487-aad4-4f0e4310f1ef",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CARLOS JARDEL SANTOS",
+    "id_apagado": "d196276f-4e58-4727-af67-8098e2feb01b",
+    "soc_errada": "SP6",
+    "id_mantido": "57a41907-f023-42d1-a04b-3b55fb90d5f0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KETHILEY ALESSANDRA CHAGAS NOGUEIRA",
+    "id_apagado": "d1a0128c-55ba-433f-becf-e0838ea66f2b",
+    "soc_errada": "SP6",
+    "id_mantido": "b90c355e-9b34-4d38-b914-94d0ede44ee8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BEATRIZ PIRES DOS SANTOS",
+    "id_apagado": "d26e4a3b-eb41-4176-8c35-ff1c78a5b923",
+    "soc_errada": "SP6",
+    "id_mantido": "64fddd4d-f4d6-4ced-a0e2-1e206575fcc5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ERIKA NAYARA CESARIO",
+    "id_apagado": "d3ad8c2b-be5b-442b-8f3b-3aaf5294747b",
+    "soc_errada": "SP6",
+    "id_mantido": "07e0c2f5-187c-4075-86fa-4b2ae2e15d9f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELE BARBOSA SILVA",
+    "id_apagado": "d3f6b975-0342-49d7-82ff-2ded7843f855",
+    "soc_errada": "SP6",
+    "id_mantido": "838755d5-821c-4952-9771-260709f76cca",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FABIO CORDEIRO RIBEIRO",
+    "id_apagado": "d52e2686-44fd-4bf3-8776-d2a860a340b1",
+    "soc_errada": "SP6",
+    "id_mantido": "0290a973-8349-4934-9b7d-e55c81050615",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOHN CARLOS PEREIRA DE ALMEIDA",
+    "id_apagado": "d580d038-b28d-4c3e-b8c5-dae69dad980f",
+    "soc_errada": "SP6",
+    "id_mantido": "02088632-e034-4293-8e5b-d7e61983f804",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAYSSA EMANUELE LEITE DA SILVA",
+    "id_apagado": "d5d7fcdc-8fb2-4527-8fcb-2db757221104",
+    "soc_errada": "SP6",
+    "id_mantido": "26f698f7-7c09-4788-9801-1facaf2e25b7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEANDRO VIEIRA DA SILVA SANTOS",
+    "id_apagado": "d64cc6a3-2033-4f5b-8078-e2861cadcb61",
+    "soc_errada": "SP6",
+    "id_mantido": "adf6f8f4-5058-412c-a588-a521dcdb7861",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MURILO ROBERTO DO AMARAL",
+    "id_apagado": "d670f652-d08d-449d-8bd3-31ec523bac06",
+    "soc_errada": "SP6",
+    "id_mantido": "1be6600c-5e8a-40f9-97c6-f93a23ab0f7c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NAELIRIAM NAIARA LIMA DA SILVA",
+    "id_apagado": "d67eb65e-f8b7-4f8b-bd2d-33116627372c",
+    "soc_errada": "SP6",
+    "id_mantido": "8af751da-5191-48de-a29d-f181e974e408",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAVI LOPES",
+    "id_apagado": "d7f937bf-efea-41e6-aaea-29983ac38d36",
+    "soc_errada": "SP6",
+    "id_mantido": "d7ede2e2-8ce0-4711-82d5-bdb21cbff8f4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA RODRIGUES DE PAULA",
+    "id_apagado": "d80557dd-f8de-4fe8-ae3d-b5e70d0eb0cc",
+    "soc_errada": "SP6",
+    "id_mantido": "aa0dbd94-81e6-4f66-bc1e-203b05607aba",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "YNAUE CARVALHO DE ALMEIDA",
+    "id_apagado": "d8a73864-5ebb-40f3-8bf2-747569291bcd",
+    "soc_errada": "SP6",
+    "id_mantido": "24407ef8-3cf2-4e5c-979e-ee1a25d205b3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CAROLINA CEZARINO DE SOUZA",
+    "id_apagado": "d8bebbf0-00a9-4ec9-a23b-fdf5e30cc4d2",
+    "soc_errada": "SP6",
+    "id_mantido": "8aba2d47-e5d5-4e23-8a8e-ef437b3b5009",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUCAS DA PAZ ROCHA",
+    "id_apagado": "d8e6b1c0-1045-4617-810d-ae2edc31566f",
+    "soc_errada": "SP6",
+    "id_mantido": "1b9ed300-891c-4863-9ad0-558de6c0b4e1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "OTAVIO OLIVEIRA FREITAS",
+    "id_apagado": "d9090f17-8f82-4fb0-a347-736b84f21ab1",
+    "soc_errada": "SP6",
+    "id_mantido": "322d27b3-c20f-4af9-9c96-73cc6c7fc7f5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAUAN DA SILVA ANDRE",
+    "id_apagado": "d9c0e0c4-9b1f-4b9e-8a84-c2e573c143fa",
+    "soc_errada": "SP6",
+    "id_mantido": "7c32d30f-5c6a-40f9-a637-5cf2f0ee7793",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAUA VITTI GOMES",
+    "id_apagado": "da12546b-db6e-46dd-9e45-d03a472c2802",
+    "soc_errada": "SP6",
+    "id_mantido": "0d845ea4-4e95-490b-b225-48d3cb70a938",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PIETRA ARRUDA",
+    "id_apagado": "da17bc3e-6dd6-4279-95ca-e2c30786e4a3",
+    "soc_errada": "SP6",
+    "id_mantido": "963a7537-3a2d-47a8-820a-1785c9d6c911",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELE ARAUJO",
+    "id_apagado": "da2c3931-cd40-443a-b62f-e51be4e7b30c",
+    "soc_errada": "SP6",
+    "id_mantido": "32f37fc1-863a-47cd-8739-7fa7e87338d7",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAIO BRITO RIBEIRO",
+    "id_apagado": "db1f62eb-8883-4225-b53f-72aa598286f3",
+    "soc_errada": "SP6",
+    "id_mantido": "688df049-1fa9-4067-a62a-7180be0f1453",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NAYARA PACHECO DOS SANTOS",
+    "id_apagado": "db6b8e3e-c00b-4bf2-a48b-1893f64efe99",
+    "soc_errada": "SP6",
+    "id_mantido": "c7af2d6c-c8f9-4bb5-b06a-4de2339af08a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BRUNO GONCALVES SILVA",
+    "id_apagado": "dc01d3d6-dca2-4d33-abdd-4f8cdab3492c",
+    "soc_errada": "SP6",
+    "id_mantido": "15b4e3a6-94b9-4720-bb03-7e4d8364e5a0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAYNA FERNANDA BUENO",
+    "id_apagado": "dc0a817d-9a5d-4eaa-935e-e327b3d25c85",
+    "soc_errada": "SP6",
+    "id_mantido": "7ab7a162-58e1-4f7a-a657-a96550bc6039",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MICHELL ALEXANDRA GUEVARA FEBRES",
+    "id_apagado": "dd91d8f3-b530-4ae9-bb31-1d00adae6dfc",
+    "soc_errada": "SP6",
+    "id_mantido": "e64d8f17-d658-44ac-be2e-8fdb54e5d90d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSMAIR REINALDO DA SILVA FILHO",
+    "id_apagado": "de3af0ed-307b-4819-90e4-7b938bc95768",
+    "soc_errada": "SP6",
+    "id_mantido": "18b8009b-01e3-473c-96e4-9e90ccf70851",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELE CRISTINA MAZZONETTO",
+    "id_apagado": "de628de1-84b6-48f6-bf46-e83dec63cd3c",
+    "soc_errada": "SP6",
+    "id_mantido": "6bf7cf80-4773-477d-a845-a13bcb88c623",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HELEN FERNANDA DE ARAUJO",
+    "id_apagado": "dee1aa76-8c84-4621-bbb4-ae76249f9a7d",
+    "soc_errada": "SP6",
+    "id_mantido": "bacf8607-fd87-46c1-a1a7-b935f93b1b9b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAYANE REBECA DA SILVA ASSUNCAO",
+    "id_apagado": "df9a0ac3-34af-4cc6-a3bd-2c8e904a93b1",
+    "soc_errada": "SP6",
+    "id_mantido": "9278f7c4-b284-4896-8ca9-abd273f03d97",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SILOE DERTAZZONI",
+    "id_apagado": "dfaec7d5-7a24-4a94-a456-7678422ea5b8",
+    "soc_errada": "SP6",
+    "id_mantido": "5fa3be3c-a10b-409e-9cfd-c94100111d25",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAELA MARIANE MOURA PROETTE",
+    "id_apagado": "dfd450e1-d539-4ed7-8010-373e3a82b3c3",
+    "soc_errada": "SP6",
+    "id_mantido": "a215ab59-06ad-4775-b284-b57d6b5a7ed4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NATANIELE CAMPOS DA SILVA ZAMBON",
+    "id_apagado": "dff764b5-d25a-4012-bf6d-becbe6185d65",
+    "soc_errada": "SP6",
+    "id_mantido": "7b709984-136d-48e8-9be3-82633cf31c13",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA BEATRIZ SILVA DE OLIVEIRA",
+    "id_apagado": "e084313c-864c-41f9-b65e-82d8c863b7ea",
+    "soc_errada": "SP6",
+    "id_mantido": "b285438e-2581-41f7-895d-b4f907de24db",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ROSIANE PEREIRA ROCHA",
+    "id_apagado": "e089de26-0ac5-4376-88b6-088664ae64f2",
+    "soc_errada": "SP6",
+    "id_mantido": "5256d5a4-0272-4db6-ba2b-0bd53e8147b6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EVERTON CAMARGO DE FARIA",
+    "id_apagado": "e0942f68-ae8d-460d-959c-3eb4307171de",
+    "soc_errada": "SP6",
+    "id_mantido": "7ffa3d93-f0fd-4e4a-81a3-6b51fc75cbce",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GRAZIELE FERNANDA DA SILVA LIMA",
+    "id_apagado": "e22b12c2-2024-4de4-a7c7-43d2f0017334",
+    "soc_errada": "SP6",
+    "id_mantido": "068efc5a-cae7-4ac0-820c-3ab6a9d79b35",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CAROLINE FERNANDA ASSALIN XAVIER",
+    "id_apagado": "e259ba0e-1751-4a5a-b4b1-9629e607f193",
+    "soc_errada": "SP6",
+    "id_mantido": "2338b97a-6d92-49e6-b6c0-d21df77d88a6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MATHEUS DA SILVA CAMPACCI",
+    "id_apagado": "e317890a-bb49-4adc-af1b-5cd113e4561f",
+    "soc_errada": "SP6",
+    "id_mantido": "46c2ce16-e38f-4e1a-9e69-1b221f9912f3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA CLARA SPINAZZOLA",
+    "id_apagado": "e443df62-26dd-4ac0-bcc9-df8a91b13aa0",
+    "soc_errada": "SP6",
+    "id_mantido": "58215c9d-b03a-4df3-a862-295d0d969d9e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEIDIANE APARECIDA COSTA FRAGA",
+    "id_apagado": "e44923f6-a50c-4bea-a5ef-c233a7747705",
+    "soc_errada": "SP6",
+    "id_mantido": "8f9c4160-be47-4405-94ac-6fbccf1beb06",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VINICIUS GOES DE PINHO",
+    "id_apagado": "e453b3c1-c440-40ba-bdd9-919445930812",
+    "soc_errada": "SP6",
+    "id_mantido": "8379f99e-6f41-4809-accd-b2dfd142c536",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA SABRINA DA SILVA ANTUNES",
+    "id_apagado": "e4c552f0-27c9-4b85-88e7-a8b008ba7ecc",
+    "soc_errada": "SP6",
+    "id_mantido": "90d4d057-3dfc-42bd-83e9-56e9fc309b5e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUILHERME MARTINS MENDONCA",
+    "id_apagado": "e4d5c313-ab26-44a4-bf5a-aafb2e88c455",
+    "soc_errada": "SP6",
+    "id_mantido": "c7e4d392-c8cd-45d9-a91c-230444c5008e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CARLA BOMBO PEREIRA",
+    "id_apagado": "e545792d-ce28-4104-aacd-f12debb471b3",
+    "soc_errada": "SP6",
+    "id_mantido": "a6cc2bc6-2fda-4b3f-866a-372bbd94d850",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ISABELLA VIEIRA RAMOS",
+    "id_apagado": "e5663f61-5ae0-44a8-a8d9-c619a0b4c042",
+    "soc_errada": "SP6",
+    "id_mantido": "3f552039-dfce-43c0-8756-86cf5ae8afc5",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAQUELINE DOS SANTOS FRANCO BARBOZA",
+    "id_apagado": "e594b9b7-6d48-48e0-9760-08d3a5d217b1",
+    "soc_errada": "SP6",
+    "id_mantido": "d3fd534d-e10e-4f19-9a0a-f9fcdf3ef7e4",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NICOLY BEATRIZ ESTEVES DE ARRUDA",
+    "id_apagado": "e5b225e7-c312-46d9-9827-073dfe6ec6b0",
+    "soc_errada": "SP6",
+    "id_mantido": "96ea143a-2fb0-4c41-a730-cfa943e0bcaa",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VINICIUS OLIVEIRA SILVA",
+    "id_apagado": "e5bb5eaa-a8e6-4aba-8c9d-844cd1ebc0c0",
+    "soc_errada": "SP6",
+    "id_mantido": "4f3c1f83-741a-4635-a05d-0f15ef960d68",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIANA NEVES PEREIRA",
+    "id_apagado": "e5c9f8e8-9761-49ce-b563-2db5ecd73454",
+    "soc_errada": "SP6",
+    "id_mantido": "09e2d54e-4939-42b9-a38d-9fb032d1f869",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KELLY MAISTRO",
+    "id_apagado": "e5ddb545-71e3-4c11-90c8-e111ea9d63b5",
+    "soc_errada": "SP6",
+    "id_mantido": "621bda9a-adfc-4e96-80e1-1f9bc8ce2047",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "HELLEN GRACE SILVA CERIMARCO",
+    "id_apagado": "e669503c-b546-434b-9c27-8ed4f18a5473",
+    "soc_errada": "SP6",
+    "id_mantido": "c5f26cd6-f81b-4856-8c03-dcbbc5efe804",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DIOCRECO DE SOUZA",
+    "id_apagado": "e6b7f133-6eff-4307-988d-1af0e6c96c11",
+    "soc_errada": "SP6",
+    "id_mantido": "3140afdb-434d-49f4-bb04-cbbb62cf783f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MAYCON PABLO PAES DE ALMEIDA",
+    "id_apagado": "e766bcf4-fb89-47fd-9e36-6f1ec33294d2",
+    "soc_errada": "SP6",
+    "id_mantido": "a5254a3c-a759-4967-8782-70936b852a23",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "IGOR CESAR DA SILVA",
+    "id_apagado": "e7bbabe9-4256-45e9-a753-274d3817b6fb",
+    "soc_errada": "SP6",
+    "id_mantido": "6cf5c134-0699-4d09-8c9a-e0965382e618",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DAPHNE ANDRADE DOS REIS STURCHIO",
+    "id_apagado": "e7c14a6e-611d-41f7-a576-4aa1a3d57f99",
+    "soc_errada": "SP6",
+    "id_mantido": "fc5089ff-46e1-4a7f-9de1-279b2ebd8fe3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VANESSA DOS REIS PINTO",
+    "id_apagado": "e95697d1-a1b7-4229-8512-86eff8879a08",
+    "soc_errada": "SP6",
+    "id_mantido": "d300603d-ff4b-4529-8b2f-793b1d277949",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KARLA MARCELLE DE OLIVEIRA GOMES",
+    "id_apagado": "e9f32fe8-6f98-4608-9fa6-77548762efff",
+    "soc_errada": "SP6",
+    "id_mantido": "4fc6317e-460e-4fb6-a50b-244164c40568",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NAIANE PEREIRA DE LIMA",
+    "id_apagado": "ea1eb68e-a64e-44e4-9289-5392fb843d1d",
+    "soc_errada": "SP6",
+    "id_mantido": "e6c72cbb-bad7-48ce-8687-1fdef626b790",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINARA GONCALVES LUIZ",
+    "id_apagado": "ea2006e8-c57c-49c3-a69d-da88d6b23c7a",
+    "soc_errada": "SP6",
+    "id_mantido": "78558470-d098-4da5-8f48-5c5e1085567d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KATIELE PRISCILA RAMOS OLIVEIRA",
+    "id_apagado": "eaccc988-0877-4a40-9fd8-ce2437afe2e5",
+    "soc_errada": "SP6",
+    "id_mantido": "5287addd-7126-45e1-aec1-e49754a5e072",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FERNANDO ROSA MARTIN MIRANDA",
+    "id_apagado": "eb7aa5c6-05c4-4add-8a9d-0410e23354f9",
+    "soc_errada": "SP6",
+    "id_mantido": "934376d4-d197-4102-8eb4-41e0d36c6a56",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KAUA ROMANI BARRETO",
+    "id_apagado": "eba5d35a-442c-4926-b390-b1f37f1ea066",
+    "soc_errada": "SP6",
+    "id_mantido": "ac9c75dc-08d0-476a-a4fc-935788e93a3a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KETLYN KAWANY DA SILVA TOMAZ",
+    "id_apagado": "ebf6e6f5-0a05-4964-8a8a-733d1fed9898",
+    "soc_errada": "SP6",
+    "id_mantido": "67b1c1ee-2d78-40dd-bf4b-df2c5514b518",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JULIA APARECIDA CAMARGO DA SILVA",
+    "id_apagado": "ec24f2ea-e8a0-40a5-8968-020c68ca28e3",
+    "soc_errada": "SP6",
+    "id_mantido": "8dbdbe78-9c23-4279-ab8c-b24d6df99c4f",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "IZABEL RABELLO DE ARRUDA",
+    "id_apagado": "ec78ca9e-f03b-4c6f-a15e-0f17f8ea906e",
+    "soc_errada": "SP6",
+    "id_mantido": "d758ad56-47f3-43b2-a3aa-6772400ad4b1",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ARTHUR GABRIEL DOS SANTOS",
+    "id_apagado": "ec8c37f5-081f-42a6-a52e-8e33cf35b95c",
+    "soc_errada": "SP6",
+    "id_mantido": "5097215c-e5d1-416f-a33d-38ed90f90240",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARIA APARECIDA RODRIGUES DE SOUSA",
+    "id_apagado": "eca2ad50-a11b-458e-88da-7e78a551d161",
+    "soc_errada": "SP6",
+    "id_mantido": "38f035c1-458e-4d17-b717-c4c7ede9d482",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALAN FERNANDO RIBEIRO",
+    "id_apagado": "ecbd855f-78da-4d35-9176-a64eaff568ea",
+    "soc_errada": "SP6",
+    "id_mantido": "4cf5b4e1-0fba-43dc-8820-9e61c6f555db",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE EDUARDO DE ALMEIDA",
+    "id_apagado": "ecf74413-e8c6-48c5-8732-0ac721aa3ca8",
+    "soc_errada": "SP6",
+    "id_mantido": "043df9b5-aa1f-4bca-89be-dd6b58a59a13",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SAMUEL FELIPE DE OLIVEIRA",
+    "id_apagado": "ed04d4be-eda6-4323-b596-6822eea373fe",
+    "soc_errada": "SP6",
+    "id_mantido": "b7f7f748-7f91-47b9-815f-51170fddae9d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NELSON LOBO DE ANDRADE NETO",
+    "id_apagado": "ee0955d2-4645-444f-b4c3-4c912dc8a256",
+    "soc_errada": "SP6",
+    "id_mantido": "500d45ef-9eb3-4745-bdd9-72630dec5c5c",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GLEYSSON RICARDO DO NASCIMENTO",
+    "id_apagado": "ee37b79c-5be0-4b09-9387-4f26a5110d89",
+    "soc_errada": "SP6",
+    "id_mantido": "42dc3ce2-f02e-4582-9a04-55f44ac24ea6",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "TAINA PALOMA DE MORAES",
+    "id_apagado": "ee857cc8-1cc4-45ac-833c-799ba69aa143",
+    "soc_errada": "SP6",
+    "id_mantido": "0960b7c1-f5a1-4144-9e60-85d6eca34ff3",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LARISSA KAUANE PEREIRA DA SILVA",
+    "id_apagado": "eeb4e35e-86f7-41e2-87b6-aa75a8984641",
+    "soc_errada": "SP6",
+    "id_mantido": "a3908761-654a-4a67-bd1d-d2f1dcaa7a70",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DANIELE NICOLY DA SILVA LEAL",
+    "id_apagado": "efc305de-1f65-4aca-b1e6-d24172e4fd06",
+    "soc_errada": "SP6",
+    "id_mantido": "1d705d55-98a7-447d-ad69-ef49eb8113fb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CHRISTIAN HENRIQUE OLIVEIRA NUNES",
+    "id_apagado": "f01056f1-5650-4ec0-8b8e-c75eae58bb88",
+    "soc_errada": "SP6",
+    "id_mantido": "4e326bc4-1e44-4f4e-952c-be3aeb57ff6b",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "PEDRO TABAI RODRIGUES",
+    "id_apagado": "f04bf1f3-c1c6-413b-b3ca-a22607b3ab08",
+    "soc_errada": "SP6",
+    "id_mantido": "130e4191-f9a1-4ee1-8d9f-c9a61fcda2da",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EDCARLOS JONATHAS LEMOS",
+    "id_apagado": "f0f32005-7a34-4df3-9213-b34bee08002b",
+    "soc_errada": "SP6",
+    "id_mantido": "65bbd3a4-21a1-4808-a19a-362b879c9275",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAUANE CAROLINE DE OLIVEIRA JESUS",
+    "id_apagado": "f1cb78f7-4d1a-40c0-8f2f-ec7017f6fbf9",
+    "soc_errada": "SP6",
+    "id_mantido": "67ec3d39-a657-4615-8d80-02504bf03164",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "EVELYN KAMILE DOS SANTOS SILVA",
+    "id_apagado": "f2658afd-5fbf-4ae0-98ab-e0211b3fbfe0",
+    "soc_errada": "SP6",
+    "id_mantido": "e22c3203-d885-4256-bb28-071f60bdfd41",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ALESSANDRA CRUZ ALVES",
+    "id_apagado": "f269b2d6-c810-414c-9dec-b2c3f8736500",
+    "soc_errada": "SP6",
+    "id_mantido": "4d90a2b4-9010-4d0e-bc83-a0df7ec3c464",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CLEITON GUSTAVO DA COSTA SILVA",
+    "id_apagado": "f35a997f-8324-401d-a17f-e241e8d01bce",
+    "soc_errada": "SP6",
+    "id_mantido": "7f6533c1-38b2-4afc-81e5-cec0b98810e8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "FRANCIELE  DOS SANTOS MARQUES",
+    "id_apagado": "f38e7f6f-3877-4f79-bad8-e1df03e6d457",
+    "soc_errada": "SP6",
+    "id_mantido": "03de8a08-f4e3-4a3c-a7d7-8ec27f766a18",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VITORIA CRISTINA BARBOSA TOLEDO",
+    "id_apagado": "f3b33aed-928a-461b-839b-64870b01da83",
+    "soc_errada": "SP6",
+    "id_mantido": "75e04d7e-93df-4afc-adec-f0d4914d6efb",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAURA CAMARGO GONCALVES",
+    "id_apagado": "f49ade37-274a-40ee-8563-edb1db194f78",
+    "soc_errada": "SP6",
+    "id_mantido": "cb4b362e-1aca-4568-a1dc-b03cc220b314",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "SILVIA JACQUELINE GANEO",
+    "id_apagado": "f4af78d5-ebf7-4258-afda-f0ad7901464f",
+    "soc_errada": "SP6",
+    "id_mantido": "5f272f2f-c1d2-47fc-9dbd-5ca027b689a8",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "DIOGO EMANUEL DE LIMA OLIVEIRS",
+    "id_apagado": "f4d2c266-0084-4c76-bae1-720e6bf5914c",
+    "soc_errada": "SP6",
+    "id_mantido": "a37d4cef-45fc-45a9-8242-55bfbf0aeeee",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LAYENE DA SILVA FERREIRA",
+    "id_apagado": "f5393f1e-141e-41bb-b26e-ffb95f4b8308",
+    "soc_errada": "SP6",
+    "id_mantido": "ee38c387-c9f8-4493-9da7-ee67ca1ae1c0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "CRISTIANE LACERDA DE ANDRADE",
+    "id_apagado": "f6280af8-be2c-4258-aee3-8780556435cc",
+    "soc_errada": "SP6",
+    "id_mantido": "9f689206-20d3-4cad-ad65-e0a74ccb386a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GUSTAVO DE LUCENA SANTANA",
+    "id_apagado": "f6f42cd2-0a7b-4632-8744-66936bdabd27",
+    "soc_errada": "SP6",
+    "id_mantido": "3bfe1c36-fee9-42e4-8806-622cdcc030ba",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "GABRIELLE JULIA DE MORAES",
+    "id_apagado": "f713cf83-0610-4a6e-8325-357614f00753",
+    "soc_errada": "SP6",
+    "id_mantido": "d1da097f-7a61-450a-8e0e-0e13c377031e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAFAELA GREGORIO BISPO GOMES",
+    "id_apagado": "f76ea2be-3499-40a4-9494-c5a1445eae3e",
+    "soc_errada": "SP6",
+    "id_mantido": "416cb4e8-4d67-40ca-b00a-e04f76eef420",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "BELONIZIA RODRIGUES OLIVEIRA",
+    "id_apagado": "f79fb3d2-e8c6-4bfa-93c3-f624c40f06fd",
+    "soc_errada": "SP6",
+    "id_mantido": "3069892d-9c03-4e81-a12f-c402485d3139",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JAMILI GABRIELI CAMPOS DE SOUZA",
+    "id_apagado": "f7e1444c-7dc7-4cc8-b48b-6d00c903d8bb",
+    "soc_errada": "SP6",
+    "id_mantido": "ac554129-bda6-4960-8f08-7bec7c0cacb2",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "VICTOR KAWA SOUZA OLIVEIRA",
+    "id_apagado": "f87a3281-e2c2-4f1d-a602-431c636e20f4",
+    "soc_errada": "SP6",
+    "id_mantido": "e242be6d-85ea-4477-94c6-46124e052219",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LUANA RANIA SILVA SOARES",
+    "id_apagado": "f88f3597-228a-465c-9d8a-eee7f9c3f1c6",
+    "soc_errada": "SP6",
+    "id_mantido": "c56975e4-501f-4d1e-8b68-b75e4a0d4d9a",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "MARCOS DANIEL DA SILVA PEREIRA",
+    "id_apagado": "fc73ab3b-7cae-4d19-9d3e-db1b100e84e4",
+    "soc_errada": "SP6",
+    "id_mantido": "1c8d11fd-b994-4fbc-8486-1c32225055d9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "RAQUEL MARIANO",
+    "id_apagado": "fc903d75-a7ff-43fb-abb6-ef2d84f24c1b",
+    "soc_errada": "SP6",
+    "id_mantido": "f07475a3-d294-433b-85f7-9374e5929b73",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANA JULIA PRATES MIRANDA",
+    "id_apagado": "fcf1f4d6-92f7-4631-9ce0-ae2067afad25",
+    "soc_errada": "SP6",
+    "id_mantido": "aa53a534-ccb9-4815-acb8-92cd3de3ff0e",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "NARAYANE TAMARA DA SILVA",
+    "id_apagado": "fd782597-6357-476c-b34a-1bf03aadedfd",
+    "soc_errada": "SP6",
+    "id_mantido": "95a089a9-6b0e-48de-aad0-2a6d31cfd27d",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "LEONARDO AUGUSTO DA COSTA ALVES",
+    "id_apagado": "fdfd62e8-027a-4d02-a924-bb137d9b7224",
+    "soc_errada": "SP6",
+    "id_mantido": "ab8a463b-5a29-4cc2-8d9d-a816dcd454b9",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "JOSE CARLOS DOS SANTOS PEREIRA",
+    "id_apagado": "fedd6d20-f16c-4700-832b-0ba7663e79d7",
+    "soc_errada": "SP6",
+    "id_mantido": "a9ca9bbb-89cb-4adc-89bc-1e73fdc074c0",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "KARLA MOURA DOS SANTOS",
+    "id_apagado": "ff117205-77b6-4770-84c7-e637f9a5cd3f",
+    "soc_errada": "SP6",
+    "id_mantido": "72e0cd12-d75c-46f8-be2b-f1c96e202995",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  },
+  {
+    "nome": "ANDRE LUCAS LEITE SANTIAGO",
+    "id_apagado": "ff67ef8d-3c08-4841-90b3-2c25fc171b71",
+    "soc_errada": "SP6",
+    "id_mantido": "fa88c93f-2486-4d1c-9340-e64ae0d587dd",
+    "soc_certa": "SP35",
+    "assinaturas_realocadas": 0
+  }
+]

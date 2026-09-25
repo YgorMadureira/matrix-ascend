@@ -666,13 +666,30 @@ export default function CollaboratorsPage() {
 
       const onboardings = collaborators.filter(c => c.is_onboarding);
 
+      // Duas linhas com o mesmo nome na mesma unidade são a MESMA pessoa para
+      // o banco (índice único name+soc). Fica a primeira; as repetições são
+      // contadas e informadas — não são erro, e não podem impedir o resto.
+      const chaveDe = (r: { name?: string; soc?: string }) =>
+        `${(r.name || '').toUpperCase().trim()}|${(r.soc || '').toUpperCase().trim()}`;
+      const vistas = new Set<string>();
+      const repetidasNoArquivo: string[] = [];
+      const linhas = rows.filter(r => {
+        const chave = chaveDe(r);
+        if (vistas.has(chave)) { repetidasNoArquivo.push(r.name); return false; }
+        vistas.add(chave);
+        return true;
+      });
+
       let totalInserted = 0;
       let totalUpdated = 0;
       let lastError = '';
+      // Quem o banco pulou por já existir, e quem falhou de verdade.
+      const jaCadastrados: string[] = [];
+      const falharam: string[] = [];
       const BATCH = 50;
 
-      for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH);
+      for (let i = 0; i < linhas.length; i += BATCH) {
+        const batch = linhas.slice(i, i + BATCH);
         
         const toInsert = [];
         for (const row of batch) {
@@ -696,12 +713,47 @@ export default function CollaboratorsPage() {
         }
 
         if (toInsert.length > 0) {
-          const { error } = await supabase.from('collaborators').insert(toInsert);
+          // ignoreDuplicates: o BANCO pula quem já existe, em vez de recusar o
+          // lote. Antes aqui era .insert() puro: uma única linha duplicada
+          // violava idx_collaborators_name_soc_unique, o Postgres rejeitava a
+          // INSTRUÇÃO INTEIRA e as outras 49 linhas boas do lote iam junto —
+          // num arquivo com menos de 50 nomes, a importação toda falhava por
+          // causa de um nome repetido. Corrigido em 24/09/2026.
+          //
+          // O .select() devolve SÓ o que entrou de verdade: é por ele que se
+          // sabe quantos foram ignorados, sem precisar consultar a base antes.
+          // (name, soc) é hoje o único índice único da tabela, então não há
+          // outro tipo de colisão possível para derrubar o lote.
+          const { data: inseridas, error } = await supabase
+            .from('collaborators')
+            .upsert(toInsert, { onConflict: 'name,soc', ignoreDuplicates: true })
+            .select('name, soc');
+
           if (error) {
-            lastError = error.message;
-            console.error('[CSV] Erro no batch:', error);
+            // Não deveria acontecer. Se acontecer (RLS numa unidade, coluna
+            // inesperada), tenta linha por linha: uma linha problemática não
+            // pode impedir as outras de subir.
+            console.error('[CSV] Lote falhou, tentando linha por linha:', error);
+            for (const linha of toInsert) {
+              const { data: uma, error: erroLinha } = await supabase
+                .from('collaborators')
+                .upsert([linha], { onConflict: 'name,soc', ignoreDuplicates: true })
+                .select('name');
+              if (erroLinha) {
+                lastError = erroLinha.message;
+                falharam.push(linha.name);
+              } else if ((uma ?? []).length > 0) {
+                totalInserted++;
+              } else {
+                jaCadastrados.push(linha.name);
+              }
+            }
           } else {
-            totalInserted += toInsert.length;
+            const entraram = new Set((inseridas ?? []).map(r => chaveDe(r)));
+            totalInserted += (inseridas ?? []).length;
+            for (const linha of toInsert) {
+              if (!entraram.has(chaveDe(linha))) jaCadastrados.push(linha.name);
+            }
           }
         }
       }
@@ -712,7 +764,32 @@ export default function CollaboratorsPage() {
         if (totalUpdated > 0) msg += `✓ ${totalUpdated} migrados do Onboarding para Ativo!`;
         toast.success(msg);
         fetchData();
+      } else if (jaCadastrados.length > 0 && falharam.length === 0) {
+        // Nada entrou porque todo mundo já estava lá — é resultado, não erro.
+        toast.info('Nenhum nome novo: todos os do arquivo já estão cadastrados.');
       }
+
+      // Duplicado não é falha: o arquivo sobe, e a tela diz o que foi pulado.
+      // Os nomes vão para o console porque a lista pode ser longa demais para
+      // um toast, e quem importou precisa poder conferir um por um.
+      if (jaCadastrados.length > 0) {
+        console.warn('[CSV] Ignorados (já cadastrados nesta unidade):', jaCadastrados);
+        toast.warning(
+          `${jaCadastrados.length} nome(s) ignorado(s) por já estarem cadastrados nesta unidade` +
+          `: ${jaCadastrados.slice(0, 3).join(', ')}${jaCadastrados.length > 3 ? '…' : ''}. ` +
+          'A lista completa está no console do navegador (F12).',
+          { duration: 12000 }
+        );
+      }
+      if (repetidasNoArquivo.length > 0) {
+        console.warn('[CSV] Linhas repetidas dentro do arquivo:', repetidasNoArquivo);
+        toast.warning(
+          `${repetidasNoArquivo.length} linha(s) repetida(s) dentro do próprio arquivo — considerei só a primeira de cada.`,
+          { duration: 10000 }
+        );
+      }
+      if (falharam.length > 0) console.error('[CSV] Falharam de verdade:', falharam);
+
       if (lastError) {
         // A recusa mais comum aqui é do RLS: a planilha traz uma unidade que o
         // usuário não alcança. A mensagem crua do Postgres não diz isso.
