@@ -29,9 +29,10 @@
 //   5. Qualquer outro treinamento → acende SOMENTE o micro de nome
 //      equivalente (comparação tolerante a acento/caixa/código/versão)
 //   6. Além de tudo acima, o master pode declarar em Configurações que um
-//      treinamento também cobre uma área (tabela training_area_rules). É
-//      SEMPRE aditivo: acrescenta cobertura, nunca tira. Ver
-//      definirRegrasDeArea() mais abaixo e src/lib/areaRules.ts.
+//      treinamento PASSA A ou DEIXA DE cobrir uma área (tabela
+//      training_area_rules) — as duas mãos, desde 28/09/2026. É retroativo:
+//      aplica sobre todo o histórico de quem já assinou, não só quem assinar
+//      depois. Ver definirRegrasDeArea() mais abaixo e src/lib/areaRules.ts.
 //
 // TRATATIVAS nunca é aceso por Onboarding — exige o "Treinamento Padrão
 // SOC - Tratativas" (decisão de 13/08/2026).
@@ -170,10 +171,19 @@ export function areasUnlockedBy(trainingType: string, hasSorting: boolean): Macr
 // ============================================================
 // Regras configuradas na tela (tabela training_area_rules)
 // ============================================================
-// "Este treinamento TAMBÉM credencia esta área", declarado pelo master em
-// Configurações. São ADITIVAS: nunca removem o que as regras acima concedem
-// — uma configuração capaz de tirar cobertura seria uma segunda fonte de
-// verdade contradizendo o motor em silêncio.
+// O master declara, em Configurações, que um treinamento PASSA A ou DEIXA DE
+// credenciar uma área. As duas mãos existem desde 28/09/2026: até então só
+// existia ADICIONA, e a única forma de tirar uma cobertura embutida no
+// código (ex.: tirar Expedição do "Onboarding PTS V3") era editar
+// trainingRules.ts e publicar — o próprio trabalho manual que esta tela
+// existe para eliminar.
+//
+// ⚠️ ISTO É RETROATIVO, IGUAL AO ADICIONA JÁ SEMPRE FOI. Não existe "regra
+// vigente na data em que a pessoa assinou" — uma assinatura é só um texto e
+// uma data; o cálculo de "treinado?" sempre aplica a regra ATUAL sobre TODO
+// o histórico da pessoa. Remover uma cobertura muda o status de quem já
+// assinou no passado, na hora, não só de quem assinar dali para frente. A
+// tela (SettingsPage.tsx) mostra o tamanho desse efeito antes de confirmar.
 //
 // Por que um registro de módulo e não um parâmetro: isto é configuração
 // global do sistema, não dado de uma chamada. Passar por parâmetro obrigaria
@@ -184,24 +194,49 @@ export function areasUnlockedBy(trainingType: string, hasSorting: boolean): Macr
 //
 // ⚠️ Teste que mexe nisto tem de limpar depois (ver definirRegrasDeArea no
 // arquivo de testes).
-let regrasConfiguradas = new Map<string, Set<MacroArea>>();
+let regrasAdicionadas = new Map<string, Set<MacroArea>>();
+let regrasRemovidas = new Map<string, Set<MacroArea>>();
 
-/** Substitui as regras em memória. Chamado no carregamento das telas e nos testes. */
-export function definirRegrasDeArea(regras: { training_name: string; area: string }[]): void {
-  const mapa = new Map<string, Set<MacroArea>>();
+/**
+ * Substitui as regras em memória. Chamado no carregamento das telas e nos
+ * testes. `tipo` ausente ou diferente de 'REMOVE' é tratado como ADICIONA —
+ * mantém compatível quem já chamava isto antes de a coluna existir.
+ */
+export function definirRegrasDeArea(regras: { training_name: string; area: string; tipo?: string }[]): void {
+  const adicionadas = new Map<string, Set<MacroArea>>();
+  const removidas = new Map<string, Set<MacroArea>>();
   for (const r of regras) {
     const chave = normalizeText(r.training_name);
     const area = normalizeMacroArea(r.area);
     if (!chave || !area) continue;
-    if (!mapa.has(chave)) mapa.set(chave, new Set());
-    mapa.get(chave)!.add(area);
+    const destino = normalizeText(r.tipo).startsWith('REMOV') ? removidas : adicionadas;
+    if (!destino.has(chave)) destino.set(chave, new Set());
+    destino.get(chave)!.add(area);
   }
-  regrasConfiguradas = mapa;
+  regrasAdicionadas = adicionadas;
+  regrasRemovidas = removidas;
 }
 
-/** A configuração diz que este treinamento credencia esta área? */
-function regraConfiguradaAcende(trainingType: string, area: MacroArea): boolean {
-  return regrasConfiguradas.get(normalizeText(trainingType))?.has(area) ?? false;
+/** A configuração diz que este treinamento PASSA a credenciar esta área? */
+function regraAdicionaArea(trainingType: string, area: MacroArea): boolean {
+  return regrasAdicionadas.get(normalizeText(trainingType))?.has(area) ?? false;
+}
+
+/** A configuração diz que este treinamento DEIXA de credenciar esta área (mesmo que o motor embutido credencie)? */
+function regraRemoveArea(trainingType: string, area: MacroArea): boolean {
+  return regrasRemovidas.get(normalizeText(trainingType))?.has(area) ?? false;
+}
+
+/**
+ * Este treinamento credencia esta área, já aplicando a configuração da
+ * tela? REMOVE sempre vence — é um override explícito da regra embutida, e
+ * o índice único (training_name, area) da tabela impede que a mesma dupla
+ * tenha as duas ao mesmo tempo, então não há ambiguidade de qual vale.
+ */
+function treinamentoCredenciaArea(trainingType: string, area: MacroArea, hasSorting: boolean): boolean {
+  if (regraRemoveArea(trainingType, area)) return false;
+  if (regraAdicionaArea(trainingType, area)) return true;
+  return (areasUnlockedBy(trainingType, hasSorting) ?? []).includes(area);
 }
 
 /** Regra 5: match tolerante por nome, usado quando o treinamento é específico (não acende área inteira). */
@@ -223,9 +258,13 @@ export function isMicroCompletedBy(
   hasSorting: boolean
 ): boolean {
   const area = normalizeMacroArea(macroArea) as MacroArea;
-  // A regra da tela é um OU a mais — inclusive para um treinamento específico,
+  // REMOVE encerra aqui, antes até da regra 5: se o master tirou esta área
+  // deste treinamento, ele não credencia nada nela por nenhum caminho —
+  // nem pela regra embutida, nem "coincidindo" com o nome de um micro.
+  if (area && regraRemoveArea(trainingType, area)) return false;
+  // ADICIONA é um OU a mais — inclusive para um treinamento específico,
   // que continua podendo casar pelo nome do micro (regra 5) logo abaixo.
-  if (area && regraConfiguradaAcende(trainingType, area)) return true;
+  if (area && regraAdicionaArea(trainingType, area)) return true;
 
   const areas = areasUnlockedBy(trainingType, hasSorting);
   if (areas !== null) {
@@ -254,9 +293,7 @@ export function countCompletedMicros(
  * não certificados de micro-processo específico.
  */
 export function isAreaTrained(trainingTypes: string[], area: MacroArea, hasSorting: boolean): boolean {
-  return trainingTypes.some(t =>
-    regraConfiguradaAcende(t, area) || (areasUnlockedBy(t, hasSorting) ?? []).includes(area)
-  );
+  return trainingTypes.some(t => treinamentoCredenciaArea(t, area, hasSorting));
 }
 
 /** Áreas relevantes para o card "% Treinados" / Matriz / gráfico — ASM só entra se a SOC tem sorting. */
@@ -400,12 +437,24 @@ export function isCollaboratorTrained(
     return false;
   }
 
-  // Fora das macro-áreas (Apoio, Almox, sem setor): basta acender qualquer
-  // área — inclusive por uma regra configurada na tela.
-  return trainingTypes.some(t =>
-    (areasUnlockedBy(t, hasSorting) ?? []).length > 0 ||
-    (regrasConfiguradas.get(normalizeText(t))?.size ?? 0) > 0
-  );
+  // Fora das macro-áreas (Apoio, Almox, sem setor): basta acender QUALQUER
+  // área. Diferente das outras duas funções, aqui a pergunta não é "credencia
+  // ESTA área", é "credencia alguma" — por isso o cálculo é uma união
+  // (embutidas + adicionadas) menos as removidas, e não um treinamentoCredenciaArea
+  // por área. Tirar uma área não zera as outras que o mesmo treinamento ainda
+  // credencia (ex.: tirar só Expedição do PTS V3 não afeta quem entra aqui
+  // por causa dele — Recebimento e Processamento continuam de pé).
+  return trainingTypes.some(t => {
+    const chave = normalizeText(t);
+    const adicionadas = regrasAdicionadas.get(chave);
+    const removidas = regrasRemovidas.get(chave);
+    const embutidas = areasUnlockedBy(t, hasSorting) ?? [];
+    if (!adicionadas && !removidas) return embutidas.length > 0; // caminho comum: sem configuração nenhuma
+    const efetivas = new Set(embutidas);
+    if (adicionadas) for (const a of adicionadas) efetivas.add(a);
+    if (removidas) for (const a of removidas) efetivas.delete(a);
+    return efetivas.size > 0;
+  });
 }
 
 /** Áreas relevantes para o Índice de Saúde — ASM só entra se a SOC tem sorting. */

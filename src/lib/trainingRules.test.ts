@@ -672,4 +672,87 @@ describe('trainingRules — regras de área configuradas na tela', () => {
     definirRegrasDeArea([{ training_name: 'TREINAMENTO COP', area: 'INEXISTENTE' }]);
     expect(isCollaboratorTrained('Apoio', ['Treinamento COP'], false)).toBe(false);
   });
+
+  // 28/09/2026 — a segunda mão: o master também pode dizer que um
+  // treinamento DEIXA de cobrir uma área embutida no motor (ex.: tirar
+  // Expedição do "Onboarding PTS V3"). É retroativo, igual o ADICIONA
+  // sempre foi: aplica sobre quem já assinou no passado, não só quem
+  // assinar depois — testado explicitamente abaixo.
+  describe('regra REMOVE: tirar uma cobertura embutida', () => {
+    it('sem a regra, Onboarding PTS V3 cobre Expedição normalmente', () => {
+      expect(isAreaTrained(['Onboarding PTS V3'], 'EXPEDIÇÃO', false)).toBe(true);
+    });
+
+    it('com REMOVE, o mesmo treinamento deixa de cobrir só aquela área', () => {
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(isAreaTrained(['Onboarding PTS V3'], 'EXPEDIÇÃO', false)).toBe(false);
+      // as outras áreas que ele cobria continuam de pé — REMOVE é por área,
+      // não desliga o treinamento inteiro.
+      expect(isAreaTrained(['Onboarding PTS V3'], 'RECEBIMENTO', false)).toBe(true);
+      expect(isAreaTrained(['Onboarding PTS V3'], 'PROCESSAMENTO', false)).toBe(true);
+    });
+
+    it('É RETROATIVO: alguém que já tinha esse treinamento assinado vira pendente na hora', () => {
+      // simula uma pessoa de Expedição que assinou o treinamento HÁ MESES,
+      // antes de qualquer regra existir — o motor não sabe "quando" ela
+      // assinou, só que ela tem esse treinamento no histórico.
+      expect(isCollaboratorTrained('EXPEDIÇÃO', ['Onboarding PTS V3'], false)).toBe(true);
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(isCollaboratorTrained('EXPEDIÇÃO', ['Onboarding PTS V3'], false)).toBe(false);
+    });
+
+    it('não afeta OUTRO treinamento, mesmo que credencie a mesma área', () => {
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(isAreaTrained(['03. Treinamento Padrão SOC - Expedição'], 'EXPEDIÇÃO', false)).toBe(true);
+    });
+
+    it('quem tem OUTRO treinamento de Expedição continua treinado mesmo com a área removida do PTS V3', () => {
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(
+        isCollaboratorTrained('EXPEDIÇÃO', ['Onboarding PTS V3', '03. Treinamento Padrão SOC - Expedição'], false)
+      ).toBe(true);
+    });
+
+    it('quem está fora das macro-áreas (Apoio) continua entrando pelas áreas que sobraram', () => {
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      // Recebimento e Processamento continuam cobertos — basta UMA área para
+      // quem está fora do sistema de macro-áreas.
+      expect(isCollaboratorTrained('Apoio', ['Onboarding PTS V3'], false)).toBe(true);
+    });
+
+    it('remover TODAS as áreas de um treinamento faz quem está fora das macro-áreas ficar pendente', () => {
+      definirRegrasDeArea([
+        { training_name: 'ONBOARDING PTS V3', area: 'RECEBIMENTO', tipo: 'REMOVE' },
+        { training_name: 'ONBOARDING PTS V3', area: 'PROCESSAMENTO', tipo: 'REMOVE' },
+        { training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' },
+      ]);
+      expect(isCollaboratorTrained('Apoio', ['Onboarding PTS V3'], false)).toBe(false);
+    });
+
+    it('REMOVE vence ADICIONA quando alguém configura os dois para a mesma dupla', () => {
+      // Cenário de borda: no banco o índice único (training_name, area)
+      // impede que as duas linhas coexistam de verdade, mas o motor não deve
+      // quebrar se, por algum outro caminho, os dois mapas tiverem a mesma
+      // chave — REMOVE é o override explícito, então vence.
+      definirRegrasDeArea([
+        { training_name: 'TREINAMENTO COP', area: 'PROCESSAMENTO', tipo: 'ADICIONA' },
+        { training_name: 'TREINAMENTO COP', area: 'PROCESSAMENTO', tipo: 'REMOVE' },
+      ]);
+      expect(isAreaTrained(['Treinamento COP'], 'PROCESSAMENTO', false)).toBe(false);
+    });
+
+    it('acende o tick da Matriz de Certificação de acordo — para de acender quando removido', () => {
+      expect(isMicroCompletedBy('Onboarding PTS V3', 'Puxada Out', 'EXPEDIÇÃO', false)).toBe(true);
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(isMicroCompletedBy('Onboarding PTS V3', 'Puxada Out', 'EXPEDIÇÃO', false)).toBe(false);
+    });
+
+    it('remover uma área que o treinamento nunca cobriu não muda nada (não vira ADICIONA às avessas)', () => {
+      // PTS V3 nunca cobriu Tratativas — "removê-la" não deveria, por
+      // engano de implementação, acender alguma outra coisa.
+      definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'TRATATIVAS', tipo: 'REMOVE' }]);
+      expect(isAreaTrained(['Onboarding PTS V3'], 'TRATATIVAS', false)).toBe(false);
+      expect(isAreaTrained(['Onboarding PTS V3'], 'RECEBIMENTO', false)).toBe(true);
+    });
+  });
 });

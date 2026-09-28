@@ -25,11 +25,12 @@ import { definirRegrasDeArea, isAreaTrained, isCollaboratorTrained, type MacroAr
 
 const AREAS: MacroArea[] = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'];
 
-// As regras configuradas na tela são aplicadas em lugares diferentes nos dois
-// lados: no TS ficam dentro do motor; no banco ficam no JOIN das views, não
-// dentro de training_unlocks_area. Por isso elas entram só na parte 2 (o
-// veredito por pessoa, que é o que as views calculam). A parte 1 compara as
-// regras EMBUTIDAS dos dois lados, e por isso roda com o registro vazio.
+// A parte 1 compara só a regra EMBUTIDA dos dois lados — por isso roda com
+// o registro TS vazio, e chama training_unlocks_area_embutida() no banco
+// (não training_unlocks_area(), que desde 28/09/2026 já soma o que estiver
+// configurado em training_area_rules — inclusive REMOVE). As regras
+// configuradas entram só na parte 2 (o veredito por pessoa, via
+// collaborators_status, que é o que os usuários realmente veem).
 const { data: regras } = await db.from('training_area_rules').select('training_name, area');
 definirRegrasDeArea([]);
 
@@ -79,15 +80,15 @@ for (const comSorter of [false, true]) {
     const sql: string[] = [];
     for (const area of AREAS) {
       if (isAreaTrained([nome], area, comSorter)) ts.push(area);
-      const { data, error } = await db.rpc('training_unlocks_area', {
+      const { data, error } = await db.rpc('training_unlocks_area_embutida', {
         training_type: nome,
         area,
         has_sorting: comSorter,
       });
       if (error) {
-        console.error(`\n  ✗ não consegui chamar training_unlocks_area: ${error.message}`);
+        console.error(`\n  ✗ não consegui chamar training_unlocks_area_embutida: ${error.message}`);
         console.error('    Se a mensagem fala em função inexistente, falta rodar a migração');
-        console.error('    supabase/migrations/20260903_01_alinha_espelho_sql.sql.\n');
+        console.error('    supabase/migrations/20260928_02_remover_cobertura_de_area.sql.\n');
         process.exit(1);
       }
       if (data === true) sql.push(area);

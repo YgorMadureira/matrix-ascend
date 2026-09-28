@@ -7,11 +7,16 @@ import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2, RefreshCw } fr
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-/** Uma linha de training_area_rules: "este treinamento também cobre esta área". */
+/**
+ * Uma linha de training_area_rules: ADICIONA = "este treinamento também
+ * cobre esta área"; REMOVE = "este treinamento deixa de cobrir esta área"
+ * — um override da regra embutida no motor (desde 28/09/2026).
+ */
 interface AreaRule {
   id: string;
   training_name: string;
   area: string;
+  tipo: 'ADICIONA' | 'REMOVE';
 }
 
 const AREAS_DISPONIVEIS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
@@ -83,7 +88,9 @@ export default function SettingsPage() {
   // "Este treinamento também credencia esta área". Ver a migração 20260925_01.
   const [areaRules, setAreaRules] = useState<AreaRule[]>([]);
   const [nomesDeTreinamento, setNomesDeTreinamento] = useState<string[]>([]);
-  const [novaRegra, setNovaRegra] = useState({ training_name: '', area: '' });
+  const [novaRegra, setNovaRegra] = useState<{ training_name: string; area: string; tipo: 'ADICIONA' | 'REMOVE' }>({
+    training_name: '', area: '', tipo: 'ADICIONA',
+  });
   const [salvandoRegra, setSalvandoRegra] = useState(false);
   const [buscaCobertura, setBuscaCobertura] = useState('');
 
@@ -188,7 +195,7 @@ export default function SettingsPage() {
   const carregarRegrasEnomes = async () => {
     const { data: regras } = await supabase
       .from('training_area_rules')
-      .select('id, training_name, area')
+      .select('id, training_name, area, tipo')
       .order('training_name');
     setAreaRules(regras ?? []);
 
@@ -211,6 +218,25 @@ export default function SettingsPage() {
   };
 
   /**
+   * Toast único para as quatro operações possíveis (criar/apagar × adiciona/
+   * remove) — o sinal de `diferenca` (quantos a MAIS ficaram certificados,
+   * pode ser negativo) já diz tudo: positivo é gente que passou a contar
+   * como treinada, negativo é gente que voltou a pendente.
+   */
+  function avisarImpacto(diferenca: number, contexto: string) {
+    if (diferenca > 0) {
+      toast.success(`${contexto} ${diferenca} colaborador(es) passaram a contar como treinados agora.`, { duration: 10000 });
+    } else if (diferenca < 0) {
+      toast.warning(`${contexto} ${-diferenca} colaborador(es) voltaram a aparecer como pendentes agora.`, { duration: 10000 });
+    } else {
+      toast.success(`${contexto} Ninguém mudou de status agora.`);
+    }
+    // O master pode ir olhar o Dashboard em seguida — sem isto, o cache de
+    // 5 minutos dele mostraria o número de antes da mudança.
+    queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
+  }
+
+  /**
    * "Sincronizar": não existe recálculo atrasado para disparar — a view já
    * aplica a regra a cada consulta, no instante em que ela existe no banco
    * (foi assim que o RJ2 saltou na hora, em 25/09/2026). O que este botão
@@ -220,13 +246,26 @@ export default function SettingsPage() {
    * count_pending_signers() conta direto no banco quantos colaboradores
    * assinaram o treinamento e continuam pendentes — sem trazer a lista de
    * ids pro navegador (um treinamento popular tem milhares de assinaturas).
-   * Chamada antes e depois de criar a regra; a diferença é quem passou a
-   * contar como treinado só por causa dela.
+   * Chamada antes e depois de gravar a regra; a diferença é o impacto real.
+   *
+   * REMOVE pede confirmação explícita, à parte: é retroativo sobre todo o
+   * histórico de quem já assinou (ver o cabeçalho de "Regras configuradas
+   * na tela" em trainingRules.ts) e pode afetar centenas de pessoas de uma
+   * vez — 741, no caso que motivou esta função, em 18 unidades.
    */
   const sincronizarRegra = async () => {
     if (!novaRegra.training_name || !novaRegra.area) {
       toast.error('Escolha o treinamento e a área.');
       return;
+    }
+    if (novaRegra.tipo === 'REMOVE') {
+      const ok = confirm(
+        `Você está REMOVENDO a cobertura de "${novaRegra.training_name}" para a área ${novaRegra.area}.\n\n` +
+        `Isso vale para TODO o histórico de quem já assinou esse treinamento, não só para quem assinar depois: ` +
+        `colaboradores que hoje aparecem certificados só por causa dessa cobertura vão virar pendentes imediatamente. ` +
+        `A tela mostra quantos, logo em seguida.\n\nConfirma?`
+      );
+      if (!ok) return;
     }
     setSalvandoRegra(true);
     try {
@@ -238,12 +277,13 @@ export default function SettingsPage() {
       const { error } = await supabase.from('training_area_rules').insert({
         training_name: novaRegra.training_name,
         area: novaRegra.area,
+        tipo: novaRegra.tipo,
         created_by: profile?.id ?? null,
       });
       if (error) {
         toast.error(
           /duplicate key|unica/i.test(error.message)
-            ? 'Essa regra já existe.'
+            ? 'Já existe uma regra para esse treinamento nessa área — apague a atual antes de trocar.'
             : 'Não consegui salvar: ' + error.message
         );
         return;
@@ -252,18 +292,8 @@ export default function SettingsPage() {
       const { data: depois } = await supabase.rpc('count_pending_signers', {
         p_training_name: novaRegra.training_name,
       });
-      const impacto = (antes ?? 0) - (depois ?? 0);
-
-      toast.success(
-        impacto > 0
-          ? `Sincronizado! ${impacto} colaborador(es) que já tinham assinado "${novaRegra.training_name}" passaram a contar como treinados agora.`
-          : `Regra criada. Ninguém mudou de status agora — ou já estavam certificados por outra via, ou a área escolhida não é a deles.`,
-        { duration: 10000 }
-      );
-      setNovaRegra({ training_name: '', area: '' });
-      // O master pode ir olhar o Dashboard em seguida — sem isto, o cache de
-      // 5 minutos dele mostraria o número de antes da regra.
-      queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
+      avisarImpacto((antes ?? 0) - (depois ?? 0), 'Sincronizado!');
+      setNovaRegra({ training_name: '', area: '', tipo: 'ADICIONA' });
       carregarRegrasEnomes();
     } catch (err: any) {
       toast.error('Não consegui sincronizar: ' + (err?.message ?? String(err)));
@@ -273,20 +303,16 @@ export default function SettingsPage() {
   };
 
   const removerRegra = async (regra: AreaRule) => {
-    if (!confirm(`Remover a regra "${regra.training_name} → ${regra.area}"?\n\nQuem dependia só dela para estar certificado volta a aparecer como pendente.`)) return;
+    const mensagem = regra.tipo === 'REMOVE'
+      ? `Apagar a regra "${regra.training_name} → ${regra.area} (removida)"?\n\nO treinamento VOLTA a credenciar essa área pela regra embutida no sistema — colaboradores que já assinaram e estavam pendentes por causa disso podem virar certificados na hora.`
+      : `Remover a regra "${regra.training_name} → ${regra.area}"?\n\nQuem dependia só dela para estar certificado volta a aparecer como pendente.`;
+    if (!confirm(mensagem)) return;
 
     const { data: antes } = await supabase.rpc('count_pending_signers', { p_training_name: regra.training_name });
     const { error } = await supabase.from('training_area_rules').delete().eq('id', regra.id);
     if (error) { toast.error('Não consegui remover: ' + error.message); return; }
     const { data: depois } = await supabase.rpc('count_pending_signers', { p_training_name: regra.training_name });
-    const impacto = (depois ?? 0) - (antes ?? 0);
-
-    toast.success(
-      impacto > 0
-        ? `Regra removida. ${impacto} colaborador(es) voltaram a aparecer como pendentes.`
-        : 'Regra removida.'
-    );
-    queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
+    avisarImpacto((antes ?? 0) - (depois ?? 0), 'Regra apagada.');
     carregarRegrasEnomes();
   };
 
@@ -311,6 +337,20 @@ export default function SettingsPage() {
     if (!termo) return coberturaEmbutida;
     return coberturaEmbutida.filter(c => c.nome.toLowerCase().includes(termo));
   }, [coberturaEmbutida, buscaCobertura]);
+
+  /**
+   * Só faz sentido REMOVER uma área que o treinamento escolhido já cobre
+   * pela regra embutida (a "O Que Cada Treinamento Já Cobre" acima) — tirar
+   * uma área que ele nunca cobriu é um no-op. Restringe o dropdown a essas
+   * áreas, com sorter e sem sorter juntos (uma unidade com sorter pode
+   * depender de uma cobertura que só aparece nesse cenário).
+   */
+  const areasRemoviveisDoTreinamentoEscolhido = useMemo(() => {
+    if (!novaRegra.training_name) return [];
+    const semSorter = areasUnlockedBy(novaRegra.training_name, false) ?? [];
+    const comSorter = areasUnlockedBy(novaRegra.training_name, true) ?? [];
+    return [...new Set([...semSorter, ...comSorter])];
+  }, [novaRegra.training_name]);
 
   useEffect(() => {
     if (!isAdmin || !managedSoc) return;
@@ -948,13 +988,14 @@ export default function SettingsPage() {
               <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">Cobertura de Treinamentos por Área</h2>
             </div>
             <p className="text-xs text-gray-400 font-medium mt-1">
-              Declare que um treinamento também certifica uma área. Vale para todas as unidades e passa a contar
-              nas telas de Colaboradores, Dashboard e Relatórios.
+              Declare que um treinamento passa a certificar uma área, ou deixa de certificar uma que ele cobria por
+              padrão. Vale para todas as unidades e passa a contar nas telas de Colaboradores, Dashboard e Relatórios.
             </p>
             <p className="text-[11px] text-gray-400 font-medium mt-2 bg-gray-50 rounded-xl p-3 border border-gray-100">
-              Estas regras <strong className="text-gray-600">acrescentam</strong> cobertura — nunca tiram. O que os
-              treinamentos já certificam hoje (Onboarding PTS, Treinamento Padrão SOC da área, Onboarding Líderes)
-              continua valendo mesmo sem nenhuma regra aqui.
+              <strong className="text-gray-600">É retroativo</strong> nos dois sentidos: aplica sobre TODO o histórico
+              de quem já assinou o treinamento, não só sobre quem assinar depois. Adicionar cobertura pode certificar
+              gente na hora; remover pode deixar gente pendente na hora. A tela sempre mostra o tamanho do efeito
+              antes de confirmar.
             </p>
           </div>
 
@@ -962,45 +1003,78 @@ export default function SettingsPage() {
             <div className="flex flex-col lg:flex-row gap-3">
               <select
                 value={novaRegra.training_name}
-                onChange={e => setNovaRegra(r => ({ ...r, training_name: e.target.value }))}
+                onChange={e => setNovaRegra(r => ({ ...r, training_name: e.target.value, area: '' }))}
                 className="flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:border-[#EE4D2D]"
               >
                 <option value="">Escolha o treinamento…</option>
                 {nomesDeTreinamento.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
+
+              {/* ADICIONA aceita qualquer área; REMOVE só faz sentido numa
+                  área que o treinamento já cobre por padrão (senão é um
+                  no-op) — o dropdown se adapta ao escolher o treinamento. */}
+              <select
+                value={novaRegra.tipo}
+                onChange={e => setNovaRegra(r => ({ ...r, tipo: e.target.value as 'ADICIONA' | 'REMOVE', area: '' }))}
+                className={`px-4 py-3 rounded-xl border text-sm font-black outline-none lg:min-w-[150px] ${
+                  novaRegra.tipo === 'REMOVE' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                }`}
+              >
+                <option value="ADICIONA">+ Adicionar</option>
+                <option value="REMOVE">− Remover</option>
+              </select>
+
               <select
                 value={novaRegra.area}
                 onChange={e => setNovaRegra(r => ({ ...r, area: e.target.value }))}
-                className="px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-black text-gray-700 outline-none focus:border-[#EE4D2D] lg:min-w-[190px]"
+                disabled={novaRegra.tipo === 'REMOVE' && !!novaRegra.training_name && areasRemoviveisDoTreinamentoEscolhido.length === 0}
+                className="px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-black text-gray-700 outline-none focus:border-[#EE4D2D] lg:min-w-[190px] disabled:opacity-50"
               >
-                <option value="">Certifica a área…</option>
-                {AREAS_DISPONIVEIS.map(a => <option key={a} value={a}>{a}</option>)}
+                <option value="">
+                  {novaRegra.tipo === 'REMOVE' ? 'Deixa de cobrir…' : 'Passa a cobrir…'}
+                </option>
+                {(novaRegra.tipo === 'REMOVE' && novaRegra.training_name ? areasRemoviveisDoTreinamentoEscolhido : AREAS_DISPONIVEIS)
+                  .map(a => <option key={a} value={a}>{a}</option>)}
               </select>
+
               <button
                 onClick={sincronizarRegra}
                 disabled={salvandoRegra}
-                title="Cria a regra e mostra na hora quantos colaboradores passam a contar como treinados"
+                title="Grava a regra e mostra na hora quantos colaboradores mudaram de status"
                 className="flex items-center gap-2 px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
               >
                 <RefreshCw size={14} className={salvandoRegra ? 'animate-spin' : ''} />
                 {salvandoRegra ? 'Sincronizando…' : 'Sincronizar'}
               </button>
             </div>
+            {novaRegra.tipo === 'REMOVE' && novaRegra.training_name && areasRemoviveisDoTreinamentoEscolhido.length === 0 && (
+              <p className="text-[11px] text-amber-600 font-bold bg-amber-50 border border-amber-100 rounded-xl p-3">
+                "{novaRegra.training_name}" não cobre nenhuma área pela regra embutida do sistema (veja acima, em "O
+                Que Cada Treinamento Já Cobre") — não há o que remover dele.
+              </p>
+            )}
 
             <div className="space-y-3">
               {areaRules.map(regra => (
                 <div key={regra.id} className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gray-50/50 border border-transparent hover:border-gray-100 hover:bg-white hover:shadow-sm transition-all group">
                   <div className="flex items-center gap-3 min-w-0">
+                    <span className={`px-2 py-1 rounded-full text-[9px] font-black shrink-0 ${
+                      regra.tipo === 'REMOVE' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                    }`}>
+                      {regra.tipo === 'REMOVE' ? '− REMOVE' : '+ ADICIONA'}
+                    </span>
                     <span className="text-sm font-bold text-gray-800 truncate">{regra.training_name}</span>
                     <span className="text-gray-300 shrink-0">→</span>
-                    <span className="px-2.5 py-1 rounded-full bg-[#FEF6F5] text-[#EE4D2D] text-[10px] font-black border border-[#EE4D2D]/10 shrink-0">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border shrink-0 ${
+                      regra.tipo === 'REMOVE' ? 'bg-red-50 text-red-500 border-red-100 line-through' : 'bg-[#FEF6F5] text-[#EE4D2D] border-[#EE4D2D]/10'
+                    }`}>
                       {regra.area}
                     </span>
                   </div>
                   <button
                     onClick={() => removerRegra(regra)}
                     className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
-                    title="Remover regra"
+                    title="Apagar esta regra (não é o mesmo que 'Remover cobertura' — isto apaga a linha, seja ela ADICIONA ou REMOVE)"
                   >
                     <Trash2 size={16} />
                   </button>
