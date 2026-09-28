@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { areasUnlockedBy, isLeaderOnboarding } from '@/lib/trainingRules';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
@@ -70,6 +72,7 @@ async function callAdminUsers<T = { id: string }>(body: Record<string, unknown>)
 
 export default function SettingsPage() {
   const { isAdmin, isMaster, profile, effectiveSoc } = useAuth();
+  const queryClient = useQueryClient();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [socs, setSocs] = useState<Soc[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -82,6 +85,7 @@ export default function SettingsPage() {
   const [nomesDeTreinamento, setNomesDeTreinamento] = useState<string[]>([]);
   const [novaRegra, setNovaRegra] = useState({ training_name: '', area: '' });
   const [salvandoRegra, setSalvandoRegra] = useState(false);
+  const [buscaCobertura, setBuscaCobertura] = useState('');
 
   // Manage Questions
   const [managingTraining, setManagingTraining] = useState<TrainingItem | null>(null);
@@ -206,39 +210,107 @@ export default function SettingsPage() {
     setNomesDeTreinamento([...new Set(nomes)].sort());
   };
 
-  const adicionarRegra = async () => {
+  /**
+   * "Sincronizar": não existe recálculo atrasado para disparar — a view já
+   * aplica a regra a cada consulta, no instante em que ela existe no banco
+   * (foi assim que o RJ2 saltou na hora, em 25/09/2026). O que este botão
+   * faz é medir o efeito e mostrar pro master, porque "deve ter atualizado
+   * em algum lugar" não é confirmação nenhuma.
+   *
+   * count_pending_signers() conta direto no banco quantos colaboradores
+   * assinaram o treinamento e continuam pendentes — sem trazer a lista de
+   * ids pro navegador (um treinamento popular tem milhares de assinaturas).
+   * Chamada antes e depois de criar a regra; a diferença é quem passou a
+   * contar como treinado só por causa dela.
+   */
+  const sincronizarRegra = async () => {
     if (!novaRegra.training_name || !novaRegra.area) {
       toast.error('Escolha o treinamento e a área.');
       return;
     }
     setSalvandoRegra(true);
-    const { error } = await supabase.from('training_area_rules').insert({
-      training_name: novaRegra.training_name,
-      area: novaRegra.area,
-      created_by: profile?.id ?? null,
-    });
-    setSalvandoRegra(false);
+    try {
+      const { data: antes, error: erroAntes } = await supabase.rpc('count_pending_signers', {
+        p_training_name: novaRegra.training_name,
+      });
+      if (erroAntes) throw erroAntes;
 
-    if (error) {
-      toast.error(
-        /duplicate key|unica/i.test(error.message)
-          ? 'Essa regra já existe.'
-          : 'Não consegui salvar: ' + error.message
+      const { error } = await supabase.from('training_area_rules').insert({
+        training_name: novaRegra.training_name,
+        area: novaRegra.area,
+        created_by: profile?.id ?? null,
+      });
+      if (error) {
+        toast.error(
+          /duplicate key|unica/i.test(error.message)
+            ? 'Essa regra já existe.'
+            : 'Não consegui salvar: ' + error.message
+        );
+        return;
+      }
+
+      const { data: depois } = await supabase.rpc('count_pending_signers', {
+        p_training_name: novaRegra.training_name,
+      });
+      const impacto = (antes ?? 0) - (depois ?? 0);
+
+      toast.success(
+        impacto > 0
+          ? `Sincronizado! ${impacto} colaborador(es) que já tinham assinado "${novaRegra.training_name}" passaram a contar como treinados agora.`
+          : `Regra criada. Ninguém mudou de status agora — ou já estavam certificados por outra via, ou a área escolhida não é a deles.`,
+        { duration: 10000 }
       );
-      return;
+      setNovaRegra({ training_name: '', area: '' });
+      // O master pode ir olhar o Dashboard em seguida — sem isto, o cache de
+      // 5 minutos dele mostraria o número de antes da regra.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
+      carregarRegrasEnomes();
+    } catch (err: any) {
+      toast.error('Não consegui sincronizar: ' + (err?.message ?? String(err)));
+    } finally {
+      setSalvandoRegra(false);
     }
-    toast.success('Regra criada. O cálculo passa a considerá-la ao recarregar as telas.');
-    setNovaRegra({ training_name: '', area: '' });
-    carregarRegrasEnomes();
   };
 
   const removerRegra = async (regra: AreaRule) => {
     if (!confirm(`Remover a regra "${regra.training_name} → ${regra.area}"?\n\nQuem dependia só dela para estar certificado volta a aparecer como pendente.`)) return;
+
+    const { data: antes } = await supabase.rpc('count_pending_signers', { p_training_name: regra.training_name });
     const { error } = await supabase.from('training_area_rules').delete().eq('id', regra.id);
     if (error) { toast.error('Não consegui remover: ' + error.message); return; }
-    toast.success('Regra removida.');
+    const { data: depois } = await supabase.rpc('count_pending_signers', { p_training_name: regra.training_name });
+    const impacto = (depois ?? 0) - (antes ?? 0);
+
+    toast.success(
+      impacto > 0
+        ? `Regra removida. ${impacto} colaborador(es) voltaram a aparecer como pendentes.`
+        : 'Regra removida.'
+    );
+    queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
     carregarRegrasEnomes();
   };
+
+  /**
+   * O que cada treinamento real já cobre pelas regras EMBUTIDAS no motor —
+   * sem nenhuma configuração. Calculado chamando as mesmas funções que
+   * decidem "treinado ou não" (src/lib/trainingRules.ts), nunca uma
+   * descrição escrita à parte: se a regra mudar no motor, esta lista muda
+   * sozinha, sem risco de ficar desatualizada.
+   */
+  const coberturaEmbutida = useMemo(() => {
+    return nomesDeTreinamento.map(nome => ({
+      nome,
+      lider: isLeaderOnboarding(nome),
+      semSorter: areasUnlockedBy(nome, false),
+      comSorter: areasUnlockedBy(nome, true),
+    }));
+  }, [nomesDeTreinamento]);
+
+  const coberturaFiltrada = useMemo(() => {
+    const termo = buscaCobertura.trim().toLowerCase();
+    if (!termo) return coberturaEmbutida;
+    return coberturaEmbutida.filter(c => c.nome.toLowerCase().includes(termo));
+  }, [coberturaEmbutida, buscaCobertura]);
 
   useEffect(() => {
     if (!isAdmin || !managedSoc) return;
@@ -793,6 +865,80 @@ export default function SettingsPage() {
           </div>
       </div>
 
+      {/* O que cada treinamento já cobre pelas regras embutidas — só o master.
+          Puramente informativo: não edita nada, só chama as mesmas funções
+          que decidem "treinado ou não" e mostra o resultado. */}
+      {isMaster && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-8 border-b border-gray-50">
+            <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">
+              O Que Cada Treinamento Já Cobre
+            </h2>
+            <p className="text-xs text-gray-400 font-medium mt-1">
+              Regras já embutidas no sistema, antes de qualquer configuração abaixo — para você saber o que já existe
+              antes de criar uma regra nova. "Com Sorter" só aparece separado quando o resultado muda entre as
+              unidades com e sem Sorter (SP2, SP8, RJ2, MG2).
+            </p>
+          </div>
+
+          <div className="p-8">
+            <input
+              value={buscaCobertura}
+              onChange={e => setBuscaCobertura(e.target.value)}
+              placeholder="Buscar treinamento…"
+              className="w-full mb-4 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:border-[#EE4D2D]"
+            />
+            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+              {coberturaFiltrada.map(c => {
+                const iguais = JSON.stringify(c.semSorter) === JSON.stringify(c.comSorter);
+                return (
+                  <div key={c.nome} className="p-4 rounded-2xl bg-gray-50/50 border border-transparent hover:border-gray-100 hover:bg-white transition-all">
+                    <p className="text-sm font-bold text-gray-800">{c.nome}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {/* Cobertura de área e "credencia líder" são fatos independentes: um
+                          onboarding administrativo pode não cobrir área nenhuma e AINDA
+                          assim credenciar líder (é o caso de "Onboarding Líderes"). */}
+                      {c.semSorter === null ? (
+                        <span className="text-[11px] text-gray-400 font-medium">
+                          Treinamento específico — credencia só o micro-processo de mesmo nome, onde estiver cadastrado.
+                        </span>
+                      ) : c.semSorter.length === 0 ? (
+                        <span className="text-[11px] text-gray-400 font-medium">
+                          Onboarding administrativo — não credencia nenhuma área sozinho.
+                        </span>
+                      ) : iguais ? (
+                        c.semSorter.map(a => (
+                          <span key={a} className="px-2.5 py-1 rounded-full bg-[#FEF6F5] text-[#EE4D2D] text-[10px] font-black border border-[#EE4D2D]/10">{a}</span>
+                        ))
+                      ) : (
+                        <>
+                          <span className="text-[9px] text-gray-400 font-black uppercase w-full">Sem Sorter:</span>
+                          {c.semSorter.map(a => <span key={'s'+a} className="px-2.5 py-1 rounded-full bg-[#FEF6F5] text-[#EE4D2D] text-[10px] font-black border border-[#EE4D2D]/10">{a}</span>)}
+                          <span className="text-[9px] text-gray-400 font-black uppercase w-full mt-1">Com Sorter (SP2, SP8, RJ2, MG2):</span>
+                          {(c.comSorter ?? []).map(a => <span key={'c'+a} className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100">{a}</span>)}
+                        </>
+                      )}
+                      {c.lider && (
+                        <span className="px-2.5 py-1 rounded-full bg-gray-900 text-white text-[10px] font-black">
+                          + credencia qualquer LÍDER, em qualquer setor
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {coberturaFiltrada.length === 0 && (
+                <div className="text-center py-10">
+                  <p className="text-xs text-gray-400 font-medium">
+                    {nomesDeTreinamento.length === 0 ? 'Nenhum treinamento assinado ainda.' : 'Nenhum nome bate com a busca.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Regras de área — só o master */}
       {isMaster && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -831,11 +977,13 @@ export default function SettingsPage() {
                 {AREAS_DISPONIVEIS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               <button
-                onClick={adicionarRegra}
+                onClick={sincronizarRegra}
                 disabled={salvandoRegra}
-                className="px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
+                title="Cria a regra e mostra na hora quantos colaboradores passam a contar como treinados"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
               >
-                {salvandoRegra ? 'Salvando…' : 'Adicionar'}
+                <RefreshCw size={14} className={salvandoRegra ? 'animate-spin' : ''} />
+                {salvandoRegra ? 'Sincronizando…' : 'Sincronizar'}
               </button>
             </div>
 

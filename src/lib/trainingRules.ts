@@ -102,8 +102,13 @@ export function normalizeMacroArea(raw: string | null | undefined): MacroArea | 
  * Quais macro-áreas inteiras um treinamento acende.
  * `null` = treinamento específico — cai no match por nome de micro (regra 5).
  * `[]`   = onboarding administrativo — não acende nada (regra 3).
+ *
+ * Exportada (só leitura de fora) para a tela de Configurações mostrar, para
+ * cada treinamento real, o que ele JÁ cobre pelas regras embutidas — sem
+ * duplicar esta lógica numa segunda cópia na tela. Ver SettingsPage.tsx,
+ * seção "Cobertura de Treinamentos por Área".
  */
-function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[] | null {
+export function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[] | null {
   const t = stripVersionAndCode(normalizeText(trainingType));
 
   // "ONBOARDING" e "PTS" em QUALQUER posição, não a frase colada. O nome
@@ -320,8 +325,10 @@ export function collaboratorArea(
  * Líderes 2.0" (ou qualquer versão futura — é um "contém", não exige o
  * nome exato). normalizeText já cuida de acento/caixa/pontuação, então
  * "Líderes" e "Lideres" batem igual.
+ *
+ * Exportada pelo mesmo motivo de areasUnlockedBy — ver ali.
  */
-function isLeaderOnboarding(trainingType: string): boolean {
+export function isLeaderOnboarding(trainingType: string): boolean {
   return normalizeText(trainingType).includes('ONBOARDING LIDERES');
 }
 
