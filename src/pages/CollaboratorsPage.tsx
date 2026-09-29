@@ -115,7 +115,13 @@ export default function CollaboratorsPage() {
     } else if (key === 'opsid') {
       val = val.replace(/[^A-Z0-9]/g, '');
     } else if (key === 'soc') {
-      val = val.replace(/[^A-Z0-9]/g, '').replace(/^([A-Z]+)0([0-9]+)$/, '$1$2').slice(0, 3);
+      // Sem limite de tamanho fixo: quando este ".slice(0, 3)" foi escrito,
+      // toda SOC tinha 3 caracteres (SP6, RJ2, BA2...). A operação já
+      // cresceu para 4 (SP18, SP25, SP33, SP35) e travava o cadastro manual
+      // de onboarding nessas unidades — "SP33" só deixava digitar "SP3".
+      // Sem um tamanho máximo verdadeiro (a tabela socs não impõe um), o
+      // certo é não impor um aqui também.
+      val = val.replace(/[^A-Z0-9]/g, '').replace(/^([A-Z]+)0([0-9]+)$/, '$1$2');
     } else if (key === 'shift') {
       val = val.replace(/[^A-Z0-9]/g, '').slice(0, 3);
       if (val.length > 0 && val[0] !== 'T') {
