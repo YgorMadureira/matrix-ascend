@@ -21,9 +21,15 @@ import { definirRegrasDeArea } from '@/lib/trainingRules';
  * tela quebrada.
  */
 export async function carregarRegrasDeArea(): Promise<void> {
+  // `tipo` é obrigatório aqui: sem ele, definirRegrasDeArea trata toda regra
+  // como ADICIONA. Até 29/09/2026 este select pedia só training_name e area
+  // — uma regra REMOVE cadastrada em Configurações seria lida pelo Dashboard
+  // e pelos Relatórios como o CONTRÁRIO do que o banco (tela de
+  // Colaboradores) aplica. Não chegou a acontecer porque ainda não havia
+  // nenhuma regra REMOVE salva.
   const { data, error } = await supabase
     .from('training_area_rules')
-    .select('training_name, area');
+    .select('training_name, area, tipo');
 
   if (error) {
     console.error('[regras de área] não consegui carregar, seguindo só com as regras embutidas:', error.message);

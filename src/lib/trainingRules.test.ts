@@ -10,6 +10,7 @@ import {
   calculateUnitStats,
   collaboratorArea,
   normalizeMacroArea,
+  areasUnlockedBy,
   OTHER_AREA,
   type MicroTraining,
   type CollaboratorLite,
@@ -754,5 +755,42 @@ describe('trainingRules — regras de área configuradas na tela', () => {
       expect(isAreaTrained(['Onboarding PTS V3'], 'TRATATIVAS', false)).toBe(false);
       expect(isAreaTrained(['Onboarding PTS V3'], 'RECEBIMENTO', false)).toBe(true);
     });
+  });
+});
+
+// A memória de cálculo (29/09/2026) guarda o resultado das partes puras do
+// motor. Estes testes prendem as duas coisas que ela NÃO pode fazer: segurar
+// uma regra de Configurações velha, e deixar quem chama de fora estragar o
+// que ficou guardado.
+describe('trainingRules — memória de cálculo', () => {
+  afterEach(() => definirRegrasDeArea([]));
+
+  it('trocar as regras em Configurações vale na hora, mesmo depois de a resposta já ter sido calculada', () => {
+    // Primeiro cálculo sem regra nenhuma — é ele que fica guardado.
+    expect(isAreaTrained(['Onboarding PTS V3'], 'EXPEDIÇÃO', false)).toBe(true);
+    expect(isMicroCompletedBy('Onboarding PTS V3', 'Puxada Out', 'EXPEDIÇÃO', false)).toBe(true);
+
+    definirRegrasDeArea([{ training_name: 'ONBOARDING PTS V3', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+    expect(isAreaTrained(['Onboarding PTS V3'], 'EXPEDIÇÃO', false)).toBe(false);
+    expect(isMicroCompletedBy('Onboarding PTS V3', 'Puxada Out', 'EXPEDIÇÃO', false)).toBe(false);
+
+    definirRegrasDeArea([]);
+    expect(isAreaTrained(['Onboarding PTS V3'], 'EXPEDIÇÃO', false)).toBe(true);
+  });
+
+  it('areasUnlockedBy devolve uma cópia — mexer nela não muda a próxima resposta', () => {
+    const areas = areasUnlockedBy('Onboarding PTS V3', false)!;
+    areas.length = 0;
+    areas.push('TRATATIVAS');
+    expect(areasUnlockedBy('Onboarding PTS V3', false)).toEqual(['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO']);
+    expect(isAreaTrained(['Onboarding PTS V3'], 'TRATATIVAS', false)).toBe(false);
+  });
+
+  it('com e sem Sorter são guardados separados', () => {
+    // O mesmo nome acende ASM só numa SOC com Sorter — a memória não pode
+    // devolver a resposta de uma unidade para a outra.
+    expect(areasUnlockedBy('Onboarding Novos Colaboradores PTS', true)).toContain('ASM');
+    expect(areasUnlockedBy('Onboarding Novos Colaboradores PTS', false)).not.toContain('ASM');
+    expect(areasUnlockedBy('Onboarding Novos Colaboradores PTS', true)).toContain('ASM');
   });
 });

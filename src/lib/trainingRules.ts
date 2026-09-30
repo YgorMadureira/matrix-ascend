@@ -61,9 +61,49 @@ export interface CollaboratorLite {
   is_leader?: boolean;
 }
 
+// ============================================================
+// Memória de cálculo
+// ============================================================
+// As funções daqui são puras, mas são chamadas MUITAS vezes com os mesmos
+// textos. O ranking de saúde do Dashboard, com todas as unidades, faz perto
+// de um milhão de perguntas "este treinamento conclui este micro?" — e cada
+// uma normalizava de novo (acento, caixa, versão, código do documento) os
+// mesmos ~60 nomes de treinamento e ~200 nomes de micro. Medido em
+// 29/09/2026 com os dados reais: ~0,9 s de processador por abertura do
+// Dashboard, travando a tela, e ~0,4 s a cada troca de filtro nos
+// Relatórios.
+//
+// Guardar o resultado por texto de entrada não muda resposta nenhuma (a
+// mesma entrada sempre dá a mesma saída) — só deixa de refazer a conta. O
+// que depende da configuração da tela (training_area_rules) NÃO é guardado
+// aqui: essa parte continua sendo consultada a cada chamada, então trocar
+// as regras em Configurações vale na hora.
+//
+// O limite existe só por higiene: se um dia alguém passar textos
+// arbitrários por aqui (nomes de pessoas, por exemplo), a memória esvazia
+// em vez de crescer para sempre.
+const LIMITE_MEMORIA = 5000;
+const memoriaNormalizado = new Map<string, string>();
+const memoriaSemVersao = new Map<string, string>();
+const memoriaMacroArea = new Map<string, MacroArea | ''>();
+const memoriaAreasSemSorter = new Map<string, readonly MacroArea[] | null>();
+const memoriaAreasComSorter = new Map<string, readonly MacroArea[] | null>();
+
+function guardar<V>(memoria: Map<string, V>, chave: string, valor: V): V {
+  if (memoria.size >= LIMITE_MEMORIA) memoria.clear();
+  memoria.set(chave, valor);
+  return valor;
+}
+
 /** Remove acentos, caixa e pontuação — base de toda comparação de texto aqui. */
 export function normalizeText(raw: string | null | undefined): string {
-  return (raw || '')
+  const chave = raw || '';
+  const pronto = memoriaNormalizado.get(chave);
+  return pronto !== undefined ? pronto : guardar(memoriaNormalizado, chave, normalizarSemMemoria(chave));
+}
+
+function normalizarSemMemoria(raw: string): string {
+  return raw
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toUpperCase()
@@ -87,8 +127,21 @@ function stripVersionAndCode(s: string): string {
     .trim();
 }
 
+/** normalizeText + stripVersionAndCode, lembrado — é a forma que as comparações por nome usam. */
+function semVersao(raw: string | null | undefined): string {
+  const chave = raw || '';
+  const pronto = memoriaSemVersao.get(chave);
+  return pronto !== undefined ? pronto : guardar(memoriaSemVersao, chave, stripVersionAndCode(normalizeText(chave)));
+}
+
 /** Normaliza o texto de uma macro-área (vindo de collaborators.sector ou soc_micro_trainings.macro_area). */
 export function normalizeMacroArea(raw: string | null | undefined): MacroArea | '' {
+  const chave = raw || '';
+  const pronto = memoriaMacroArea.get(chave);
+  return pronto !== undefined ? pronto : guardar(memoriaMacroArea, chave, calcularMacroArea(chave));
+}
+
+function calcularMacroArea(raw: string): MacroArea | '' {
   const u = normalizeText(raw);
   if (!u) return '';
   if (u.includes('RECEBIMENTO')) return 'RECEBIMENTO';
@@ -104,13 +157,11 @@ export function normalizeMacroArea(raw: string | null | undefined): MacroArea | 
  * `null` = treinamento específico — cai no match por nome de micro (regra 5).
  * `[]`   = onboarding administrativo — não acende nada (regra 3).
  *
- * Exportada (só leitura de fora) para a tela de Configurações mostrar, para
- * cada treinamento real, o que ele JÁ cobre pelas regras embutidas — sem
- * duplicar esta lógica numa segunda cópia na tela. Ver SettingsPage.tsx,
- * seção "Cobertura de Treinamentos por Área".
+ * Só a regra EMBUTIDA — a configuração da tela entra por cima, em
+ * treinamentoCredenciaArea. De fora, use areasUnlockedBy (logo abaixo).
  */
-export function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[] | null {
-  const t = stripVersionAndCode(normalizeText(trainingType));
+function calcularAreasEmbutidas(trainingType: string, hasSorting: boolean): MacroArea[] | null {
+  const t = semVersao(trainingType);
 
   // "ONBOARDING" e "PTS" em QUALQUER posição, não a frase colada. O nome
   // real usado na operação é "Onboarding Novos Colaboradores PTS" (1.314
@@ -166,6 +217,29 @@ export function areasUnlockedBy(trainingType: string, hasSorting: boolean): Macr
   }
 
   return null;
+}
+
+/** calcularAreasEmbutidas lembrada por (treinamento, tem Sorter). Uso interno: devolve a lista guardada — não altere. */
+function areasEmbutidas(trainingType: string, hasSorting: boolean): readonly MacroArea[] | null {
+  const memoria = hasSorting ? memoriaAreasComSorter : memoriaAreasSemSorter;
+  const chave = trainingType || '';
+  if (memoria.has(chave)) return memoria.get(chave)!;
+  return guardar(memoria, chave, calcularAreasEmbutidas(chave, hasSorting));
+}
+
+/**
+ * Quais macro-áreas inteiras um treinamento acende pela regra embutida —
+ * ver calcularAreasEmbutidas acima.
+ *
+ * Exportada (só leitura de fora) para a tela de Configurações mostrar, para
+ * cada treinamento real, o que ele JÁ cobre pelas regras embutidas — sem
+ * duplicar esta lógica numa segunda cópia na tela. Ver SettingsPage.tsx,
+ * seção "Cobertura de Treinamentos por Área". Devolve uma cópia: quem
+ * chama pode mexer na lista sem estragar a memória de cálculo.
+ */
+export function areasUnlockedBy(trainingType: string, hasSorting: boolean): MacroArea[] | null {
+  const areas = areasEmbutidas(trainingType, hasSorting);
+  return areas === null ? null : [...areas];
 }
 
 // ============================================================
@@ -236,13 +310,13 @@ function regraRemoveArea(trainingType: string, area: MacroArea): boolean {
 function treinamentoCredenciaArea(trainingType: string, area: MacroArea, hasSorting: boolean): boolean {
   if (regraRemoveArea(trainingType, area)) return false;
   if (regraAdicionaArea(trainingType, area)) return true;
-  return (areasUnlockedBy(trainingType, hasSorting) ?? []).includes(area);
+  return (areasEmbutidas(trainingType, hasSorting) ?? []).includes(area);
 }
 
 /** Regra 5: match tolerante por nome, usado quando o treinamento é específico (não acende área inteira). */
 function matchesMicroByName(trainingType: string, microName: string): boolean {
-  const t = stripVersionAndCode(normalizeText(trainingType));
-  const m = stripVersionAndCode(normalizeText(microName));
+  const t = semVersao(trainingType);
+  const m = semVersao(microName);
   if (!m) return false;
   return t.includes(m) || m.includes(t);
 }
@@ -266,7 +340,7 @@ export function isMicroCompletedBy(
   // que continua podendo casar pelo nome do micro (regra 5) logo abaixo.
   if (area && regraAdicionaArea(trainingType, area)) return true;
 
-  const areas = areasUnlockedBy(trainingType, hasSorting);
+  const areas = areasEmbutidas(trainingType, hasSorting);
   if (areas !== null) {
     return areas.includes(area);
   }
@@ -448,7 +522,7 @@ export function isCollaboratorTrained(
     const chave = normalizeText(t);
     const adicionadas = regrasAdicionadas.get(chave);
     const removidas = regrasRemovidas.get(chave);
-    const embutidas = areasUnlockedBy(t, hasSorting) ?? [];
+    const embutidas = areasEmbutidas(t, hasSorting) ?? [];
     if (!adicionadas && !removidas) return embutidas.length > 0; // caminho comum: sem configuração nenhuma
     const efetivas = new Set(embutidas);
     if (adicionadas) for (const a of adicionadas) efetivas.add(a);

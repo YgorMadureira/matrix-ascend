@@ -231,9 +231,14 @@ export default function SettingsPage() {
     } else {
       toast.success(`${contexto} Ninguém mudou de status agora.`);
     }
-    // O master pode ir olhar o Dashboard em seguida — sem isto, o cache de
-    // 5 minutos dele mostraria o número de antes da mudança.
+    // O master pode ir olhar o Dashboard ou os Relatórios em seguida — sem
+    // isto, o cache de 5 minutos deles mostraria o número de antes da
+    // mudança. ['relatorios-base'] pega todas as unidades de uma vez (o
+    // React Query compara pelo começo da chave); o gráfico por SOC entra
+    // porque o "% treinados" dele também depende das regras.
     queryClient.invalidateQueries({ queryKey: ['dashboard-base'] });
+    queryClient.invalidateQueries({ queryKey: ['relatorios-base'] });
+    queryClient.invalidateQueries({ queryKey: ['soc-performance'] });
   }
 
   /**

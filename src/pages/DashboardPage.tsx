@@ -128,14 +128,16 @@ export default function DashboardPage() {
     queryFn: async () => {
       const LIMITE = 1000;
 
-      // Antes de qualquer cálculo: as regras de área que o master configurou
-      // em Configurações (ver src/lib/areaRules.ts). Sem isto, o Dashboard
-      // calcularia só com as regras embutidas e mostraria número diferente
-      // do da tela de Colaboradores, que lê a view (onde o banco já aplica).
-      await carregarRegrasDeArea();
-
-      // Contagens primeiro, para saber quantas páginas pedir de uma vez.
-      const [cCollabs, cTrainings, cMaterials] = await Promise.all([
+      // Contagens primeiro, para saber quantas páginas pedir de uma vez — e,
+      // na mesma leva, as regras de área que o master configurou em
+      // Configurações (ver src/lib/areaRules.ts). Sem as regras, o Dashboard
+      // calcularia só com as embutidas e mostraria número diferente do da
+      // tela de Colaboradores, que lê a view (onde o banco já aplica). Elas só
+      // precisam ter chegado antes do CÁLCULO (o useMemo abaixo roda depois
+      // desta função terminar), não antes das outras buscas — até 29/09/2026
+      // eram uma ida e volta a mais, sozinha, antes de tudo.
+      const [, cCollabs, cTrainings, cMaterials] = await Promise.all([
+        carregarRegrasDeArea(),
         supabase.from('collaborators').select('id', { count: 'exact', head: true }),
         supabase.from('trainings_completed').select('id', { count: 'exact', head: true }),
         supabase.from('materials').select('id', { count: 'exact', head: true }),

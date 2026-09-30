@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle2, XCircle, Upload, BarChart2, AlertCircle, Download, FileDown, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocation } from 'react-router-dom';
 import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, LabelList, Cell } from 'recharts';
 import {
   isAreaTrained,
@@ -44,6 +44,8 @@ interface Collaborator {
   leader_id?: string | null;
   /** Identifica quem faz Sorter dentro do setor Processamento — ver collaboratorArea() em trainingRules.ts. */
   activity?: string | null;
+  /** Só para as exportações. */
+  bpo?: string | null;
 }
 
 interface Training {
@@ -52,17 +54,224 @@ interface Training {
   training_type: string;
   completed_at: string;
   created_at?: string;
-  signature_pdf_url: string | null;
+  /**
+   * Se há imagem de assinatura — a imagem em si NÃO vem na carga da tela.
+   * Ver o comentário de carregarBaseRelatorios e abrirAssinatura.
+   */
+  has_signature: boolean;
   instructor_name?: string;
 }
 
+interface BaseRelatorios {
+  /** A unidade inteira (ou todas, para o master sem unidade escolhida) — sem o recorte de "Meu Time". */
+  collabs: Collaborator[];
+  trainings: Training[];
+  micros: SocMicroTraining[];
+}
+
+// Identidade estável enquanto os dados não chegaram — sem isto, cada render
+// criaria um [] novo e todos os useMemo abaixo recalculariam à toa.
+const SEM_COLABORADORES: Collaborator[] = [];
+const SEM_TREINAMENTOS: Training[] = [];
+const SEM_MICROS: SocMicroTraining[] = [];
+
+const LIMITE_PAGINA = 1000;
+/** +1 página de margem: entre a contagem e a busca alguém pode ter inserido linhas. A extra volta vazia quando não há nada. */
+const paginasPara = (total: number | null) => Math.ceil((total ?? 0) / LIMITE_PAGINA) + 1;
+
+/** O primeiro erro de uma leva de páginas — sem isto, uma página que falhasse sumia calada e a tela mostraria números a menos. */
+function primeiroErro(respostas: { error: { message: string } | null }[]): void {
+  const falha = respostas.find(r => r.error);
+  if (falha?.error) throw new Error(falha.error.message);
+}
+
+// ============================================================
+// Carga da tela — colaboradores, assinaturas e micros da unidade em foco.
+//
+// Até 29/09/2026 esta carga era o motivo de a tela "não abrir":
+//
+//  · Baixava a coluna signature_pdf_url de TODAS as assinaturas do banco.
+//    13.428 delas guardam a imagem da assinatura em base64 (~29 KB cada):
+//    ~376 MB a cada abertura da tela, mesmo para quem olha uma unidade só
+//    — a imagem só era usada no link "Assinatura" da matriz. O próprio
+//    comentário da migração 20260810_01 (signatures_view) já avisava disso
+//    e pedia para trazer esta tela para o mesmo padrão.
+//  · As assinaturas vinham de TODAS as unidades, sem filtro, embora só as
+//    da unidade em foco sejam usadas.
+//  · Eram ~75 páginas pedidas UMA DEPOIS DA OUTRA, cada uma esperando a
+//    anterior.
+//  · Nada ficava guardado: cada visita à tela refazia tudo.
+//
+// Agora: as assinaturas vêm de signatures_view (has_signature no lugar da
+// imagem, que é buscada só quando alguém clica em "Assinatura"), filtradas
+// pela unidade no banco, com as páginas pedidas todas de uma vez e o
+// resultado guardado pelo React Query — voltar à tela é instantâneo.
+//
+// Órfãs (assinatura sem collaborator_id — ~11,5 mil, quase todas do
+// incidente de agosto) ficam de fora com o filtro collaborator_id não nulo.
+// A view as inclui, atribuídas à unidade do snapshot (20260812_02), mas esta
+// tela nunca as usou: tudo aqui é indexado por colaborador. Sem o filtro,
+// seriam ~5 MB a mais na visão de todas as unidades, só para serem
+// ignorados. Com ele, o conjunto é exatamente o de antes — conferido em
+// 29/09/2026 contra a tabela, unidade por unidade: nenhuma assinatura a
+// mais, nenhuma a menos, e has_signature igual ao signature_pdf_url em
+// todas.
+// ============================================================
+async function carregarBaseRelatorios(soc: string | null): Promise<BaseRelatorios> {
+  let contaColabs = supabase.from('collaborators').select('id', { count: 'exact', head: true });
+  let contaAssinaturas = supabase
+    .from('signatures_view')
+    .select('id', { count: 'exact', head: true })
+    .not('collaborator_id', 'is', null);
+  let microQuery = supabase.from('soc_micro_trainings').select('*').order('order_num');
+  // soc null = master sem unidade escolhida → vê todas. Filtrar por '' não
+  // casaria com ninguém e mostraria a tela vazia sem aviso.
+  if (soc) {
+    contaColabs = contaColabs.eq('soc', soc);
+    contaAssinaturas = contaAssinaturas.eq('collaborator_soc', soc);
+    microQuery = microQuery.eq('soc_name', soc);
+  }
+
+  // As regras de área configuradas em Configurações entram no motor antes
+  // de qualquer cálculo desta tela — ver src/lib/areaRules.ts. Vão na mesma
+  // leva das contagens: só precisam ter chegado antes do cálculo.
+  const [, cColabs, cAssinaturas, micros] = await Promise.all([
+    carregarRegrasDeArea(), contaColabs, contaAssinaturas, microQuery,
+  ]);
+  primeiroErro([cColabs, cAssinaturas, micros]);
+
+  const [paginasColabs, paginasAssinaturas] = await Promise.all([
+    Promise.all(Array.from({ length: paginasPara(cColabs.count) }, (_, i) => {
+      let q = supabase
+        .from('collaborators')
+        .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id, activity, bpo')
+        // Ordenar por nome NÃO basta para paginar: nomes se repetem (25 casos
+        // em SP8), e com empate o Postgres pode devolver a mesma linha em duas
+        // páginas e pular outra. Duas linhas com o mesmo id viram chaves React
+        // repetidas na matriz, e daí sai o erro "removeChild: o nó a ser
+        // removido não é filho deste nó". O id desempata e torna a paginação
+        // determinística, sem mudar a ordem de exibição.
+        .order('name')
+        .order('id')
+        .range(i * LIMITE_PAGINA, (i + 1) * LIMITE_PAGINA - 1);
+      if (soc) q = q.eq('soc', soc);
+      return q;
+    })),
+    Promise.all(Array.from({ length: paginasPara(cAssinaturas.count) }, (_, i) => {
+      let q = supabase
+        .from('signatures_view')
+        .select('id, collaborator_id, training_type, completed_at, created_at, instructor_name, has_signature')
+        .not('collaborator_id', 'is', null)
+        // Sem ordenação estável, páginas pedidas ao mesmo tempo podem repetir
+        // uma assinatura e perder outra.
+        .order('id')
+        .range(i * LIMITE_PAGINA, (i + 1) * LIMITE_PAGINA - 1);
+      if (soc) q = q.eq('collaborator_soc', soc);
+      return q;
+    })),
+  ]);
+  primeiroErro(paginasColabs);
+  primeiroErro(paginasAssinaturas);
+
+  return {
+    collabs: paginasColabs.flatMap(r => (r.data ?? []) as Collaborator[]),
+    trainings: paginasAssinaturas.flatMap(r => (r.data ?? []) as Training[]),
+    micros: (micros.data ?? []) as SocMicroTraining[],
+  };
+}
+
+/** Converte "data:image/png;base64,..." num Blob — sem fetch(), que uma política de segurança de conteúdo poderia barrar. */
+function blobDeDataUri(dataUri: string): Blob {
+  const [cabecalho, conteudo] = dataUri.split(',', 2);
+  const tipo = cabecalho.match(/^data:([^;,]+)/)?.[1] || 'application/octet-stream';
+  const binario = cabecalho.includes(';base64') ? atob(conteudo) : decodeURIComponent(conteudo);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return new Blob([bytes], { type: tipo });
+}
+
+/**
+ * Abre a assinatura de UM registro, buscando a imagem só agora.
+ *
+ * A aba é aberta já no clique, vazia, e só depois recebe o endereço: aberta
+ * depois do await, o bloqueador de pop-up do navegador a barraria. E a
+ * imagem em base64 vira um endereço blob: — o Chrome não abre "data:" direto
+ * numa aba nova (fica em branco), que era o que o link antigo fazia.
+ */
+async function abrirAssinatura(trainingId: string): Promise<void> {
+  const aba = window.open('', '_blank');
+  const toastId = toast.loading('Carregando assinatura...');
+  const { data, error } = await supabase
+    .from('trainings_completed')
+    .select('signature_pdf_url')
+    .eq('id', trainingId)
+    .maybeSingle();
+  toast.dismiss(toastId);
+
+  const url = data?.signature_pdf_url as string | null | undefined;
+  if (error || !url) {
+    aba?.close();
+    toast.error('Assinatura não encontrada para este registro.');
+    return;
+  }
+
+  let destino = url;
+  if (url.startsWith('data:')) {
+    destino = URL.createObjectURL(blobDeDataUri(url));
+    // A aba já carregou a imagem bem antes disso; liberar a memória depois.
+    setTimeout(() => URL.revokeObjectURL(destino), 60_000);
+  }
+  if (aba) {
+    aba.opener = null;
+    aba.location.href = destino;
+  } else {
+    window.open(destino, '_blank', 'noopener');
+  }
+}
+
 export default function ReportsPage() {
-  const { user, profile, isLider, isAdmin, loading: authLoading, socHasSorting, effectiveSoc } = useAuth();
-  const location = useLocation();
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [trainings, setTrainings] = useState<Training[]>([]);
-  const [microTrainings, setMicroTrainings] = useState<SocMicroTraining[]>([]);
-  const [sectors, setSectors] = useState<string[]>([]);
+  const { profile, isLider, isAdmin, loading: authLoading, socHasSorting, effectiveSoc } = useAuth();
+
+  const {
+    data: base,
+    isLoading: carregandoBase,
+    isFetching: atualizandoBase,
+    error: erroBase,
+    refetch: recarregarBase,
+  } = useQuery({
+    queryKey: ['relatorios-base', effectiveSoc ?? '*'],
+    queryFn: () => carregarBaseRelatorios(effectiveSoc),
+    // Só depois do login resolvido: antes disso effectiveSoc ainda é null, e
+    // null significa "todas as unidades" — seria a carga mais pesada, à toa.
+    enabled: !authLoading && !!profile,
+    staleTime: 5 * 60 * 1000,
+    // Decisão de 01/09/2026 (ver o comentário acima de isRefreshing): voltar
+    // de outra aba NÃO recarrega a tela sozinho — há o botão "Atualizar".
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (erroBase) toast.error(`Não consegui carregar os dados do relatório: ${(erroBase as Error).message}`);
+  }, [erroBase]);
+
+  const todosDaUnidade = base?.collabs ?? SEM_COLABORADORES;
+  const trainings = base?.trainings ?? SEM_TREINAMENTOS;
+  const microTrainings = base?.micros ?? SEM_MICROS;
+
+  // Time do líder pelo vínculo resolvido no banco (leader_id), com o
+  // casamento por texto só como rede — ver src/lib/leaderTeam.ts. Fica fora
+  // da busca de propósito: é recorte em memória, não precisa de rede.
+  // `profile` inteiro (e não só full_name/leader_key) porque filterTeamOfLeader
+  // também usa o e-mail para achar a linha do líder.
+  const collaborators = useMemo(
+    () => (isLider && !isAdmin) ? filterTeamOfLeader(todosDaUnidade, profile) : todosDaUnidade,
+    [todosDaUnidade, isLider, isAdmin, profile],
+  );
+  const sectors = useMemo(
+    () => [...new Set(todosDaUnidade.map(x => x.sector || 'Sem Setor'))],
+    [todosDaUnidade],
+  );
+
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedLeader, setSelectedLeader] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -208,92 +417,14 @@ export default function ReportsPage() {
     return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm, collab?.activity, collab?.is_leader);
   }, [collaboratorMap, typesOf, showAsm]);
 
-  const loadData = useCallback(async () => {
-    // As regras de área configuradas em Configurações entram no motor antes
-    // de qualquer cálculo desta tela — ver src/lib/areaRules.ts.
-    await carregarRegrasDeArea();
-
-    const allCollabs: any[] = [];
-    let hasMore = true;
-    let page = 0;
-    const limit = 1000;
-
-    while (hasMore) {
-      let collabQuery = supabase
-        .from('collaborators')
-        .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id, activity')
-        // Ordenar por nome NÃO basta para paginar: nomes se repetem (25 casos
-        // em SP8), e com empate o Postgres pode devolver a mesma linha em duas
-        // páginas e pular outra. Duas linhas com o mesmo id viram chaves React
-        // repetidas na matriz, e daí sai o erro "removeChild: o nó a ser
-        // removido não é filho deste nó". O id desempata e torna a paginação
-        // determinística, sem mudar a ordem de exibição.
-        .order('name')
-        .order('id')
-        .range(page * limit, (page + 1) * limit - 1);
-      // soc null = admin sem unidade restrita → vê todas. Filtrar por '' não
-      // casaria com nenhum colaborador e mostraria a tela vazia sem aviso.
-      if (effectiveSoc) collabQuery = collabQuery.eq('soc', effectiveSoc);
-      const { data, error } = await collabQuery;
-
-      if (error) break;
-      if (data) {
-        allCollabs.push(...data);
-        if (data.length < limit) hasMore = false;
-        else page++;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    const allTrainings: any[] = [];
-    let tPage = 0;
-    let tHasMore = true;
-    while (tHasMore) {
-      const { data, error } = await supabase
-        .from('trainings_completed')
-        .select('id, collaborator_id, training_type, completed_at, created_at, signature_pdf_url, instructor_name')
-        // Sem ordenação, cada página é uma consulta independente e o banco não
-        // promete a mesma ordem entre elas — dá para receber a mesma assinatura
-        // duas vezes e perder outra. São 31 páginas aqui, então a chance não é
-        // teórica.
-        .order('id')
-        .range(tPage * limit, (tPage + 1) * limit - 1);
-      
-      if (error) break;
-      if (data) {
-        allTrainings.push(...data);
-        if (data.length < limit) tHasMore = false;
-        else tPage++;
-      } else {
-        tHasMore = false;
-      }
-    }
-
-    let microQuery = supabase.from('soc_micro_trainings').select('*').order('order_num');
-    if (effectiveSoc) microQuery = microQuery.eq('soc_name', effectiveSoc);
-    const { data: microData } = await microQuery;
-
-    // Time do líder pelo vínculo resolvido no banco (leader_id), com o
-    // casamento por texto só como rede — ver src/lib/leaderTeam.ts.
-    const collabData = (isLider && !isAdmin) ? filterTeamOfLeader(allCollabs, profile) : allCollabs;
-    setCollaborators(collabData);
-    setTrainings(allTrainings);
-    setMicroTrainings(microData || []);
-    setSectors([...new Set(allCollabs.map(x => (x.sector as string) || 'Sem Setor'))]);
-    // `profile` inteiro (e não só full_name/leader_key) porque filterTeamOfLeader
-    // também usa o e-mail para achar a linha do líder.
-  }, [isLider, isAdmin, profile, effectiveSoc]);
-
-  useEffect(() => { if (!authLoading) loadData(); }, [location.pathname, loadData, authLoading]);
-
   // Antes disto, voltar de outra aba depois de 5 minutos recarregava a
   // página sozinha — 50 mil linhas e os dois gráficos de Recharts
   // reanimando no meio de qualquer coisa que a pessoa estivesse fazendo.
   // Era o gatilho mais provável do erro "Failed to execute 'removeChild'"
   // relatado em 01/09/2026: a tela "quebrava do nada" justamente ao trocar
   // de aba e voltar. Trocado pelo botão "Atualizar" — handleRefresh, logo
-  // abaixo de fetchSocPerformance, já que chama as duas fontes de dado.
+  // abaixo do gráfico por SOC, já que chama as duas fontes de dado. Por
+  // isso as duas buscas desta tela têm refetchOnWindowFocus: false.
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filtered = useMemo(() => collaborators.filter(c => {
@@ -429,33 +560,37 @@ export default function ReportsPage() {
   // banco, nunca uma linha por pessoa cruzando unidades. Ver
   // supabase/migrations/20260811_01_soc_performance_view.sql.
   // ============================================================
-  const [socChartData, setSocChartData] = useState<{ soc: string; 'Treinados': number; 'Nº HCs': number }[]>([]);
-  const [socChartError, setSocChartError] = useState<string | null>(null);
-
-  const fetchSocPerformance = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('soc_performance_view')
-      .select('soc, total_hc, trained_hc, pct')
-      .order('pct', { ascending: false });
-    if (error) {
-      console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
-      setSocChartError(error.message);
-      return;
-    }
-    setSocChartError(null);
-    setSocChartData((data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc })));
-  }, []);
-
-  useEffect(() => { fetchSocPerformance(); }, [fetchSocPerformance]);
+  // O agregado é o mesmo para todo mundo e não depende da unidade em foco:
+  // uma entrada só no cache. A view leva ~1,5 s no banco (calcula a
+  // unidade inteira de todas as SOCs), então guardar o resultado evita
+  // pagar isso de novo a cada visita à tela.
+  const { data: socChartData = [], error: erroGrafico, refetch: recarregarGrafico } = useQuery({
+    queryKey: ['soc-performance'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('soc_performance_view')
+        .select('soc, total_hc, trained_hc, pct')
+        .order('pct', { ascending: false });
+      if (error) {
+        console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
+        throw new Error(error.message);
+      }
+      return (data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc }));
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const socChartError = erroGrafico ? (erroGrafico as Error).message : null;
 
   // Atualiza as duas fontes por trás desta tela: colaboradores/treinamentos
-  // (loadData, cru em memória) e o gráfico comparativo entre unidades
-  // (fetchSocPerformance, agregado no banco). Substitui o recarregamento
-  // automático ao focar a janela — ver o comentário acima de isRefreshing.
+  // (carregarBaseRelatorios, cru em memória) e o gráfico comparativo entre
+  // unidades (soc_performance_view, agregado no banco). Substitui o
+  // recarregamento automático ao focar a janela — ver o comentário acima de
+  // isRefreshing.
   const handleRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    try { await Promise.all([loadData(), fetchSocPerformance()]); } finally { setIsRefreshing(false); }
+    try { await Promise.all([recarregarBase(), recarregarGrafico()]); } finally { setIsRefreshing(false); }
   };
 
   const chartData = socChartData;
@@ -504,54 +639,33 @@ export default function ReportsPage() {
   // ============================================================
   // EXPORTAÇÃO: Colaboradores NÃO treinados do SOC do usuário
   // ============================================================
+  // As duas exportações usam os dados que a tela JÁ carregou — a unidade
+  // inteira (sem o recorte de "Meu Time" e sem o filtro de período, como
+  // sempre foi) e as assinaturas dela. Até 29/09/2026 cada clique baixava
+  // de novo os colaboradores e TODAS as assinaturas do banco, de todas as
+  // unidades, página por página — e sem ordenação estável, o que podia
+  // repetir uma assinatura e perder outra entre as páginas.
+  const baseParaExportar = () => {
+    // Mesma ordem do ORDER BY sector, shift, name que a busca fazia no
+    // banco: vazio por último.
+    const comparar = (a?: string | null, b?: string | null) =>
+      !a ? (!b ? 0 : 1) : !b ? -1 : a.localeCompare(b, 'pt-BR');
+    const colaboradores = [...todosDaUnidade].sort((x, y) =>
+      comparar(x.sector, y.sector) || comparar(x.shift, y.shift) || comparar(x.name, y.name));
+    const tiposDe = (id: string) => (allTrainingsByCollabId.get(id) ?? []).map(t => t.training_type || '');
+    return { colaboradores, tiposDe };
+  };
+
   const exportPendingCollaborators = async () => {
+    if (!base) {
+      toast.error('Os dados ainda estão carregando — tente de novo em alguns segundos.');
+      return;
+    }
     setIsExporting(true);
     try {
       // soc null = admin sem unidade restrita → exporta de todas as unidades.
       const USER_SOC = effectiveSoc;
-
-      // Busca todos os colaboradores do SOC
-      const allCollabsForExport: any[] = [];
-      let page = 0;
-      let hasMore = true;
-      while (hasMore) {
-        let q = supabase
-          .from('collaborators')
-          .select('id, name, sector, shift, role, leader, soc, bpo, activity, is_leader')
-          .order('sector')
-          .order('shift')
-          .order('name')
-          .range(page * 1000, (page + 1) * 1000 - 1);
-        if (USER_SOC) q = q.eq('soc', USER_SOC);
-        const { data, error } = await q;
-        if (error || !data) break;
-        allCollabsForExport.push(...data);
-        if (data.length < 1000) hasMore = false;
-        else page++;
-      }
-
-      // Busca todos os treinamentos
-      const allTrainingsForExport: any[] = [];
-      let tPage = 0;
-      let tHasMore = true;
-      while (tHasMore) {
-        const { data, error } = await supabase
-          .from('trainings_completed')
-          .select('collaborator_id, training_type')
-          .range(tPage * 1000, (tPage + 1) * 1000 - 1);
-        if (error || !data) break;
-        allTrainingsForExport.push(...data);
-        if (data.length < 1000) tHasMore = false;
-        else tPage++;
-      }
-
-      // Mapa de treinamentos por colaborador
-      const trainingsMapExport = new Map<string, string[]>();
-      allTrainingsForExport.forEach(t => {
-        const arr = trainingsMapExport.get(t.collaborator_id) || [];
-        arr.push(t.training_type || '');
-        trainingsMapExport.set(t.collaborator_id, arr);
-      });
+      const { colaboradores: allCollabsForExport, tiposDe } = baseParaExportar();
 
       // A MESMA regra da tela e da tela de Colaboradores — motor único.
       // Até 13/08/2026 aqui morava uma 6ª cópia da regra, que perguntava
@@ -561,7 +675,7 @@ export default function ReportsPage() {
       // isso a tela de Colaboradores listava 17 pendentes em SC1 e este
       // arquivo trazia 2.
       const pending = allCollabsForExport.filter(c =>
-        !isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity, c.is_leader)
+        !isCollaboratorTrained(c.sector, tiposDe(c.id), showAsm, c.activity, c.is_leader)
       );
 
       if (pending.length === 0) {
@@ -582,7 +696,7 @@ export default function ReportsPage() {
         c.leader || '',
         c.soc || '',
         c.bpo || '',
-        [...new Set(trainingsMapExport.get(c.id) || [])].join(' | '),
+        [...new Set(tiposDe(c.id))].join(' | '),
       ]);
 
       const csvContent = [
@@ -620,29 +734,15 @@ export default function ReportsPage() {
   // de fora: cada colaborador sai com "CERTIFICADO" ou "PENDENTE", os mesmos
   // dois rótulos já usados na coluna de Status da tela de Colaboradores.
   const exportAllCollaboratorsStatus = async () => {
+    if (!base) {
+      toast.error('Os dados ainda estão carregando — tente de novo em alguns segundos.');
+      return;
+    }
     setIsExporting(true);
     try {
       // soc null = admin sem unidade restrita → exporta de todas as unidades.
       const USER_SOC = effectiveSoc;
-
-      const allCollabsForExport: any[] = [];
-      let page = 0;
-      let hasMore = true;
-      while (hasMore) {
-        let q = supabase
-          .from('collaborators')
-          .select('id, name, sector, shift, role, leader, soc, bpo, activity, is_leader')
-          .order('sector')
-          .order('shift')
-          .order('name')
-          .range(page * 1000, (page + 1) * 1000 - 1);
-        if (USER_SOC) q = q.eq('soc', USER_SOC);
-        const { data, error } = await q;
-        if (error || !data) break;
-        allCollabsForExport.push(...data);
-        if (data.length < 1000) hasMore = false;
-        else page++;
-      }
+      const { colaboradores: allCollabsForExport, tiposDe } = baseParaExportar();
 
       if (allCollabsForExport.length === 0) {
         toast.error('Nenhum colaborador encontrado' + (USER_SOC ? ` no SOC ${USER_SOC}` : '') + '.');
@@ -650,30 +750,9 @@ export default function ReportsPage() {
         return;
       }
 
-      const allTrainingsForExport: any[] = [];
-      let tPage = 0;
-      let tHasMore = true;
-      while (tHasMore) {
-        const { data, error } = await supabase
-          .from('trainings_completed')
-          .select('collaborator_id, training_type')
-          .range(tPage * 1000, (tPage + 1) * 1000 - 1);
-        if (error || !data) break;
-        allTrainingsForExport.push(...data);
-        if (data.length < 1000) tHasMore = false;
-        else tPage++;
-      }
-
-      const trainingsMapExport = new Map<string, string[]>();
-      allTrainingsForExport.forEach(t => {
-        const arr = trainingsMapExport.get(t.collaborator_id) || [];
-        arr.push(t.training_type || '');
-        trainingsMapExport.set(t.collaborator_id, arr);
-      });
-
       const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO', 'Status', 'Treinamentos ja assinados'];
       const rows = allCollabsForExport.map(c => {
-        const treinado = isCollaboratorTrained(c.sector, trainingsMapExport.get(c.id) || [], showAsm, c.activity, c.is_leader);
+        const treinado = isCollaboratorTrained(c.sector, tiposDe(c.id), showAsm, c.activity, c.is_leader);
         return [
           c.name || '',
           c.sector || '',
@@ -683,7 +762,7 @@ export default function ReportsPage() {
           c.soc || '',
           c.bpo || '',
           treinado ? 'CERTIFICADO' : 'PENDENTE',
-          [...new Set(trainingsMapExport.get(c.id) || [])].join(' | '),
+          [...new Set(tiposDe(c.id))].join(' | '),
         ];
       });
 
@@ -728,16 +807,23 @@ export default function ReportsPage() {
               </span>
             )}
           </p>
+          {/* Sem isto os cards mostravam 0% até os dados chegarem, como se a unidade não tivesse ninguém treinado. */}
+          {carregandoBase && (
+            <p className="text-[10px] text-gray-400 font-bold mt-1 flex items-center gap-1.5">
+              <RefreshCw size={11} className="animate-spin" />
+              Carregando dados {effectiveSoc ? `de ${effectiveSoc}` : 'de todas as unidades'}...
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap ml-auto">
           <button
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isRefreshing || atualizandoBase}
             title="Recarrega colaboradores, treinamentos e o gráfico comparativo desta tela"
             className="h-8 px-3 flex items-center gap-1.5 text-[11px] font-black text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm disabled:opacity-60 transition-colors"
           >
-            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={isRefreshing || atualizandoBase ? 'animate-spin' : ''} />
             Atualizar
           </button>
           <select className="h-8 px-3 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
@@ -1051,8 +1137,8 @@ export default function ReportsPage() {
                           <div title={title} className={`flex items-center justify-center w-[28px] h-[28px] rounded-full border-[1.5px] ${ringColor} ${bgColor} ${iconColor} transition-colors`}>
                             {icon}
                           </div>
-                          {training?.signature_pdf_url && (
-                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] uppercase mt-1">Assinatura</a>
+                          {training?.has_signature && (
+                            <button type="button" onClick={() => abrirAssinatura(training.id)} className="text-[7px] font-black underline text-[#EE4D2D] uppercase mt-1">Assinatura</button>
                           )}
                         </div>
                       </td>
@@ -1216,8 +1302,8 @@ export default function ReportsPage() {
                           <div className={`w-7 h-7 rounded-full ${bgColor} border ${ringColor} flex items-center justify-center ${iconColor} transition-transform hover:scale-110`} title={title}>
                             {icon}
                           </div>
-                          {training?.signature_pdf_url && (
-                            <a href={training.signature_pdf_url} target="_blank" rel="noopener" className="text-[7px] font-black underline text-[#EE4D2D] uppercase">Assinatura</a>
+                          {training?.has_signature && (
+                            <button type="button" onClick={() => abrirAssinatura(training.id)} className="text-[7px] font-black underline text-[#EE4D2D] uppercase">Assinatura</button>
                           )}
                         </div>
                       </td>

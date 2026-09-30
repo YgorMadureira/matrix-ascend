@@ -31,7 +31,9 @@ const AREAS: MacroArea[] = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRAT
 // configurado em training_area_rules — inclusive REMOVE). As regras
 // configuradas entram só na parte 2 (o veredito por pessoa, via
 // collaborators_status, que é o que os usuários realmente veem).
-const { data: regras } = await db.from('training_area_rules').select('training_name, area');
+// `tipo` junto: sem ele toda regra seria lida como ADICIONA e uma REMOVE
+// apareceria aqui como divergência que não existe.
+const { data: regras } = await db.from('training_area_rules').select('training_name, area, tipo');
 definirRegrasDeArea([]);
 
 // .order() é obrigatório: sem chave estável o .range() do PostgREST pode
