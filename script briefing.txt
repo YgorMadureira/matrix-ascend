@@ -1,0 +1,454 @@
+/**
+ * BRIEFING PTS - WEB APP v2.4
+ * Pelo menos um e-mail (líder ou supervisor) é obrigatório.
+ * Cada SOC pode ter mais de um responsável de PTS (todos recebem o e-mail).
+ * Google Apps Script + Google Sheets + Google Drive
+ *
+ * Novidades v2.4:
+ *  - Escape de HTML no corpo do e-mail
+ *  - Imagens validadas ANTES de qualquer gravação no Drive (sem arquivos órfãos)
+ *  - Lock curto: uploads e envio de e-mail acontecem fora do lock principal
+ *  - Aviso ao usuário quando o briefing é salvo mas o e-mail falha
+ *  - Log de alerta quando um SOC não tem responsável de PTS no mapa
+ *
+ * Recomendação: criar este projeto em Extensões > Apps Script
+ * dentro da própria planilha APP - REGISTROS PTS - OTIMIZADO.
+ */
+
+const SPREADSHEET_ID = '1oE6rjhOC5XeGteBp0IIS9kDBJSm5BwlfCb0lKH7Sz8I'; // deixe vazio se o script estiver vinculado à planilha
+const SHEET_BRIEFINGS = 'BRIEFINGS';
+const SHEET_CONFIG = 'CONFIG';
+const ROOT_FOLDER_NAME = 'APP PTS - Evidencias';
+
+const REQUIRED_HEADERS = [
+  'ID_Briefing','Data_Realizacao','SOC','Turno','Processo','Assunto',
+  'Responsavel','Email_Lider','Foto_Lista_Presenca','Foto_Adicional'
+];
+
+// >>> Lista fixa de SOCs disponíveis no formulário
+const SOCS = [
+  'BA2','CE3','ES2','ES3','GO2','MG2','MG4','MGV8','PE2','PE4',
+  'PR1','PR4','PR6','RJ1','RJ2','RJ4','RJ6','RS2','SC1','SC2',
+  'SP10','SP18','SP2','SP24','SP25','SP35','SP5','SP6','SP7','SP8'
+];
+
+// >>> Mapeamento SOC -> Responsáveis de PTS (todos recebem o e-mail do briefing daquele SOC)
+const RESPONSAVEL_PTS_POR_SOC = {
+  'BA2':  ['felipe.santos@shopee.com'],
+  'CE3':  ['camila.smota@shopee.com'],
+  'ES2':  ['paula.bezerra@shopee.com'],
+  'ES3':  ['paula.bezerra@shopee.com'],
+  'GO2':  ['lorena.foliveira@shopee.com'],
+  'MG2':  ['aline.cirilo@shopee.com', 'lorena.caldeira@shopee.com'],
+  'MG4':  ['barbara.batista@shopee.com'],
+  'MGV8': ['paulo.cribeiro@shopee.com'],
+  'PE2':  ['ryanna.albertim@shopee.com'],
+  'PE4':  ['jose.claudio@shopee.com'],
+  'PR1':  ['bruno.santana@shopee.com'],
+  'PR4':  ['gabriella.pierri@shopee.com'],
+  'PR6':  ['bruno.santana@shopee.com'],
+  'RJ1':  ['viviane.costa@shopee.com'],
+  'RJ2':  ['nathalia.gsilva@shopee.com', 'alvaro.rsjunior@shopee.com'],
+  'RJ4':  ['manuel.neto@shopee.com'],
+  'RJ6':  ['natalia.gsilveira@shopee.com'],
+  'RS2':  ['gabriel.henrique@shopee.com'],
+  'SC1':  ['joao.rantunes@shopee.com'],
+  'SC2':  ['andressa.marques@shopee.com'],
+  'SP10': ['geiseane.santos@shopee.com'],
+  'SP18': ['murielton.moraes@shopee.com'],
+  'SP2':  ['willian.rosa@shopee.com', 'jenniffer.araujo@shopee.com'],
+  'SP24': ['guilherme.felipe@shopee.com'],
+  'SP25': ['tamires.nery@shopee.com'],
+  'SP35': ['murielton.moraes@shopee.com'],
+  'SP5':  ['gabriel.senen@shopee.com'],
+  'SP6':  ['ygor.madureira@shopee.com', 'bruno.anunciacao@shopee.com'],
+  'SP7':  ['bruno.anunciacao@shopee.com'],
+  'SP8':  ['amanda.azevedo@shopee.com', 'marilia.alves@shopee.com', 'thais.borges@shopee.com']
+};
+
+const EMAIL_ASSUNTO_PREFIXO = 'Novo Briefing PTS';
+
+const FALLBACK_CONFIG = {
+  turnos: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
+  processos: ['ASM', 'Inbound', 'Processamento', 'Outbound', 'EHA RTS', 'Pátio'],
+  socs: SOCS
+};
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Briefing PTS')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+function getAppConfig() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(SHEET_CONFIG);
+
+  if (!sh || sh.getLastRow() < 2) return FALLBACK_CONFIG;
+
+  const values = sh.getRange(1, 1, sh.getLastRow(), Math.max(3, sh.getLastColumn())).getDisplayValues();
+  const headers = values[0].map(v => String(v).trim().toUpperCase());
+
+  const readList = (header, fallback) => {
+    const idx = headers.indexOf(header);
+    if (idx < 0) return fallback;
+    const list = values.slice(1)
+      .map(r => String(r[idx] || '').trim())
+      .filter(Boolean);
+    return list.length ? [...new Set(list)] : fallback;
+  };
+
+  return {
+    turnos: readList('TURNOS', FALLBACK_CONFIG.turnos),
+    processos: readList('PROCESSOS', FALLBACK_CONFIG.processos),
+    socs: readList('SOC', FALLBACK_CONFIG.socs)
+  };
+}
+
+function saveBriefing(payload) {
+  // 1) Validações (sem lock e sem gravar nada)
+  validatePayload_(payload);
+
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(SHEET_BRIEFINGS);
+  if (!sh) throw new Error('A aba BRIEFINGS não foi encontrada.');
+  checkRequiredHeaders_(readHeaders_(sh));
+
+  // Valida as DUAS imagens antes de salvar qualquer uma no Drive.
+  const imgLista = payload.fotoLista ? parseImage_(payload.fotoLista) : null;
+  const imgAdicional = payload.fotoAdicional ? parseImage_(payload.fotoAdicional) : null;
+
+  const date = parseDate_(payload.data);
+  const id = createBriefingId_();
+  const responsavelFormatado = formatarNome_(payload.responsavel);
+  const baseName = sanitize_(id + '_' + payload.soc + '_' + payload.turno + '_' + payload.processo + '_' + responsavelFormatado);
+
+  // 2) Pasta de evidências (lock rápido, evita criar pastas duplicadas)
+  const folder = withLock_(15000, () => getEvidenceFolder_(ss, date, payload.soc));
+
+  // 3) Upload das imagens (fora do lock)
+  let listaInfo = null;
+  let adicionalInfo = null;
+  try {
+    if (imgLista) listaInfo = saveImage_(imgLista, folder, baseName + '_LISTA_PRESENCA');
+    if (imgAdicional) adicionalInfo = saveImage_(imgAdicional, folder, baseName + '_FOTO_ADICIONAL');
+  } catch (uploadErr) {
+    trashQuietly_(listaInfo);
+    trashQuietly_(adicionalInfo);
+    throw uploadErr;
+  }
+
+  const data = {
+    ID_Briefing: id,
+    Data_Realizacao: date,
+    SOC: payload.soc,
+    Turno: payload.turno,
+    Processo: payload.processo,
+    Assunto: String(payload.assunto).trim(),
+    Responsavel: responsavelFormatado,
+    Email_Lider: String(payload.emailLider || '').trim(),
+    Email_Supervisor: String(payload.emailSupervisor || '').trim(),
+    Foto_Lista_Presenca: listaInfo ? listaInfo.file.getUrl() : '',
+    Foto_Adicional: adicionalInfo ? adicionalInfo.file.getUrl() : ''
+  };
+
+  // 4) Gravação na planilha (lock curto: só cabeçalho + appendRow)
+  try {
+    withLock_(30000, () => appendBriefingRow_(sh, data));
+  } catch (saveErr) {
+    // Se a planilha falhar, não deixa as imagens soltas no Drive.
+    trashQuietly_(listaInfo);
+    trashQuietly_(adicionalInfo);
+    throw saveErr;
+  }
+
+  // 5) E-mail (fora do lock). Falha aqui NÃO desfaz o briefing, mas o usuário é avisado.
+  let emailEnviado = true;
+  try {
+    sendBriefingEmail_(data, listaInfo ? listaInfo.blob : null, adicionalInfo ? adicionalInfo.blob : null);
+  } catch (emailErr) {
+    emailEnviado = false;
+    console.error('Falha ao enviar e-mail de notificação (' + id + '): ' + emailErr);
+  }
+
+  return {
+    ok: true,
+    id: id,
+    emailEnviado: emailEnviado,
+    message: emailEnviado
+      ? 'Briefing enviado com sucesso!'
+      : 'Briefing salvo com sucesso, mas o e-mail de notificação não foi enviado. Avise o responsável de PTS do seu SOC.'
+  };
+}
+
+// >>> Escreve a linha na aba BRIEFINGS (chamar sempre dentro de lock).
+function appendBriefingRow_(sh, data) {
+  const headers = readHeaders_(sh);
+  checkRequiredHeaders_(headers);
+
+  // Acrescenta a nova coluna sem mover ou sobrescrever os registros existentes.
+  if (!headers.map(normalize_).includes(normalize_('Email_Supervisor'))) {
+    const novaColuna = headers.length + 1;
+    const maxColunas = sh.getMaxColumns();
+    if (novaColuna > maxColunas) {
+      sh.insertColumnsAfter(maxColunas, novaColuna - maxColunas);
+    }
+    sh.getRange(1, novaColuna).setValue('Email_Supervisor');
+    headers.push('Email_Supervisor');
+  }
+
+  const row = headers.map(h => {
+    const key = Object.keys(data).find(k => normalize_(k) === normalize_(h));
+    return key ? data[key] : '';
+  });
+
+  sh.appendRow(row);
+
+  const dateIdx = headers.findIndex(h => normalize_(h) === normalize_('Data_Realizacao'));
+  if (dateIdx >= 0) sh.getRange(sh.getLastRow(), dateIdx + 1).setNumberFormat('dd/MM/yyyy');
+}
+
+function readHeaders_(sh) {
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0]
+    .map(v => String(v).trim());
+}
+
+function checkRequiredHeaders_(headers) {
+  const normalized = headers.map(normalize_);
+  const missing = REQUIRED_HEADERS.filter(h => !normalized.includes(normalize_(h)));
+  if (missing.length) throw new Error('Colunas ausentes em BRIEFINGS: ' + missing.join(', '));
+}
+
+// >>> Executa uma função dentro do lock do script e sempre libera no final.
+function withLock_(waitMs, fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(waitMs);
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function trashQuietly_(info) {
+  try {
+    if (info && info.file) info.file.setTrashed(true);
+  } catch (e) {
+    console.error('Não foi possível remover arquivo órfão: ' + e);
+  }
+}
+
+// >>> Monta a lista final de destinatários: responsáveis de PTS do SOC +
+// e-mails informados do líder e do supervisor (sem duplicar).
+function getDestinatarios_(data) {
+  const responsaveisPts = [].concat(RESPONSAVEL_PTS_POR_SOC[data.SOC] || []);
+
+  if (!responsaveisPts.length) {
+    console.warn('SOC sem responsável de PTS no mapa RESPONSAVEL_PTS_POR_SOC: ' + data.SOC +
+      ' (briefing ' + data.ID_Briefing + '). E-mail enviado apenas para líder/supervisor.');
+  }
+
+  const lista = responsaveisPts
+    .concat([data.Email_Lider, data.Email_Supervisor])
+    .map(email => String(email || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  return [...new Set(lista)];
+}
+
+function sendBriefingEmail_(data, blobLista, blobAdicional) {
+  const destinatariosLista = getDestinatarios_(data);
+  if (!destinatariosLista.length) return;
+
+  const dataFormatada = Utilities.formatDate(
+    data.Data_Realizacao,
+    Session.getScriptTimeZone() || 'America/Sao_Paulo',
+    'dd/MM/yyyy'
+  );
+
+  const assunto = EMAIL_ASSUNTO_PREFIXO + ' - ' + data.SOC + ' - ' + data.Processo + ' - ' + data.Turno + ' (' + dataFormatada + ')';
+
+  const corpoTexto =
+    'Um novo Briefing PTS foi registrado.\n\n' +
+    'Data: ' + dataFormatada + '\n' +
+    'SOC: ' + data.SOC + '\n' +
+    'Turno: ' + data.Turno + '\n' +
+    'Processo: ' + data.Processo + '\n' +
+    'Responsável: ' + data.Responsavel + '\n' +
+    'Assunto: ' + data.Assunto + '\n\n' +
+    (data.Foto_Lista_Presenca ? 'Foto Lista de Presença: ' + data.Foto_Lista_Presenca + '\n' : '') +
+    (data.Foto_Adicional ? 'Foto Adicional: ' + data.Foto_Adicional + '\n' : '') +
+    '\nAs imagens também seguem anexadas a este e-mail.';
+
+  const corpoHtml =
+    '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;">' +
+    '<h2 style="margin-bottom:4px;">Novo Briefing PTS registrado</h2>' +
+    '<table style="border-collapse:collapse;margin-top:12px;">' +
+      linhaHtml_('Data', dataFormatada) +
+      linhaHtml_('SOC', data.SOC) +
+      linhaHtml_('Turno', data.Turno) +
+      linhaHtml_('Processo', data.Processo) +
+      linhaHtml_('Responsável', data.Responsavel) +
+      linhaHtml_('Assunto', data.Assunto) +
+    '</table>' +
+    '<p style="margin-top:16px;">' +
+      (data.Foto_Lista_Presenca ? '<a href="' + escapeHtml_(data.Foto_Lista_Presenca) + '">Ver Foto - Lista de Presença</a>' : '') +
+      (data.Foto_Adicional ? '<br><a href="' + escapeHtml_(data.Foto_Adicional) + '">Ver Foto Adicional</a>' : '') +
+    '</p>' +
+    '<p style="margin-top:16px;color:#555;">As imagens também seguem anexadas a este e-mail.</p>' +
+    '</div>';
+
+  const destinatarios = destinatariosLista.join(',');
+
+  const attachments = [];
+  if (blobLista) attachments.push(blobLista);
+  if (blobAdicional) attachments.push(blobAdicional);
+
+  GmailApp.sendEmail(destinatarios, assunto, corpoTexto, {
+    htmlBody: corpoHtml,
+    attachments: attachments,
+    name: 'Briefing PTS'
+  });
+}
+
+// >>> Escapa caracteres especiais para evitar HTML/links injetados no e-mail.
+function escapeHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function linhaHtml_(label, valor) {
+  return '<tr>' +
+    '<td style="padding:4px 12px 4px 0;font-weight:bold;vertical-align:top;">' + escapeHtml_(label) + ':</td>' +
+    '<td style="padding:4px 0;">' + escapeHtml_(valor || '-') + '</td>' +
+    '</tr>';
+}
+
+function getSpreadsheet_() {
+  if (SPREADSHEET_ID && SPREADSHEET_ID.trim()) {
+    return SpreadsheetApp.openById(SPREADSHEET_ID.trim());
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Vincule o Apps Script à planilha ou informe SPREADSHEET_ID no Code.gs.');
+  return ss;
+}
+
+function validatePayload_(p) {
+  if (!p) throw new Error('Dados do formulário não recebidos.');
+  const required = [
+    ['data','Data'], ['soc','SOC'], ['turno','Turno'], ['processo','Processo'], ['assunto','Assunto'],
+    ['responsavel','Responsável']
+  ];
+  const missing = required.filter(([k]) => !p[k] || !String(p[k]).trim()).map(([,n]) => n);
+  if (missing.length) throw new Error('Preencha os campos obrigatórios: ' + missing.join(', '));
+
+  if (!String(p.emailLider || '').trim() && !String(p.emailSupervisor || '').trim()) {
+    throw new Error('Preencha pelo menos um e-mail: do líder ou do supervisor.');
+  }
+
+  const cfg = getAppConfig();
+  if (!cfg.turnos.includes(p.turno)) throw new Error('Turno inválido.');
+  if (!cfg.processos.includes(p.processo)) throw new Error('Processo inválido.');
+  if (!cfg.socs.includes(p.soc)) throw new Error('SOC inválido.');
+  if (!/^\S+(\s+\S+)+$/.test(String(p.responsavel).trim())) {
+    throw new Error('Informe o nome completo do responsável (Nome e Sobrenome).');
+  }
+  [
+    ['emailLider', 'líder'],
+    ['emailSupervisor', 'supervisor']
+  ].forEach(([campo, rotulo]) => {
+    const email = String(p[campo] || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('E-mail do ' + rotulo + ' inválido.');
+    }
+  });
+}
+
+function parseDate_(s) {
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) throw new Error('Data inválida.');
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+}
+
+function createBriefingId_() {
+  const tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+  const stamp = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
+  return 'BPT-' + stamp + '-' + Utilities.getUuid().slice(0,6).toUpperCase();
+}
+
+// >>> Organiza também por SOC -> Briefings/SOC/ANO/MES
+function getEvidenceFolder_(ss, date, soc) {
+  let root;
+  try {
+    const file = DriveApp.getFileById(ss.getId());
+    const parents = file.getParents();
+    if (parents.hasNext()) {
+      const parent = parents.next();
+      const existing = parent.getFoldersByName(ROOT_FOLDER_NAME);
+      root = existing.hasNext() ? existing.next() : parent.createFolder(ROOT_FOLDER_NAME);
+    }
+  } catch (e) {}
+
+  if (!root) {
+    const existing = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+    root = existing.hasNext() ? existing.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+  }
+
+  const briefings = subfolder_(root, 'Briefings');
+  const socFolder = subfolder_(briefings, soc);
+  const year = subfolder_(socFolder, String(date.getFullYear()));
+  const month = subfolder_(year, String(date.getMonth() + 1).padStart(2,'0'));
+  return month;
+}
+
+function subfolder_(parent, name) {
+  const found = parent.getFoldersByName(name);
+  return found.hasNext() ? found.next() : parent.createFolder(name);
+}
+
+// >>> Valida e decodifica a imagem (sem gravar nada no Drive).
+function parseImage_(dataUrl) {
+  const m = String(dataUrl).match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!m) throw new Error('Uma imagem foi recebida em formato inválido.');
+
+  const mime = m[1].toLowerCase();
+  if (!['image/jpeg','image/png','image/webp'].includes(mime)) {
+    throw new Error('Use imagens JPG, PNG ou WEBP.');
+  }
+
+  const bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 6 * 1024 * 1024) throw new Error('Uma das imagens ficou muito grande.');
+
+  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+  return { mime: mime, bytes: bytes, ext: ext };
+}
+
+// >>> Grava no Drive uma imagem já validada por parseImage_.
+function saveImage_(img, folder, name) {
+  const blob = Utilities.newBlob(img.bytes, img.mime, name + '.' + img.ext);
+  const file = folder.createFile(blob);
+  return { file: file, blob: file.getBlob() };
+}
+
+// >>> Normaliza o nome digitado para "Nome Sobrenome"
+function formatarNome_(nome) {
+  return String(nome).trim().replace(/\s+/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+}
+
+function sanitize_(s) {
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9_.-]+/g,'_').replace(/_+/g,'_').slice(0,150);
+}
+
+function normalize_(s) {
+  return String(s || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+}

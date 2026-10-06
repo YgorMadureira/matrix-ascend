@@ -1006,10 +1006,16 @@ export default function SettingsPage() {
 
           <div className="p-8 space-y-6">
             <div className="flex flex-col lg:flex-row gap-3">
+              {/* min-w-0: um <select> tem como largura mínima a da opção mais
+                  longa. Com um nome de 110 caracteres na lista (o link do QR
+                  colado junto do nome), ele empurrava Adicionar/Remover, a
+                  área e o Sincronizar para fora do cartão — que tem
+                  overflow-hidden e os cortava. */}
               <select
                 value={novaRegra.training_name}
                 onChange={e => setNovaRegra(r => ({ ...r, training_name: e.target.value, area: '' }))}
-                className="flex-1 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:border-[#EE4D2D]"
+                title={novaRegra.training_name || undefined}
+                className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:border-[#EE4D2D]"
               >
                 <option value="">Escolha o treinamento…</option>
                 {nomesDeTreinamento.map(n => <option key={n} value={n}>{n}</option>)}
@@ -1021,7 +1027,7 @@ export default function SettingsPage() {
               <select
                 value={novaRegra.tipo}
                 onChange={e => setNovaRegra(r => ({ ...r, tipo: e.target.value as 'ADICIONA' | 'REMOVE', area: '' }))}
-                className={`px-4 py-3 rounded-xl border text-sm font-black outline-none lg:min-w-[150px] ${
+                className={`shrink-0 px-4 py-3 rounded-xl border text-sm font-black outline-none lg:min-w-[150px] ${
                   novaRegra.tipo === 'REMOVE' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'
                 }`}
               >
@@ -1033,7 +1039,7 @@ export default function SettingsPage() {
                 value={novaRegra.area}
                 onChange={e => setNovaRegra(r => ({ ...r, area: e.target.value }))}
                 disabled={novaRegra.tipo === 'REMOVE' && !!novaRegra.training_name && areasRemoviveisDoTreinamentoEscolhido.length === 0}
-                className="px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-black text-gray-700 outline-none focus:border-[#EE4D2D] lg:min-w-[190px] disabled:opacity-50"
+                className="shrink-0 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-black text-gray-700 outline-none focus:border-[#EE4D2D] lg:min-w-[190px] disabled:opacity-50"
               >
                 <option value="">
                   {novaRegra.tipo === 'REMOVE' ? 'Deixa de cobrir…' : 'Passa a cobrir…'}
@@ -1046,7 +1052,7 @@ export default function SettingsPage() {
                 onClick={sincronizarRegra}
                 disabled={salvandoRegra}
                 title="Grava a regra e mostra na hora quantos colaboradores mudaram de status"
-                className="flex items-center gap-2 px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
+                className="shrink-0 flex items-center justify-center gap-2 px-6 py-3 rounded-xl shopee-gradient-bg text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 shadow-md disabled:opacity-50 transition-all"
               >
                 <RefreshCw size={14} className={salvandoRegra ? 'animate-spin' : ''} />
                 {salvandoRegra ? 'Sincronizando…' : 'Sincronizar'}
@@ -1078,7 +1084,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     onClick={() => removerRegra(regra)}
-                    className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                    className="p-2 rounded-lg text-gray-300 group-hover:text-gray-400 hover:!text-red-500 hover:bg-red-50 transition-all shrink-0"
                     title="Apagar esta regra (não é o mesmo que 'Remover cobertura' — isto apaga a linha, seja ela ADICIONA ou REMOVE)"
                   >
                     <Trash2 size={16} />
