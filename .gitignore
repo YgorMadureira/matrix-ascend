@@ -39,3 +39,7 @@ pendentes_treinamento.xlsx
 pendentes_*.xlsx
 mesclagem_duplicados_*.xlsx
 ~$*.xlsx
+
+# Script do Apps Script com SPREADSHEET_ID e e-mails internos (Briefing PTS) —
+# nunca commitar: o repositório e público.
+script briefing.txt
