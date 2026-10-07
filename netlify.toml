@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA: toda rota cai no index.html e o React Router decide o resto. Sem
+# isto, atualizar a página em /reports ou /collaborators dá 404 — o
+# equivalente ao rewrite que já existe para a Vercel em vercel.json.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
