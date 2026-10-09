@@ -17,6 +17,15 @@ import {
 } from '@/lib/trainingRules';
 import { filterTeamOfLeader } from '@/lib/leaderTeam';
 import { carregarRegrasDeArea } from '@/lib/areaRules';
+import { useSocsERegionais } from '@/lib/regionais';
+import {
+  chaveDoMicro,
+  deduplicarMicros,
+  desempenhoPorRegional,
+  indexarMicrosPorSoc,
+  regionaisAlcancaveis,
+  socsDaRegional,
+} from '@/lib/escopoRelatorios';
 
 const ALL_TRAINING_TYPES = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'] as const;
 const ALL_CORE_SECTORS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'EXPEDICAO', 'TRATATIVAS', 'ASM'];
@@ -85,6 +94,49 @@ function primeiroErro(respostas: { error: { message: string } | null }[]): void 
   if (falha?.error) throw new Error(falha.error.message);
 }
 
+/**
+ * Recorta uma consulta pelas unidades da tela: null = todas (master), uma
+ * unidade = eq (a mesma consulta de sempre), várias (uma regional) = in.
+ *
+ * Sem restrição de tipo em Q de propósito: exigir "Q tem eq e in" faz o
+ * TypeScript expandir os tipos do construtor de consultas do Supabase até
+ * desistir (TS2589). eq/in devolvem o mesmo construtor, então Q se mantém.
+ */
+function filtrarPorSocs<Q>(q: Q, coluna: string, socs: string[] | null): Q {
+  if (!socs) return q;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const consulta = q as any;
+  return socs.length === 1 ? consulta.eq(coluna, socs[0]) : consulta.in(coluna, socs);
+}
+
+// ── Filtro de regional ───────────────────────────────────────
+// A escolha guarda junto a unidade do seletor do topo no momento em que foi
+// feita: trocar a unidade lá em cima desliga o filtro de regional (vale a
+// última escolha da pessoa), sem precisar de efeito nenhum para "limpar".
+// Fica no navegador só por conveniência — perder isso não perde nada.
+interface EscolhaRegional { id: string; soc: string | null; }
+const CHAVE_REGIONAL = 'relatorios_regional';
+
+function lerEscolhaRegional(): EscolhaRegional | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAVE_REGIONAL) ?? 'null');
+    return v && typeof v.id === 'string' ? { id: v.id, soc: typeof v.soc === 'string' ? v.soc : null } : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarEscolhaRegional(escolha: EscolhaRegional | null): void {
+  try {
+    if (escolha) localStorage.setItem(CHAVE_REGIONAL, JSON.stringify(escolha));
+    else localStorage.removeItem(CHAVE_REGIONAL);
+  } catch { /* navegador sem armazenamento: o filtro só não é lembrado */ }
+}
+
+/** Pedaço de nome de arquivo: "Regional 1 — SP Metrópole" → "Regional_1_SP_Metropole". */
+const paraNomeDeArquivo = (texto: string) =>
+  texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
 // ============================================================
 // Carga da tela — colaboradores, assinaturas e micros da unidade em foco.
 //
@@ -117,20 +169,32 @@ function primeiroErro(respostas: { error: { message: string } | null }[]): void 
 // mais, nenhuma a menos, e has_signature igual ao signature_pdf_url em
 // todas.
 // ============================================================
-async function carregarBaseRelatorios(soc: string | null): Promise<BaseRelatorios> {
-  let contaColabs = supabase.from('collaborators').select('id', { count: 'exact', head: true });
-  let contaAssinaturas = supabase
-    .from('signatures_view')
-    .select('id', { count: 'exact', head: true })
-    .not('collaborator_id', 'is', null);
-  let microQuery = supabase.from('soc_micro_trainings').select('*').order('order_num');
-  // soc null = master sem unidade escolhida → vê todas. Filtrar por '' não
-  // casaria com ninguém e mostraria a tela vazia sem aviso.
-  if (soc) {
-    contaColabs = contaColabs.eq('soc', soc);
-    contaAssinaturas = contaAssinaturas.eq('collaborator_soc', soc);
-    microQuery = microQuery.eq('soc_name', soc);
+async function carregarBaseRelatorios(socs: string[] | null): Promise<BaseRelatorios> {
+  // Lista vazia = regional sem nenhuma unidade alcançável: não há o que
+  // buscar. O filtro só oferece regionais com unidade, então é só uma rede —
+  // um "in ()" vazio no PostgREST não é algo em que valha confiar.
+  if (socs && socs.length === 0) {
+    await carregarRegrasDeArea();
+    return { collabs: [], trainings: [], micros: [] };
   }
+
+  // socs null = master sem unidade escolhida → vê todas. Filtrar por '' não
+  // casaria com ninguém e mostraria a tela vazia sem aviso.
+  const contaColabs = filtrarPorSocs(
+    supabase.from('collaborators').select('id', { count: 'exact', head: true }),
+    'soc', socs,
+  );
+  const contaAssinaturas = filtrarPorSocs(
+    supabase
+      .from('signatures_view')
+      .select('id', { count: 'exact', head: true })
+      .not('collaborator_id', 'is', null),
+    'collaborator_soc', socs,
+  );
+  const microQuery = filtrarPorSocs(
+    supabase.from('soc_micro_trainings').select('*').order('order_num'),
+    'soc_name', socs,
+  );
 
   // As regras de área configuradas em Configurações entram no motor antes
   // de qualquer cálculo desta tela — ver src/lib/areaRules.ts. Vão na mesma
@@ -142,7 +206,7 @@ async function carregarBaseRelatorios(soc: string | null): Promise<BaseRelatorio
 
   const [paginasColabs, paginasAssinaturas] = await Promise.all([
     Promise.all(Array.from({ length: paginasPara(cColabs.count) }, (_, i) => {
-      let q = supabase
+      const q = supabase
         .from('collaborators')
         .select('id, name, soc, sector, shift, role, leader, email, is_leader, leader_id, activity, bpo')
         // Ordenar por nome NÃO basta para paginar: nomes se repetem (25 casos
@@ -154,11 +218,10 @@ async function carregarBaseRelatorios(soc: string | null): Promise<BaseRelatorio
         .order('name')
         .order('id')
         .range(i * LIMITE_PAGINA, (i + 1) * LIMITE_PAGINA - 1);
-      if (soc) q = q.eq('soc', soc);
-      return q;
+      return filtrarPorSocs(q, 'soc', socs);
     })),
     Promise.all(Array.from({ length: paginasPara(cAssinaturas.count) }, (_, i) => {
-      let q = supabase
+      const q = supabase
         .from('signatures_view')
         .select('id, collaborator_id, training_type, completed_at, created_at, instructor_name, has_signature')
         .not('collaborator_id', 'is', null)
@@ -166,8 +229,7 @@ async function carregarBaseRelatorios(soc: string | null): Promise<BaseRelatorio
         // uma assinatura e perder outra.
         .order('id')
         .range(i * LIMITE_PAGINA, (i + 1) * LIMITE_PAGINA - 1);
-      if (soc) q = q.eq('collaborator_soc', soc);
-      return q;
+      return filtrarPorSocs(q, 'collaborator_soc', socs);
     })),
   ]);
   primeiroErro(paginasColabs);
@@ -230,7 +292,50 @@ async function abrirAssinatura(trainingId: string): Promise<void> {
 }
 
 export default function ReportsPage() {
-  const { profile, isLider, isAdmin, loading: authLoading, socHasSorting, effectiveSoc } = useAuth();
+  const { profile, isLider, isAdmin, isMaster, allowedSocs, loading: authLoading, socHasSorting, effectiveSoc } = useAuth();
+
+  // ── Regional ─────────────────────────────────────────────────
+  // SOCs, regionais e o sorter de cada unidade: uma consulta pequena, a
+  // mesma do cartão de Regionais em Configurações (src/lib/regionais.ts).
+  const { data: socsERegionais, status: statusRegionais } = useSocsERegionais(!authLoading && !!profile);
+  const [escolhaRegional, setEscolhaRegional] = useState<EscolhaRegional | null>(lerEscolhaRegional);
+
+  /** Unidades que este usuário enxerga — o master, todas. A RLS decide de verdade; isto só evita oferecer o que viria vazio. */
+  const alcanca = useCallback(
+    (soc: string) => isMaster || allowedSocs.includes(soc),
+    [isMaster, allowedSocs],
+  );
+  const regionaisDoFiltro = useMemo(
+    () => socsERegionais ? regionaisAlcancaveis(socsERegionais.regionais, socsERegionais.socs, alcanca) : [],
+    [socsERegionais, alcanca],
+  );
+  // O filtro aparece para quem enxerga mais de uma unidade — a mesma regra
+  // do seletor de unidade do topo. Com uma unidade só não há o que agrupar.
+  const mostrarFiltroRegional = (isMaster || allowedSocs.length > 1) && regionaisDoFiltro.length > 0;
+
+  const regionalAtiva = useMemo(() => {
+    if (!escolhaRegional || escolhaRegional.soc !== effectiveSoc || !mostrarFiltroRegional || !socsERegionais) return null;
+    const regional = regionaisDoFiltro.find(r => r.id === escolhaRegional.id);
+    if (!regional) return null;
+    return { ...regional, socs: socsDaRegional(regional.id, socsERegionais.socs, alcanca) };
+  }, [escolhaRegional, effectiveSoc, mostrarFiltroRegional, socsERegionais, regionaisDoFiltro, alcanca]);
+
+  const escolherRegional = (id: string) => {
+    const escolha = id ? { id, soc: effectiveSoc } : null;
+    setEscolhaRegional(escolha);
+    guardarEscolhaRegional(escolha);
+  };
+
+  /** As unidades desta tela: as da regional escolhida, a do topo, ou null = todas (só o master). */
+  const socsDoEscopo: string[] | null = regionalAtiva ? regionalAtiva.socs : (effectiveSoc ? [effectiveSoc] : null);
+  const variasUnidades = !socsDoEscopo || socsDoEscopo.length > 1;
+  /** Nome curto do que está na tela, para avisos e botões. */
+  const nomeEscopo = regionalAtiva ? regionalAtiva.nome : effectiveSoc ? `SOC ${effectiveSoc}` : 'todas as SOCs';
+  const arquivoEscopo = paraNomeDeArquivo(regionalAtiva ? regionalAtiva.nome : effectiveSoc ?? 'todas_socs') || 'relatorio';
+  // Uma escolha de regional lembrada de outra visita ainda esperando a lista
+  // de regionais: sem esta espera, a tela buscaria primeiro a unidade do
+  // topo (ou TODAS, para o master) só para jogar fora logo em seguida.
+  const aguardandoRegionais = !!escolhaRegional && escolhaRegional.soc === effectiveSoc && statusRegionais === 'pending';
 
   const {
     data: base,
@@ -239,11 +344,14 @@ export default function ReportsPage() {
     error: erroBase,
     refetch: recarregarBase,
   } = useQuery({
-    queryKey: ['relatorios-base', effectiveSoc ?? '*'],
-    queryFn: () => carregarBaseRelatorios(effectiveSoc),
+    // Uma unidade continua com a chave de sempre ('SP6'); uma regional entra
+    // com a lista das unidades, então mexer na composição dela em
+    // Configurações já pede os dados certos.
+    queryKey: ['relatorios-base', socsDoEscopo ? socsDoEscopo.join(',') : '*'],
+    queryFn: () => carregarBaseRelatorios(socsDoEscopo),
     // Só depois do login resolvido: antes disso effectiveSoc ainda é null, e
     // null significa "todas as unidades" — seria a carga mais pesada, à toa.
-    enabled: !authLoading && !!profile,
+    enabled: !authLoading && !!profile && !aguardandoRegionais,
     staleTime: 5 * 60 * 1000,
     // Decisão de 01/09/2026 (ver o comentário acima de isRefreshing): voltar
     // de outra aba NÃO recarrega a tela sozinho — há o botão "Atualizar".
@@ -281,8 +389,36 @@ export default function ReportsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
-  // Filtra ASM quando a SOC do usuário não possui sorting
-  const showAsm = socHasSorting !== false;
+  // Trocar de unidade ou de regional pode tirar da tela o setor que estava
+  // filtrado — e o filtro escondia todo mundo sem dizer por quê. Só depois
+  // de os dados novos chegarem (durante a carga a lista de setores é vazia).
+  useEffect(() => {
+    if (base && selectedSector && !sectors.includes(selectedSector)) setSelectedSector('');
+  }, [base, sectors, selectedSector]);
+
+  // ── Sorter (ASM) ─────────────────────────────────────────────
+  // showAsm decide o que a TELA mostra (card e coluna de ASM): com uma
+  // unidade, se ela tem sorter; numa regional, se alguma delas tem.
+  const sortingPorSoc = useMemo(
+    () => new Map((socsERegionais?.socs ?? []).map(s => [s.name, !!s.has_sorting])),
+    [socsERegionais],
+  );
+  const showAsm = regionalAtiva && sortingPorSoc.size > 0
+    ? regionalAtiva.socs.some(s => sortingPorSoc.get(s) === true)
+    : socHasSorting !== false;
+
+  /**
+   * O sorter usado para AVALIAR uma pessoa: o da unidade dela. Com uma
+   * unidade na tela é o mesmo showAsm de sempre. Com várias (regional ou
+   * todas), cada pessoa usa o da própria unidade — como o Dashboard e a view
+   * collaborators_status já fazem (coalesce(has_sorting, false)). Até
+   * 09/10/2026, na visão "Todas as unidades", todo mundo era avaliado como se
+   * a unidade tivesse sorter, e a soma das unidades não batia com o total.
+   */
+  const sorterDe = useCallback((soc: string | null | undefined): boolean => {
+    if (!variasUnidades || sortingPorSoc.size === 0) return showAsm;
+    return sortingPorSoc.get(soc ?? '') ?? false;
+  }, [variasUnidades, sortingPorSoc, showAsm]);
   const TRAINING_TYPES = showAsm
     ? ALL_TRAINING_TYPES
     : ALL_TRAINING_TYPES.filter(t => t !== 'ASM') as unknown as typeof ALL_TRAINING_TYPES;
@@ -386,14 +522,15 @@ export default function ReportsPage() {
     }
 
     const collab = collaboratorMap.get(collabId);
+    const sorter = sorterDe(collab?.soc);
     // Quem está na própria área é avaliado pela regra canônica (que carrega a
     // exceção do Sorter); para as demais colunas da matriz vale a área pedida.
     const area = (reqType === 'EXPEDICAO' ? 'EXPEDIÇÃO' : reqType) as MacroArea;
-    if (collab && collaboratorArea(collab.sector, showAsm, collab.activity) === area) {
-      return isCollaboratorTrained(collab.sector, types, showAsm, collab.activity, collab.is_leader);
+    if (collab && collaboratorArea(collab.sector, sorter, collab.activity) === area) {
+      return isCollaboratorTrained(collab.sector, types, sorter, collab.activity, collab.is_leader);
     }
-    return isAreaTrained(types, area, showAsm);
-  }, [typesOf, collaboratorMap, showAsm]);
+    return isAreaTrained(types, area, sorter);
+  }, [typesOf, collaboratorMap, sorterDe]);
 
   /**
    * Tick da Matriz de Certificação: este micro-processo está concluído?
@@ -402,9 +539,10 @@ export default function ReportsPage() {
    * "Com Sorter" — o mesmo colaborador acendia ASM no Dashboard e não
    * acendia na matriz desta tela.
    */
-  const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) =>
-    typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea, showAsm)),
-  [typesOf, showAsm]);
+  const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) => {
+    const sorter = sorterDe(collaboratorMap.get(collabId)?.soc);
+    return typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea, sorter));
+  }, [typesOf, collaboratorMap, sorterDe]);
 
   /**
    * "Esta pessoa está pendente?" — a MESMA pergunta que a tela de
@@ -414,8 +552,8 @@ export default function ReportsPage() {
    */
   const isGenerallyTrained = useCallback((collabId: string) => {
     const collab = collaboratorMap.get(collabId);
-    return isCollaboratorTrained(collab?.sector, typesOf(collabId), showAsm, collab?.activity, collab?.is_leader);
-  }, [collaboratorMap, typesOf, showAsm]);
+    return isCollaboratorTrained(collab?.sector, typesOf(collabId), sorterDe(collab?.soc), collab?.activity, collab?.is_leader);
+  }, [collaboratorMap, typesOf, sorterDe]);
 
   // Antes disto, voltar de outra aba depois de 5 minutos recarregava a
   // página sozinha — 50 mil linhas e os dois gráficos de Recharts
@@ -484,18 +622,35 @@ export default function ReportsPage() {
    * Ordenar aqui conserta os dois lados de uma vez, porque o cabeçalho e as
    * células passam a sair da MESMA lista.
    */
+  //
+  // Com várias unidades na tela (regional ou todas), o mesmo micro vem uma
+  // vez por unidade que o cadastrou: deduplicarMicros deixa uma coluna por
+  // área + nome. Com uma unidade só, nada muda. Ver src/lib/escopoRelatorios.ts.
   const orderedMicros = useMemo(() => {
     const ordem = operationalAreas(showAsm) as string[];
     const peso = (m: SocMicroTraining) => {
       const i = ordem.indexOf(normalizeMacroArea(m.macro_area) as string);
       return i === -1 ? ordem.length : i; // área desconhecida vai para o fim
     };
-    return [...microTrainings].sort((a, b) =>
+    return deduplicarMicros(microTrainings).sort((a, b) =>
       peso(a) - peso(b) ||
       (a.order_num ?? 0) - (b.order_num ?? 0) ||
       (a.name || '').localeCompare(b.name || '')
     );
   }, [microTrainings, showAsm]);
+
+  /**
+   * Obrigatório/Sugestão de cada célula vem do cadastro da UNIDADE DA PESSOA,
+   * não do micro que representa a coluna: numa regional, o mesmo micro pode
+   * ser obrigatório numa unidade e sugestão em outra (14 casos em 09/10/2026),
+   * e quem é de uma unidade que nem cadastrou aquele micro não é cobrado por
+   * ele. Com uma unidade só, é exatamente o cadastro da coluna, como antes.
+   */
+  const microsPorSoc = useMemo(() => indexarMicrosPorSoc(microTrainings), [microTrainings]);
+  const chaveDaColuna = useMemo(
+    () => new Map(orderedMicros.map(m => [m.id, chaveDoMicro(m.macro_area, m.name)])),
+    [orderedMicros],
+  );
 
   useEffect(() => {
     setVisibleCount(100);
@@ -514,7 +669,7 @@ export default function ReportsPage() {
     // área dela, ou OUTROS) e é avaliada contra o próprio grupo, pela regra
     // canônica. A de Líderes é a mesma conta, só que sobre os líderes.
     if (isAreaOperacional(selectedArea)) {
-      const bucket = filtered.filter(c => collaboratorArea(c.sector, showAsm, c.activity) === type);
+      const bucket = filtered.filter(c => collaboratorArea(c.sector, sorterDe(c.soc), c.activity) === type);
       const completed = bucket.filter(c => isGenerallyTrained(c.id)).length;
       return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
     }
@@ -523,7 +678,7 @@ export default function ReportsPage() {
       : filtered;
     const completed = bucket.filter(c => hasTraining(c.id, type)).length;
     return { type, total: bucket.length, completed, pct: bucket.length > 0 ? Number(((completed / bucket.length) * 100).toFixed(1)) : 0 };
-  }), [currentTrainingTypes, filtered, hasTraining, isGenerallyTrained, selectedArea, showAsm]);
+  }), [currentTrainingTypes, filtered, hasTraining, isGenerallyTrained, selectedArea, sorterDe]);
 
   const { generalTotal, generalCompleted, generalPct } = useMemo(() => {
     const total = sectorStats.reduce((sum, s) => sum + s.total, 0);
@@ -575,12 +730,45 @@ export default function ReportsPage() {
         console.error('[Relatórios] Erro ao buscar desempenho por SOC:', error.message);
         throw new Error(error.message);
       }
-      return (data ?? []).map((r: { soc: string; pct: number; total_hc: number }) => ({ soc: r.soc, 'Treinados': Number(r.pct), 'Nº HCs': r.total_hc }));
+      return (data ?? []).map((r: { soc: string; pct: number; total_hc: number; trained_hc: number }) => ({
+        soc: r.soc,
+        'Treinados': Number(r.pct),
+        'Nº HCs': r.total_hc,
+        // Não aparece no gráfico por SOC: é o que permite somar por regional.
+        treinadosHc: r.trained_hc,
+      }));
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
   const socChartError = erroGrafico ? (erroGrafico as Error).message : null;
+
+  // Com uma regional escolhida, o comparativo mostra só as unidades dela —
+  // todas as da regional, não só as que o usuário alcança: quem decide o que
+  // cada um vê do agregado é a view, como sempre foi.
+  const socsDaRegionalNoGrafico = useMemo(
+    () => regionalAtiva && socsERegionais ? new Set(socsDaRegional(regionalAtiva.id, socsERegionais.socs)) : null,
+    [regionalAtiva, socsERegionais],
+  );
+  const linhasPorSoc = useMemo(
+    () => socsDaRegionalNoGrafico ? socChartData.filter(d => socsDaRegionalNoGrafico.has(d.soc)) : socChartData,
+    [socChartData, socsDaRegionalNoGrafico],
+  );
+
+  // Comparativo por regional — só o master, que é quem enxerga o agregado de
+  // todas as unidades (para os demais a view devolve só o que a RLS libera, e
+  // a soma sairia parcial).
+  const [visaoGrafico, setVisaoGrafico] = useState<'soc' | 'regional'>('soc');
+  const podeVerPorRegional = isMaster && (socsERegionais?.regionais.length ?? 0) > 0;
+  const porRegional = podeVerPorRegional && visaoGrafico === 'regional';
+  const linhasPorRegional = useMemo(() => {
+    if (!podeVerPorRegional || !socsERegionais) return [];
+    return desempenhoPorRegional(
+      socChartData.map(d => ({ soc: d.soc, total_hc: d['Nº HCs'], trained_hc: d.treinadosHc })),
+      socsERegionais.socs,
+      socsERegionais.regionais,
+    ).map(r => ({ soc: r.regional, 'Treinados': r.pct, 'Nº HCs': r.total_hc, regionalId: r.regionalId }));
+  }, [podeVerPorRegional, socsERegionais, socChartData]);
 
   // Atualiza as duas fontes por trás desta tela: colaboradores/treinamentos
   // (carregarBaseRelatorios, cru em memória) e o gráfico comparativo entre
@@ -593,14 +781,20 @@ export default function ReportsPage() {
     try { await Promise.all([recarregarBase(), recarregarGrafico()]); } finally { setIsRefreshing(false); }
   };
 
-  const chartData = socChartData;
+  const chartData: { soc: string; 'Treinados': number; 'Nº HCs': number; regionalId?: string | null }[] =
+    porRegional ? linhasPorRegional : linhasPorSoc;
+  /** A barra em laranja: a unidade do topo, ou a regional escolhida na visão por regional. */
+  const barraEmDestaque = (d: { soc: string; regionalId?: string | null }) =>
+    porRegional ? !!regionalAtiva && d.regionalId === regionalAtiva.id : d.soc === effectiveSoc;
 
+  // A posição é entre as unidades que o gráfico mostra: com uma regional
+  // escolhida, a posição dentro dela.
   const socRankPosition = useMemo(() => {
-    if (!effectiveSoc || socChartData.length === 0) return null;
-    const idx = socChartData.findIndex(d => d.soc === effectiveSoc);
+    if (porRegional || !effectiveSoc || linhasPorSoc.length === 0) return null;
+    const idx = linhasPorSoc.findIndex(d => d.soc === effectiveSoc);
     if (idx === -1) return null;
-    return { position: idx + 1, total: socChartData.length };
-  }, [socChartData, effectiveSoc]);
+    return { position: idx + 1, total: linhasPorSoc.length };
+  }, [porRegional, linhasPorSoc, effectiveSoc]);
 
   const instructorStats = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -663,8 +857,8 @@ export default function ReportsPage() {
     }
     setIsExporting(true);
     try {
-      // soc null = admin sem unidade restrita → exporta de todas as unidades.
-      const USER_SOC = effectiveSoc;
+      // Exporta o que está na tela: a unidade do topo, a regional escolhida
+      // ou, para o master sem unidade escolhida, todas.
       const { colaboradores: allCollabsForExport, tiposDe } = baseParaExportar();
 
       // A MESMA regra da tela e da tela de Colaboradores — motor único.
@@ -675,11 +869,11 @@ export default function ReportsPage() {
       // isso a tela de Colaboradores listava 17 pendentes em SC1 e este
       // arquivo trazia 2.
       const pending = allCollabsForExport.filter(c =>
-        !isCollaboratorTrained(c.sector, tiposDe(c.id), showAsm, c.activity, c.is_leader)
+        !isCollaboratorTrained(c.sector, tiposDe(c.id), sorterDe(c.soc), c.activity, c.is_leader)
       );
 
       if (pending.length === 0) {
-        toast.success('Todos os colaboradores' + (USER_SOC ? ` do SOC ${USER_SOC}` : '') + ' já estão treinados!');
+        toast.success(`Todos os colaboradores (${nomeEscopo}) já estão treinados!`);
         setIsExporting(false);
         return;
       }
@@ -711,7 +905,9 @@ export default function ReportsPage() {
       const link = document.createElement('a');
       const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
       link.href = url;
-      link.download = `pendentes_treinamento_${USER_SOC}_${dateStr}.csv`;
+      // Até 09/10/2026 era `${USER_SOC}` direto: para o master vendo todas
+      // as unidades, o arquivo saía como "pendentes_treinamento_null_...".
+      link.download = `pendentes_treinamento_${arquivoEscopo}_${dateStr}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -740,19 +936,17 @@ export default function ReportsPage() {
     }
     setIsExporting(true);
     try {
-      // soc null = admin sem unidade restrita → exporta de todas as unidades.
-      const USER_SOC = effectiveSoc;
       const { colaboradores: allCollabsForExport, tiposDe } = baseParaExportar();
 
       if (allCollabsForExport.length === 0) {
-        toast.error('Nenhum colaborador encontrado' + (USER_SOC ? ` no SOC ${USER_SOC}` : '') + '.');
+        toast.error(`Nenhum colaborador encontrado (${nomeEscopo}).`);
         setIsExporting(false);
         return;
       }
 
       const headers = ['Nome', 'Setor/Area', 'Turno', 'Cargo', 'Lider', 'SOC', 'BPO', 'Status', 'Treinamentos ja assinados'];
       const rows = allCollabsForExport.map(c => {
-        const treinado = isCollaboratorTrained(c.sector, tiposDe(c.id), showAsm, c.activity, c.is_leader);
+        const treinado = isCollaboratorTrained(c.sector, tiposDe(c.id), sorterDe(c.soc), c.activity, c.is_leader);
         return [
           c.name || '',
           c.sector || '',
@@ -777,7 +971,7 @@ export default function ReportsPage() {
       const link = document.createElement('a');
       const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
       link.href = url;
-      link.download = `colaboradores_status_${USER_SOC || 'todas_socs'}_${dateStr}.csv`;
+      link.download = `colaboradores_status_${arquivoEscopo}_${dateStr}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -800,7 +994,15 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Relatórios & Matriz</h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
             Gestão de certificações por unidade e setor operacional
-            {effectiveSoc && (
+            {regionalAtiva ? (
+              <span
+                title={`Unidades desta regional: ${regionalAtiva.socs.join(', ')}`}
+                className="ml-2 inline-flex items-center gap-1 bg-[#EE4D2D]/10 text-[#EE4D2D] text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#EE4D2D]/20"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EE4D2D] animate-pulse inline-block" />
+                {regionalAtiva.nome} · {regionalAtiva.socs.length === 1 ? '1 SOC' : `${regionalAtiva.socs.length} SOCs`}
+              </span>
+            ) : effectiveSoc && (
               <span className="ml-2 inline-flex items-center gap-1 bg-[#EE4D2D]/10 text-[#EE4D2D] text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#EE4D2D]/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EE4D2D] animate-pulse inline-block" />
                 SOC: {effectiveSoc}
@@ -808,10 +1010,10 @@ export default function ReportsPage() {
             )}
           </p>
           {/* Sem isto os cards mostravam 0% até os dados chegarem, como se a unidade não tivesse ninguém treinado. */}
-          {carregandoBase && (
+          {(carregandoBase || aguardandoRegionais) && (
             <p className="text-[10px] text-gray-400 font-bold mt-1 flex items-center gap-1.5">
               <RefreshCw size={11} className="animate-spin" />
-              Carregando dados {effectiveSoc ? `de ${effectiveSoc}` : 'de todas as unidades'}...
+              Carregando dados {regionalAtiva ? `da ${regionalAtiva.nome}` : effectiveSoc ? `de ${effectiveSoc}` : 'de todas as unidades'}...
             </p>
           )}
         </div>
@@ -826,6 +1028,25 @@ export default function ReportsPage() {
             <RefreshCw size={13} className={isRefreshing || atualizandoBase ? 'animate-spin' : ''} />
             Atualizar
           </button>
+          {/* Regional: junta as unidades dela na tela inteira (cards, matrizes,
+              instrutores e exportações). Trocar a unidade no seletor do topo
+              desliga o filtro — vale a última escolha. */}
+          {mostrarFiltroRegional && (
+            <select
+              value={regionalAtiva?.id ?? ''}
+              onChange={e => escolherRegional(e.target.value)}
+              title={regionalAtiva ? `Unidades: ${regionalAtiva.socs.join(', ')}` : 'Ver os relatórios de uma regional inteira'}
+              className={`h-8 px-3 text-[11px] font-black rounded-lg outline-none shadow-sm transition-all border-2 max-w-[220px] ${
+                regionalAtiva ? 'bg-[#FEF6F5] border-[#EE4D2D]/30 text-[#EE4D2D]' : 'bg-white border-gray-200 text-gray-700'
+              }`}
+            >
+              <option value="">{effectiveSoc ? `Só ${effectiveSoc} (sem regional)` : 'Todas as regionais'}</option>
+              {regionaisDoFiltro.map(r => {
+                const n = socsERegionais ? socsDaRegional(r.id, socsERegionais.socs, alcanca).length : 0;
+                return <option key={r.id} value={r.id}>{r.nome} · {n === 1 ? '1 SOC' : `${n} SOCs`}</option>;
+              })}
+            </select>
+          )}
           <select className="h-8 px-3 text-[11px] font-bold text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" value={selectedSector} onChange={e => setSelectedSector(e.target.value)}>
             <option value="">Todos os Setores</option>
             {sectors.map(s => <option key={s} value={s}>{s}</option>)}
@@ -866,7 +1087,7 @@ export default function ReportsPage() {
             id="btn-export-pending"
             onClick={exportPendingCollaborators}
             disabled={isExporting}
-            title={effectiveSoc ? `Exportar pendentes do SOC ${effectiveSoc}` : 'Exportar pendentes de todas as SOCs'}
+            title={`Exportar os pendentes — ${nomeEscopo}`}
             className="flex items-center gap-1.5 px-3 py-2 bg-[#EE4D2D] hover:bg-[#d63b1f] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
           >
             {isExporting ? (
@@ -889,7 +1110,7 @@ export default function ReportsPage() {
             id="btn-export-all-status"
             onClick={exportAllCollaboratorsStatus}
             disabled={isExporting}
-            title={effectiveSoc ? `Exportar todos os colaboradores do SOC ${effectiveSoc}, com status` : 'Exportar todos os colaboradores de todas as SOCs, com status'}
+            title={`Exportar todos os colaboradores, com status — ${nomeEscopo}`}
             className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 border border-gray-200 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all active:scale-95 shadow-sm"
           >
             {isExporting ? (
@@ -981,19 +1202,42 @@ export default function ReportsPage() {
 
 
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
             <BarChart2 className="text-[#EE4D2D]" size={18} />
-            Desempenho por SOC
+            {porRegional ? 'Desempenho por Regional' : 'Desempenho por SOC'}
           </h2>
-          {socRankPosition && (
-            <span className="text-[10px] font-black text-[#EE4D2D] bg-[#FEF6F5] px-2.5 py-1 rounded-full border border-[#EE4D2D]/10">
-              {effectiveSoc} está em {socRankPosition.position}º de {socRankPosition.total}
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {socRankPosition && (
+              <span className="text-[10px] font-black text-[#EE4D2D] bg-[#FEF6F5] px-2.5 py-1 rounded-full border border-[#EE4D2D]/10">
+                {effectiveSoc} está em {socRankPosition.position}º de {socRankPosition.total}{regionalAtiva ? ` na ${regionalAtiva.nome}` : ''}
+              </span>
+            )}
+            {podeVerPorRegional && (
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5" role="group" aria-label="Agrupar o comparativo">
+                {(['soc', 'regional'] as const).map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setVisaoGrafico(v)}
+                    aria-pressed={visaoGrafico === v}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${
+                      visaoGrafico === v ? 'bg-white text-[#EE4D2D] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    {v === 'soc' ? 'Por SOC' : 'Por Regional'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <p className="text-[10px] text-gray-400 font-medium mb-4">
-          Comparativo entre todas as unidades — não muda com os filtros acima.
+          {porRegional
+            ? 'Soma das unidades de cada regional — % = treinados ÷ HC da regional inteira. Não muda com os filtros acima.'
+            : regionalAtiva
+              ? `Comparativo entre as unidades da ${regionalAtiva.nome} — não muda com os outros filtros acima.`
+              : 'Comparativo entre todas as unidades — não muda com os filtros acima.'}
         </p>
         {socChartError ? (
           <div className="h-[280px] flex flex-col items-center justify-center text-gray-300 text-xs gap-1">
@@ -1012,7 +1256,7 @@ export default function ReportsPage() {
               <Bar yAxisId="left" dataKey="Treinados" radius={[4, 4, 0, 0]} barSize={28} isAnimationActive={false}>
                  <LabelList dataKey="Treinados" position="top" fill="#1e3a8a" fontSize={10} fontWeight="900" formatter={(val: any) => `${val}%`} />
                  {chartData.map(d => (
-                   <Cell key={d.soc} fill={d.soc === effectiveSoc ? '#EE4D2D' : '#cbd5e1'} />
+                   <Cell key={d.soc} fill={barraEmDestaque(d) ? '#EE4D2D' : '#cbd5e1'} />
                  ))}
               </Bar>
               <Line yAxisId="right" type="monotone" dataKey="Nº HCs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4, fill: '#1e3a8a' }} isAnimationActive={false} />
@@ -1172,7 +1416,7 @@ export default function ReportsPage() {
         {/* Filter bar + category headers */}
         {microTrainings.length === 0 ? (
           <div className="p-10 text-center text-gray-500 font-medium">
-             Nenhum processo micro cadastrado para {effectiveSoc || 'sua unidade'}. Peça ao administrador para configurar na tela de Configurações.
+             Nenhum processo micro cadastrado para {regionalAtiva ? `as unidades da ${regionalAtiva.nome}` : effectiveSoc || 'sua unidade'}. Peça ao administrador para configurar na tela de Configurações.
           </div>
         ) : (() => {
           const macroAreasOrder: string[] = [];
@@ -1258,12 +1502,14 @@ export default function ReportsPage() {
 
                     const macroArea = t.macro_area;
                     const isSectorMatch = c.sector && (c.sector.toUpperCase() === macroArea.toUpperCase() || (macroArea.toUpperCase() === 'EXPEDIÇÃO' && c.sector.toUpperCase() === 'EXPEDICAO'));
+                    // O cadastro deste micro NA UNIDADE DA PESSOA — ver microsPorSoc.
+                    const cadastroDaUnidade = microsPorSoc.get(c.soc)?.get(chaveDaColuna.get(t.id) ?? '');
 
                     let isMandatory = false;
                     let isSuggested = false;
 
-                    if (isSectorMatch) {
-                      if (t.is_mandatory) {
+                    if (isSectorMatch && cadastroDaUnidade) {
+                      if (cadastroDaUnidade.is_mandatory) {
                         isMandatory = true;
                       } else {
                         isSuggested = true;

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Trash2, Shield, X, UserPlus, GraduationCap, Edit2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
+import RegionaisCard from '@/components/RegionaisCard';
 
 /**
  * Uma linha de training_area_rules: ADICIONA = "este treinamento também
@@ -909,6 +910,11 @@ export default function SettingsPage() {
              )}
           </div>
       </div>
+
+      {/* Regionais — admin e master (quem chega nesta tela já é um dos dois:
+          o resto é redirecionado lá em cima). Vale para todas as unidades,
+          não só a gerenciada; ver src/components/RegionaisCard.tsx. */}
+      <RegionaisCard />
 
       {/* O que cada treinamento já cobre pelas regras embutidas — só o master.
           Puramente informativo: não edita nada, só chama as mesmas funções
