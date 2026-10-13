@@ -23,6 +23,11 @@
 //      receber hasSorting: o que um nome credencia depende da unidade.
 //   3. Qualquer outro "Onboarding ..." (People/HSE/Security/Qualidade/
 //      Meio Ambiente) → treinamento administrativo, NÃO acende nada
+//   3b. Onboarding de LÍDER ("Onboarding Liderança 2.0", "Onboarding
+//      Líderes"...) → acende Receb+Proc+Exped, mas SÓ para quem é líder
+//      (is_leader). Para os demais continua sendo a regra 3: nada. É o
+//      "Onboarding PTS" dos líderes — por isso as funções daqui recebem
+//      também isLeader. Ver isLeaderOnboarding.
 //   4. "Treinamento Padrão SOC - <ÁREA>" onde <ÁREA> é exatamente uma
 //      macro-área (Recebimento/Processamento/Expedição/Tratativas/ASM)
 //      → acende aquela macro inteira
@@ -302,15 +307,32 @@ function regraRemoveArea(trainingType: string, area: MacroArea): boolean {
 }
 
 /**
- * Este treinamento credencia esta área, já aplicando a configuração da
- * tela? REMOVE sempre vence — é um override explícito da regra embutida, e
- * o índice único (training_name, area) da tabela impede que a mesma dupla
- * tenha as duas ao mesmo tempo, então não há ambiguidade de qual vale.
+ * O que o onboarding de líder acende — só para quem é líder (regra 3b).
+ * As mesmas três áreas do Onboarding PTS: Tratativas e ASM continuam
+ * exigindo o treinamento próprio, para líder também.
  */
-function treinamentoCredenciaArea(trainingType: string, area: MacroArea, hasSorting: boolean): boolean {
+const AREAS_ONBOARDING_LIDER: readonly MacroArea[] = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'];
+
+/** Regra 3b: este treinamento acende esta área por ser onboarding de líder assinado por um líder? */
+function onboardingDeLiderAcende(trainingType: string, area: MacroArea, isLeader: boolean): boolean {
+  return isLeader && AREAS_ONBOARDING_LIDER.includes(area) && isLeaderOnboarding(trainingType);
+}
+
+/**
+ * Este treinamento credencia esta área PARA ESTA PESSOA, já aplicando a
+ * configuração da tela? REMOVE sempre vence — é um override explícito da
+ * regra embutida (inclusive da 3b, a do líder), e o índice único
+ * (training_name, area) da tabela impede que a mesma dupla tenha as duas ao
+ * mesmo tempo, então não há ambiguidade de qual vale.
+ *
+ * isLeader só importa para a regra 3b; sem ele a resposta é a de qualquer
+ * colaborador.
+ */
+function treinamentoCredenciaArea(trainingType: string, area: MacroArea, hasSorting: boolean, isLeader = false): boolean {
   if (regraRemoveArea(trainingType, area)) return false;
   if (regraAdicionaArea(trainingType, area)) return true;
-  return (areasEmbutidas(trainingType, hasSorting) ?? []).includes(area);
+  return (areasEmbutidas(trainingType, hasSorting) ?? []).includes(area)
+    || onboardingDeLiderAcende(trainingType, area, isLeader);
 }
 
 /** Regra 5: match tolerante por nome, usado quando o treinamento é específico (não acende área inteira). */
@@ -323,13 +345,16 @@ function matchesMicroByName(trainingType: string, microName: string): boolean {
 
 /**
  * Um treinamento específico conclui um micro-processo de uma macro-área?
- * hasSorting é da SOC do colaborador — ver areasUnlockedBy.
+ * hasSorting é da SOC do colaborador — ver areasUnlockedBy. isLeader é do
+ * colaborador: o onboarding de líder acende a área inteira (e portanto os
+ * micros dela) só para quem é líder — regra 3b.
  */
 export function isMicroCompletedBy(
   trainingType: string,
   microName: string,
   macroArea: string,
-  hasSorting: boolean
+  hasSorting: boolean,
+  isLeader = false
 ): boolean {
   const area = normalizeMacroArea(macroArea) as MacroArea;
   // REMOVE encerra aqui, antes até da regra 5: se o master tirou esta área
@@ -339,6 +364,10 @@ export function isMicroCompletedBy(
   // ADICIONA é um OU a mais — inclusive para um treinamento específico,
   // que continua podendo casar pelo nome do micro (regra 5) logo abaixo.
   if (area && regraAdicionaArea(trainingType, area)) return true;
+  // Área acesa pelo onboarding de líder acende os micros dela, exatamente
+  // como o Onboarding PTS faz — senão a matriz de áreas mostraria ✓ e a de
+  // micros ✗ para a mesma pessoa.
+  if (area && onboardingDeLiderAcende(trainingType, area, isLeader)) return true;
 
   const areas = areasEmbutidas(trainingType, hasSorting);
   if (areas !== null) {
@@ -351,11 +380,12 @@ export function isMicroCompletedBy(
 export function countCompletedMicros(
   trainingTypes: string[],
   micros: MicroTraining[],
-  hasSorting: boolean
+  hasSorting: boolean,
+  isLeader = false
 ): number {
   let count = 0;
   for (const micro of micros) {
-    if (trainingTypes.some(t => isMicroCompletedBy(t, micro.name, micro.macro_area, hasSorting))) count++;
+    if (trainingTypes.some(t => isMicroCompletedBy(t, micro.name, micro.macro_area, hasSorting, isLeader))) count++;
   }
   return count;
 }
@@ -363,11 +393,16 @@ export function countCompletedMicros(
 /**
  * "Concluiu o treinamento padrão da área" — usado no card % Treinados,
  * na Matriz de Certificação e no gráfico Desempenho por SOC. Só conta
- * treinamentos que acendem a área INTEIRA (Onboarding PTS / Padrão SOC),
- * não certificados de micro-processo específico.
+ * treinamentos que acendem a área INTEIRA (Onboarding PTS / Padrão SOC /
+ * onboarding de líder para quem é líder), não certificados de
+ * micro-processo específico.
+ *
+ * isLeader é do colaborador avaliado. Sem ele, a pergunta é "acende para
+ * um colaborador comum?" — que é o que o espelho training_unlocks_area
+ * responde.
  */
-export function isAreaTrained(trainingTypes: string[], area: MacroArea, hasSorting: boolean): boolean {
-  return trainingTypes.some(t => treinamentoCredenciaArea(t, area, hasSorting));
+export function isAreaTrained(trainingTypes: string[], area: MacroArea, hasSorting: boolean, isLeader = false): boolean {
+  return trainingTypes.some(t => treinamentoCredenciaArea(t, area, hasSorting, isLeader));
 }
 
 /** Áreas relevantes para o card "% Treinados" / Matriz / gráfico — ASM só entra se a SOC tem sorting. */
@@ -432,15 +467,28 @@ export function collaboratorArea(
 }
 
 /**
- * Onboarding específico de líder: "Onboarding Líderes", "Onboarding
- * Líderes 2.0" (ou qualquer versão futura — é um "contém", não exige o
- * nome exato). normalizeText já cuida de acento/caixa/pontuação, então
- * "Líderes" e "Lideres" batem igual.
+ * Onboarding específico de líder: "Onboarding Liderança 2.0", "Onboarding
+ * Líderes", "Onboarding de Líderes 3.0"... O nome tem "ONBOARDING" e uma
+ * palavra que COMEÇA com "LIDER" (líder, líderes, liderança), em qualquer
+ * posição — o mesmo critério da regra do PTS. normalizeText já cuida de
+ * acento/caixa/pontuação.
  *
+ * Até 13/10/2026 a regra exigia a frase "ONBOARDING LIDERES" colada, e o
+ * nome que a operação passou a usar de verdade, "ONBOARDING LIDERANÇA 2.0"
+ * (115 assinaturas em 7 unidades), não batia: 20 líderes que tinham
+ * assinado apareciam pendentes — 15 só em MG2. Em 02/09 esse nome tinha
+ * sido deixado de fora de propósito; o pedido de 13/10 inverteu a decisão.
+ *
+ * Começar com "LIDER" (e não só conter) deixa de fora palavras que apenas
+ * contêm o trecho; e sem "ONBOARDING" não bate — "LIDERANÇA ATIVA - MIS
+ * SCAN" (PR1) é treinamento específico, não onboarding.
+ *
+ * Espelho no banco: is_leader_onboarding() (migração 20261013_01).
  * Exportada pelo mesmo motivo de areasUnlockedBy — ver ali.
  */
 export function isLeaderOnboarding(trainingType: string): boolean {
-  return normalizeText(trainingType).includes('ONBOARDING LIDERES');
+  const t = normalizeText(trainingType);
+  return t.includes('ONBOARDING') && /(^|[^A-Z0-9])LIDER/.test(t);
 }
 
 /**
@@ -450,12 +498,18 @@ export function isLeaderOnboarding(trainingType: string): boolean {
  * status em Colaboradores, filtro e exportação de pendentes em
  * Relatórios — precisa chamar esta função, e nenhuma outra.
  *
- *  · Líder (is_leader) com "Onboarding Líderes"/"Onboarding Líderes 2.0"
- *    → treinado, ponto — não depende de setor. Decisão de 02/09/2026: o
- *    onboarding de líder é um trilho próprio, separado do sistema de áreas
- *    operacionais. É um OU a mais, não troca nada: um líder que já esteja
- *    treinado por outra via (veio da operação, tem Onboarding PTS) continua
- *    contando também.
+ *  · Líder (is_leader) com o onboarding de líder ("Onboarding Liderança
+ *    2.0", "Onboarding Líderes") → para ele, esse treinamento acende
+ *    Recebimento, Processamento e Expedição (regra 3b), e daí em diante vale
+ *    a mesma régua de todo mundo, logo abaixo. É um OU a mais: um líder que
+ *    já esteja treinado por outra via (veio da operação, tem Onboarding PTS)
+ *    continua contando também.
+ *    Até 13/10/2026 era "treinado, ponto — não depende de setor" (decisão de
+ *    02/09). A diferença prática é o líder de Tratativas ou de ASM: essas
+ *    duas áreas nunca são acesas por onboarding, para líder também, então
+ *    ele precisa do treinamento da área. Líder sem área operacional
+ *    (Gestão, Inbound/Outbound, sem setor) continua treinado só com o
+ *    onboarding de líder, pelo terceiro item.
  *  · Quem está numa macro-área operacional → precisa de um treinamento
  *    que acenda A ÁREA DELE. Ter feito o treinamento de outra área não
  *    conta (era o furo da exportação de pendentes: alguém do Recebimento
@@ -465,9 +519,9 @@ export function isLeaderOnboarding(trainingType: string): boolean {
  *    credenciam, ver o corpo da função.
  *  · Quem NÃO está numa macro-área operacional (Apoio, Almox, sem setor)
  *    → basta ter um treinamento que acenda qualquer área, porque o
- *    Onboarding PTS cobre todas elas (decisão de 13/08/2026). Onboarding
- *    Líderes NÃO entra aqui — é onboarding administrativo, sem is_leader
- *    ele não credencia ninguém (mesma regra 3 do motor).
+ *    Onboarding PTS cobre todas elas (decisão de 13/08/2026). O onboarding
+ *    de líder só entra aqui para quem é líder — sem is_leader ele é
+ *    onboarding administrativo e não credencia ninguém (regra 3 do motor).
  */
 export function isCollaboratorTrained(
   sector: string | null | undefined,
@@ -476,12 +530,11 @@ export function isCollaboratorTrained(
   activity?: string | null,
   isLeader?: boolean
 ): boolean {
-  if (isLeader && trainingTypes.some(isLeaderOnboarding)) return true;
-
+  const lider = !!isLeader;
   const area = collaboratorArea(sector, hasSorting, activity);
 
   if (area !== OTHER_AREA) {
-    if (isAreaTrained(trainingTypes, area, hasSorting)) return true;
+    if (isAreaTrained(trainingTypes, area, hasSorting, lider)) return true;
 
     // O treinamento do SETOR CADASTRADO sempre credencia.
     //
@@ -498,7 +551,7 @@ export function isCollaboratorTrained(
     // PROCESSAMENTO era aceito pelo treinamento de ASM (linha abaixo), mas
     // o contrário não valia.
     const sectorArea = normalizeMacroArea(sector);
-    if (sectorArea && sectorArea !== area && isAreaTrained(trainingTypes, sectorArea, hasSorting)) return true;
+    if (sectorArea && sectorArea !== area && isAreaTrained(trainingTypes, sectorArea, hasSorting, lider)) return true;
 
     // Exceção do Sorter, para quando activity não identificou a pessoa como
     // Sorter (área ficou PROCESSAMENTO mesmo assim — ex: MG2, que não marca
@@ -507,7 +560,7 @@ export function isCollaboratorTrained(
     // treinamento dele chama-se "Treinamento Padrão SOC - Sorter (ASM)".
     // Sem esta linha, 968 pessoas de SP8/SP2 apareciam como pendentes tendo
     // assinado o treinamento certo. Espelhado no SQL em 20260813_05.
-    if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM', hasSorting)) return true;
+    if (area === 'PROCESSAMENTO' && isAreaTrained(trainingTypes, 'ASM', hasSorting, lider)) return true;
     return false;
   }
 
@@ -522,7 +575,11 @@ export function isCollaboratorTrained(
     const chave = normalizeText(t);
     const adicionadas = regrasAdicionadas.get(chave);
     const removidas = regrasRemovidas.get(chave);
-    const embutidas = areasEmbutidas(t, hasSorting) ?? [];
+    // Para um líder, o onboarding de líder entra na conta das embutidas
+    // (regra 3b) — é o que treina o líder de Gestão, Inbound/Outbound ou
+    // sem setor, que não tem área operacional própria para ser cobrado.
+    const doLider = lider && isLeaderOnboarding(t) ? AREAS_ONBOARDING_LIDER : [];
+    const embutidas = [...(areasEmbutidas(t, hasSorting) ?? []), ...doLider];
     if (!adicionadas && !removidas) return embutidas.length > 0; // caminho comum: sem configuração nenhuma
     const efetivas = new Set(embutidas);
     if (adicionadas) for (const a of adicionadas) efetivas.add(a);
@@ -573,7 +630,7 @@ export function calculateSocHealth(
   let sum = 0;
   for (const c of eligibleCollabs) {
     const types = trainingsByCollabId.get(c.id) || [];
-    sum += (countCompletedMicros(types, micros, hasSorting) / N) * 100;
+    sum += (countCompletedMicros(types, micros, hasSorting, !!c.is_leader) / N) * 100;
   }
 
   return {

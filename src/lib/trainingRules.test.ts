@@ -4,6 +4,7 @@ import {
   isMicroCompletedBy,
   isAreaTrained,
   isCollaboratorTrained,
+  isLeaderOnboarding,
   calculateSocHealth,
   calculateAreaStats,
   calculateOverallTrainedPct,
@@ -421,37 +422,127 @@ describe('trainingRules — isCollaboratorTrained', () => {
     });
   });
 
-  // Pedido de 02/09/2026: líder (is_leader) com "Onboarding Líderes" ou
-  // "Onboarding Líderes 2.0" conta como treinado, mesmo sem setor
-  // operacional — hoje "Onboarding Lideres" já existe no banco (93 líderes
-  // cadastrados, a maioria sem essa assinatura ainda).
-  describe('Onboarding Líderes credencia quem é líder (is_leader)', () => {
+  // Regra 3b — pedido de 13/10/2026: o onboarding de líder ("Onboarding
+  // Liderança 2.0", o nome que a operação usa de verdade; "Onboarding
+  // Líderes", o antigo) acende Recebimento, Processamento e Expedição, mas
+  // SÓ para quem é líder (is_leader). É o "Onboarding PTS" dos líderes.
+  //
+  // Substitui duas decisões de 02/09/2026: (1) só o nome "Onboarding
+  // Líderes" contava — "Liderança 2.0" ficava de fora de propósito; (2) o
+  // líder com esse onboarding era treinado "em qualquer setor". O caso que
+  // motivou: 15 líderes de MG2 com "ONBOARDING LIDERANÇA 2.0" assinado e
+  // PENDENTES, 20 na base inteira.
+  describe('Onboarding de líder acende Recebimento, Processamento e Expedição — só para líder', () => {
+    const TRES_AREAS = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO'] as const;
+
     it.each([
-      'Onboarding Lideres',       // exato, como está gravado no banco hoje
-      'Onboarding Líderes',       // com acento
-      'Onboarding Líderes 2.0',   // com sufixo de versão
-      'ONBOARDING LIDERES',       // maiúsculas
-    ])('"%s" treina um líder, mesmo sem setor operacional', (treinamento) => {
-      expect(isCollaboratorTrained(null, [treinamento], false, null, true)).toBe(true);
-      expect(isCollaboratorTrained('Gestão', [treinamento], false, null, true)).toBe(true);
+      'ONBOARDING LIDERANÇA 2.0',  // como está gravado no banco (115 assinaturas)
+      'Onboarding Liderança 2.0',
+      'Onboarding Lideres',        // o nome antigo continua valendo
+      'Onboarding Líderes',
+      'Onboarding Líderes 2.0',
+      'Onboarding de Líderes 3.0', // versão futura, com palavra no meio
+      'ONBOARDING - LÍDER',
+    ])('"%s" é reconhecido como onboarding de líder', (treinamento) => {
+      expect(isLeaderOnboarding(treinamento)).toBe(true);
     });
 
-    it('sem is_leader, o mesmo treinamento NÃO credencia ninguém — é onboarding administrativo (regra 3)', () => {
-      expect(isCollaboratorTrained('Gestão', ['Onboarding Lideres'], false, null, false)).toBe(false);
-      expect(isCollaboratorTrained(null, ['Onboarding Lideres'], false)).toBe(false); // isLeader nem informado
+    it.each([
+      'SPX_BR_PTS_SOC_048 - LIDERANÇA ATIVA - MIS SCAN', // PR1: fala de liderança, mas não é onboarding
+      'Liderança 2.0',
+      'Onboarding HSE',
+      'Onboarding PTS V3',
+      'Onboarding Calíder', // só CONTÉM "lider": a palavra não começa com ele
+    ])('"%s" NÃO é onboarding de líder', (treinamento) => {
+      expect(isLeaderOnboarding(treinamento)).toBe(false);
+    });
+
+    it('para um líder, acende as três áreas — e nunca Tratativas nem ASM, com ou sem Sorter', () => {
+      for (const comSorter of [false, true]) {
+        for (const area of TRES_AREAS) {
+          expect(isAreaTrained(['ONBOARDING LIDERANÇA 2.0'], area, comSorter, true)).toBe(true);
+        }
+        expect(isAreaTrained(['ONBOARDING LIDERANÇA 2.0'], 'TRATATIVAS', comSorter, true)).toBe(false);
+        expect(isAreaTrained(['ONBOARDING LIDERANÇA 2.0'], 'ASM', comSorter, true)).toBe(false);
+      }
+    });
+
+    it('para quem NÃO é líder, não acende nada — continua onboarding administrativo (regra 3)', () => {
+      for (const area of [...TRES_AREAS, 'TRATATIVAS', 'ASM'] as const) {
+        expect(isAreaTrained(['ONBOARDING LIDERANÇA 2.0'], area, false, false)).toBe(false);
+        expect(isAreaTrained(['ONBOARDING LIDERANÇA 2.0'], area, true)).toBe(false); // isLeader nem informado
+      }
+      expect(areasUnlockedBy('ONBOARDING LIDERANÇA 2.0', false)).toEqual([]);
+    });
+
+    it('líder de Recebimento, Processamento ou Expedição fica treinado', () => {
+      for (const setor of TRES_AREAS) {
+        expect(isCollaboratorTrained(setor, ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(true);
+      }
+    });
+
+    it('o mesmo colaborador, sem a marca de líder, continua pendente', () => {
+      for (const setor of [...TRES_AREAS, 'Gestão', null]) {
+        expect(isCollaboratorTrained(setor, ['ONBOARDING LIDERANÇA 2.0'], false, null, false)).toBe(false);
+      }
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['Onboarding Lideres'], false)).toBe(false); // isLeader nem informado
+    });
+
+    it('líder de Tratativas ou de ASM continua pendente: essas áreas pedem o treinamento próprio', () => {
+      expect(isCollaboratorTrained('TRATATIVAS', ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(false);
+      expect(isCollaboratorTrained('ASM', ['ONBOARDING LIDERANÇA 2.0'], true, 'ASM', true)).toBe(false);
+      // ...e fica treinado assim que tem o da área.
+      expect(isCollaboratorTrained('TRATATIVAS', ['ONBOARDING LIDERANÇA 2.0', '04. Treinamento Padrão SOC - Tratativas'], false, null, true)).toBe(true);
+    });
+
+    it('líder com setor Processamento e activity ASM (unidade com Sorter): o setor cadastrado credencia', () => {
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['ONBOARDING LIDERANÇA 2.0'], true, 'ASM | Chutes', true)).toBe(true);
+    });
+
+    it('líder sem área operacional (Gestão, Inbound/Outbound, sem setor) fica treinado — os casos de MG2', () => {
+      // MG2 grava "OUTBOUND" com um TAB no fim em alguns cadastros.
+      const outboundComTab = 'OUTBOUND' + String.fromCharCode(9);
+      for (const setor of ['Gestão', 'INBOUND', 'OUTBOUND', outboundComTab, '', null]) {
+        expect(isCollaboratorTrained(setor, ['ONBOARDING LIDERANÇA 2.0'], true, null, true)).toBe(true);
+      }
     });
 
     it('líder sem essa assinatura continua pendente — o treinamento não é automático', () => {
       expect(isCollaboratorTrained('Gestão', [], false, null, true)).toBe(false);
       expect(isCollaboratorTrained('Gestão', ['Onboarding HSE'], false, null, true)).toBe(false);
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['FIFO - Utilização de Flutuadores', 'LUP Bandeja Termoplástica'], true, null, true)).toBe(false);
     });
 
-    it('é um OU a mais: líder com Onboarding PTS (veio da operação) continua treinado sem precisar do Onboarding Líderes', () => {
+    it('é um OU a mais: líder com Onboarding PTS (veio da operação) continua treinado sem o onboarding de líder', () => {
       expect(isCollaboratorTrained('RECEBIMENTO', ['Onboarding PTS V3'], false, null, true)).toBe(true);
     });
 
-    it('"Onboarding Liderança 2.0" (nome diferente, já existe no banco) NÃO bate — só "Líderes"', () => {
-      expect(isCollaboratorTrained('Gestão', ['Onboarding Liderança 2.0'], false, null, true)).toBe(false);
+    it('acende também os micro-processos das três áreas — só para líder', () => {
+      expect(isMicroCompletedBy('ONBOARDING LIDERANÇA 2.0', 'Recebimento FM', 'RECEBIMENTO', false, true)).toBe(true);
+      expect(isMicroCompletedBy('ONBOARDING LIDERANÇA 2.0', 'Esteira Java', 'PROCESSAMENTO', false, true)).toBe(true);
+      expect(isMicroCompletedBy('ONBOARDING LIDERANÇA 2.0', 'Salvados', 'TRATATIVAS', false, true)).toBe(false);
+      expect(isMicroCompletedBy('ONBOARDING LIDERANÇA 2.0', 'Recebimento FM', 'RECEBIMENTO', false, false)).toBe(false);
+      expect(isMicroCompletedBy('ONBOARDING LIDERANÇA 2.0', 'Recebimento FM', 'RECEBIMENTO', false)).toBe(false);
+    });
+
+    it('o índice de saúde enxerga o líder: mesma assinatura, 100% para o líder e 0% para quem não é', () => {
+      const micros = [...RECEB, ...PROC, ...EXPED];
+      const treinos = new Map([['a', ['ONBOARDING LIDERANÇA 2.0']]]);
+      const lider: CollaboratorLite[] = [{ id: 'a', sector: 'PROCESSAMENTO', is_leader: true }];
+      const comum: CollaboratorLite[] = [{ id: 'a', sector: 'PROCESSAMENTO', is_leader: false }];
+      expect(calculateSocHealth(micros, lider, treinos, false).healthPct).toBe(100);
+      expect(calculateSocHealth(micros, comum, treinos, false).healthPct).toBe(0);
+    });
+
+    it('a configuração da tela vale por cima: REMOVE tira a área do líder também, ADICIONA acrescenta', () => {
+      definirRegrasDeArea([{ training_name: 'ONBOARDING LIDERANÇA 2.0', area: 'EXPEDIÇÃO', tipo: 'REMOVE' }]);
+      expect(isCollaboratorTrained('EXPEDIÇÃO', ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(false);
+      expect(isCollaboratorTrained('PROCESSAMENTO', ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(true);
+      expect(isCollaboratorTrained('Gestão', ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(true); // ainda sobram duas áreas
+
+      definirRegrasDeArea([{ training_name: 'ONBOARDING LIDERANÇA 2.0', area: 'TRATATIVAS', tipo: 'ADICIONA' }]);
+      expect(isCollaboratorTrained('TRATATIVAS', ['ONBOARDING LIDERANÇA 2.0'], false, null, true)).toBe(true);
+      definirRegrasDeArea([]);
     });
   });
 

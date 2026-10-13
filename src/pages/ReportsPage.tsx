@@ -529,7 +529,10 @@ export default function ReportsPage() {
     if (collab && collaboratorArea(collab.sector, sorter, collab.activity) === area) {
       return isCollaboratorTrained(collab.sector, types, sorter, collab.activity, collab.is_leader);
     }
-    return isAreaTrained(types, area, sorter);
+    // is_leader: o onboarding de líder acende Recebimento, Processamento e
+    // Expedição nas colunas de quem é líder (regra 3b do motor) — sem ele, só
+    // a coluna da área do próprio líder acendia.
+    return isAreaTrained(types, area, sorter, !!collab?.is_leader);
   }, [typesOf, collaboratorMap, sorterDe]);
 
   /**
@@ -540,8 +543,9 @@ export default function ReportsPage() {
    * acendia na matriz desta tela.
    */
   const hasMicroTraining = useCallback((collabId: string, microName: string, macroArea: string) => {
-    const sorter = sorterDe(collaboratorMap.get(collabId)?.soc);
-    return typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea, sorter));
+    const collab = collaboratorMap.get(collabId);
+    const sorter = sorterDe(collab?.soc);
+    return typesOf(collabId).some(t => isMicroCompletedBy(t, microName, macroArea, sorter, !!collab?.is_leader));
   }, [typesOf, collaboratorMap, sorterDe]);
 
   /**

@@ -21,7 +21,7 @@
 // ============================================================
 
 import { db, paginar } from './_conexao.mjs';
-import { definirRegrasDeArea, isAreaTrained, isCollaboratorTrained, type MacroArea } from '../src/lib/trainingRules';
+import { definirRegrasDeArea, isAreaTrained, isCollaboratorTrained, isLeaderOnboarding, type MacroArea } from '../src/lib/trainingRules';
 
 const AREAS: MacroArea[] = ['RECEBIMENTO', 'PROCESSAMENTO', 'EXPEDIÇÃO', 'TRATATIVAS', 'ASM'];
 
@@ -104,6 +104,35 @@ for (const comSorter of [false, true]) {
   }
 }
 if (problemas === 0) console.log('  ✅ todos classificados igual pelos dois lados, com e sem Sorter');
+
+// ── 1b. Onboarding de líder: os dois lados reconhecem os mesmos nomes? ──
+// A regra 3b (onboarding de líder acende Recebimento, Processamento e
+// Expedição só para quem é líder) depende de QUEM assinou, então fica fora
+// da comparação acima, que pergunta sem a pessoa. O que pode divergir entre
+// os lados é o reconhecimento do NOME — foi exatamente o que deixou
+// "ONBOARDING LIDERANÇA 2.0" de fora até 13/10/2026. O efeito por pessoa é
+// conferido na parte 2.
+const antesDoLider = problemas;
+const nomesDeLider: string[] = [];
+for (const nome of nomes) {
+  const ts = isLeaderOnboarding(nome);
+  const { data, error } = await db.rpc('is_leader_onboarding', { p_training_type: nome });
+  if (error) {
+    console.error(`\n  ✗ não consegui chamar is_leader_onboarding: ${error.message}`);
+    console.error('    Se a mensagem fala em função inexistente, falta rodar a migração');
+    console.error('    supabase/migrations/20261013_01_onboarding_de_lider_acende_areas.sql.\n');
+    process.exit(1);
+  }
+  if (ts) nomesDeLider.push(nome);
+  if ((data === true) !== ts) {
+    problemas++;
+    console.log(`  ✗ "${nome}" (${usos.get(nome)} assinaturas) — onboarding de líder?`);
+    console.log(`      TypeScript: ${ts ? 'sim' : 'não'} | SQL: ${data === true ? 'sim' : 'não'}`);
+  }
+}
+if (problemas === antesDoLider) {
+  console.log(`  ✅ onboarding de líder reconhecido igual pelos dois lados: ${nomesDeLider.map(n => `"${n}"`).join(', ') || '(nenhum nome em uso)'}`);
+}
 
 // ── 2. Pessoa por pessoa: o veredito final bate? ─────────────
 // Agora sim com as regras da tela: é o que as views aplicam.

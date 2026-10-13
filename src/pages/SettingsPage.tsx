@@ -946,16 +946,19 @@ export default function SettingsPage() {
                   <div key={c.nome} className="p-4 rounded-2xl bg-gray-50/50 border border-transparent hover:border-gray-100 hover:bg-white transition-all">
                     <p className="text-sm font-bold text-gray-800">{c.nome}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {/* Cobertura de área e "credencia líder" são fatos independentes: um
-                          onboarding administrativo pode não cobrir área nenhuma e AINDA
-                          assim credenciar líder (é o caso de "Onboarding Líderes"). */}
+                      {/* A cobertura de um treinamento pode depender de QUEM assinou: o
+                          onboarding de líder não cobre área nenhuma para um colaborador
+                          comum e cobre três para quem é líder (regra 3b do motor) — por
+                          isso a linha "administrativo" e o selo de líder aparecem juntos. */}
                       {c.semSorter === null ? (
                         <span className="text-[11px] text-gray-400 font-medium">
                           Treinamento específico — credencia só o micro-processo de mesmo nome, onde estiver cadastrado.
                         </span>
                       ) : c.semSorter.length === 0 ? (
                         <span className="text-[11px] text-gray-400 font-medium">
-                          Onboarding administrativo — não credencia nenhuma área sozinho.
+                          {c.lider
+                            ? 'Para quem não é líder: onboarding administrativo — não credencia nenhuma área.'
+                            : 'Onboarding administrativo — não credencia nenhuma área sozinho.'}
                         </span>
                       ) : iguais ? (
                         c.semSorter.map(a => (
@@ -971,7 +974,7 @@ export default function SettingsPage() {
                       )}
                       {c.lider && (
                         <span className="px-2.5 py-1 rounded-full bg-gray-900 text-white text-[10px] font-black">
-                          + credencia qualquer LÍDER, em qualquer setor
+                          Para quem é LÍDER: Recebimento, Processamento e Expedição
                         </span>
                       )}
                     </div>
