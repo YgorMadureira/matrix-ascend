@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { CalendarDays, Plus, X, Clock, MapPin, User, Users, Trash2, Settings, ChevronLeft, ChevronRight, Send, History, CheckCircle2, XCircle, AlertCircle, Check, Ban } from 'lucide-react';
+import { CalendarDays, Plus, X, Clock, MapPin, User, Users, Trash2, Settings, ChevronLeft, ChevronRight, Send, History, CheckCircle2, XCircle, AlertCircle, Check, Ban, LayoutList } from 'lucide-react';
 import { toast } from 'sonner';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/lib/googleCalendar';
+import AgendaGeral from '@/components/AgendaGeral';
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -104,7 +105,11 @@ function toLocalISODate(d: Date): string {
 
 
 export default function SchedulePage() {
-  const { isAdmin, isLider, isPcp, profile, effectiveSoc } = useAuth();
+  const { isAdmin, isMaster, isLider, isPcp, profile, effectiveSoc, allowedSocs } = useAuth();
+  // A visão geral lista as agendas de TODAS as unidades que a pessoa enxerga —
+  // só faz sentido para quem enxerga mais de uma (a mesma regra do seletor de
+  // unidade do topo). Ver src/components/AgendaGeral.tsx.
+  const podeVerVisaoGeral = isMaster || allowedSocs.length > 1;
   const canManageEnrollments = isAdmin || isLider || isPcp;
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -120,7 +125,7 @@ export default function SchedulePage() {
   const [collabSearch, setCollabSearch] = useState('');
   const [enrolling, setEnrolling] = useState(false);
   const [socFilter, setSocFilter] = useState('ALL');
-  const [activeTab, setActiveTab] = useState<'calendar' | 'history' | 'requests'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'history' | 'requests' | 'overview'>('calendar');
   const [socList, setSocList] = useState<string[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [areaFilter, setAreaFilter] = useState('ALL');
@@ -769,13 +774,15 @@ export default function SchedulePage() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Agenda de Treinamentos</h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">Visualize e gerencie os treinamentos semanais</p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* SOC Filter */}
-          <select value={socFilter} onChange={e => setSocFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-white border border-gray-100 text-[11px] font-black text-gray-600 outline-none shadow-sm">
-            <option value="ALL">Todas SOCs</option>
-            {socList.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* SOC Filter — do calendário. A visão geral tem os filtros dela. */}
+          {activeTab !== 'overview' && (
+            <select value={socFilter} onChange={e => setSocFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-white border border-gray-100 text-[11px] font-black text-gray-600 outline-none shadow-sm">
+              <option value="ALL">Todas SOCs</option>
+              {socList.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
           {/* Tabs */}
           <div className="flex bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
             <button onClick={() => setActiveTab('calendar')}
@@ -790,8 +797,17 @@ export default function SchedulePage() {
               className={`px-3 py-2 text-[11px] font-black transition-colors border-l border-gray-100 ${activeTab === 'history' ? 'bg-[#EE4D2D] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
               <History size={14} className="inline mr-1"/>Histórico
             </button>
+            {/* A lista de agendas de todas as unidades — para quem enxerga mais de uma. */}
+            {podeVerVisaoGeral && (
+              <button onClick={() => setActiveTab('overview')}
+                title="Lista das agendas de todas as unidades"
+                className={`px-3 py-2 text-[11px] font-black transition-colors border-l border-gray-100 ${activeTab === 'overview' ? 'bg-[#EE4D2D] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                <LayoutList size={14} className="inline mr-1"/>Visão geral
+              </button>
+            )}
           </div>
-          {/* Week navigation */}
+          {/* Week navigation — só o calendário anda por semana. */}
+          {activeTab !== 'overview' && (
           <div className="flex items-center bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
             <button onClick={() => { const d = new Date(weekBase); d.setDate(d.getDate()-7); setWeekBase(d); }}
               className="px-3 py-2 hover:bg-gray-50 transition-colors text-gray-500">
@@ -806,6 +822,7 @@ export default function SchedulePage() {
               <ChevronRight size={16}/>
             </button>
           </div>
+          )}
           {isAdmin && (
             <button onClick={() => { setShowAdminPanel(v => !v); setShowNewForm(false); setEditingSchedule(null); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-black transition-all shadow-sm ${showAdminPanel ? 'bg-[#EE4D2D] text-white' : 'bg-white border border-gray-200 text-gray-700 hover:border-[#EE4D2D]/40'}`}>
@@ -929,7 +946,9 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* Calendar / History / Requests Toggle */}
+      {/* Calendar / History / Requests / Visão geral Toggle */}
+      {activeTab === 'overview' && podeVerVisaoGeral && <AgendaGeral />}
+
       {activeTab === 'history' && (
         /* History Tab */
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
